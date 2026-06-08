@@ -18,14 +18,6 @@ redirect_urls = [
 api_version = "2026-04"
 
   [[webhooks.subscriptions]]
-  uri = "/webhooks/orders/paid"
-  topics = ["orders/paid"]
-
-  [[webhooks.subscriptions]]
-  uri = "/webhooks/orders/cancelled"
-  topics = ["orders/cancelled"]
-
-  [[webhooks.subscriptions]]
   uri = "/webhooks/app/uninstalled"
   topics = ["app/uninstalled"]
 
