@@ -1,5 +1,6 @@
 # Learn more about configuring your app at https://shopify.dev/docs/apps/tools/cli/configuration
 
+client_id = "2306fcd511592e435b9b26ac07304811"
 name = "Miko Product Rentals"
 application_url = "https://miko-product-rentals-production.up.railway.app"
 embedded = true
