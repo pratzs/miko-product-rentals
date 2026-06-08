@@ -1,0 +1,175 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Session {
+  id            String    @id
+  shop          String
+  state         String
+  isOnline      Boolean   @default(false)
+  scope         String?
+  expires       DateTime?
+  accessToken   String
+  userId        BigInt?
+  firstName     String?
+  lastName      String?
+  email         String?
+  accountOwner  Boolean   @default(false)
+  locale        String?
+  collaborator  Boolean?  @default(false)
+  emailVerified Boolean?  @default(false)
+}
+
+// One row per installed shop — stores all settings for that merchant.
+model ShopConfig {
+  id                  String   @id @default(cuid())
+  shop                String   @unique
+  accessToken         String   @default("")
+  planName            String   @default("free")
+  currency            String   @default("USD")
+  timezone            String   @default("UTC")
+  // How many hours before the rental start date the merchant wants
+  // to stop accepting new bookings (buffer time).
+  bufferHours         Int      @default(24)
+  // Days of grace after the return date before a late fee kicks in.
+  gracePeriodDays     Int      @default(0)
+  // Flat daily late fee in the shop's currency.
+  lateFeePerDay       Float    @default(0)
+  // Email shown to customers in rental confirmation emails.
+  supportEmail        String   @default("")
+  resendApiKey        String   @default("")
+  senderEmail         String   @default("")
+  senderName          String   @default("Miko Rentals")
+  onboardingCompleted Boolean  @default(false)
+  installedAt         DateTime @default(now())
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  rentalProducts RentalProduct[]
+  bookings       RentalBooking[]
+  blockedDates   BlockedDate[]
+}
+
+// Each Shopify product that the merchant has enabled for rental.
+// A product can have multiple variants; the rental config applies to all
+// variants unless the merchant later wants per-variant pricing.
+model RentalProduct {
+  id                String   @id @default(cuid())
+  shop              String
+  shopifyProductId  String   // Shopify product GID e.g. "gid://shopify/Product/123"
+  shopifyProductTitle String @default("")
+  shopifyProductImage String @default("")
+  // Total physical units available for rental.
+  totalUnits        Int      @default(1)
+  // Pricing options — merchant fills in what makes sense for their product.
+  pricePerDay       Float    @default(0)
+  pricePerWeek      Float    @default(0)   // 0 means not offered
+  pricePerMonth     Float    @default(0)   // 0 means not offered
+  // Minimum rental duration in days (e.g. 2 = must rent for at least 2 days).
+  minRentalDays     Int      @default(1)
+  // Maximum rental duration in days (0 = no maximum).
+  maxRentalDays     Int      @default(0)
+  // Deposit — flat amount in the shop's currency (0 = no deposit).
+  depositAmount     Float    @default(0)
+  // Whether the deposit is automatically released when the item is marked returned.
+  autoReleaseDeposit Boolean @default(true)
+  // Extra notes shown to the customer on the product page.
+  rentalNotes       String   @default("")
+  isActive          Boolean  @default(true)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  shopConfig ShopConfig      @relation(fields: [shop], references: [shop])
+  bookings   RentalBooking[]
+
+  @@unique([shop, shopifyProductId])
+  @@index([shop])
+}
+
+// One row per rental booking made by a customer.
+model RentalBooking {
+  id                  String   @id @default(cuid())
+  shop                String
+  rentalProductId     String
+  // Shopify order info — populated when the order is paid.
+  shopifyOrderId      String   @default("")
+  shopifyOrderName    String   @default("")  // e.g. "#1042"
+  shopifyLineItemId   String   @default("")
+  // Customer info — copied from the Shopify order so we keep it even if
+  // the Shopify customer record is later deleted.
+  customerName        String   @default("")
+  customerEmail       String   @default("")
+  customerPhone       String   @default("")
+  // Rental period.
+  startDate           DateTime
+  endDate             DateTime
+  // Number of units rented in this booking (usually 1).
+  unitsRented         Int      @default(1)
+  // Pricing breakdown stored at booking time so it's locked in.
+  rentalDays          Int      @default(0)
+  rentalPrice         Float    @default(0)
+  depositAmount       Float    @default(0)
+  depositStatus       String   @default("pending")  // pending | held | released | forfeited
+  totalCharged        Float    @default(0)
+  // Booking lifecycle.
+  // pending   = created, waiting for payment
+  // confirmed = payment received
+  // active    = rental has started (start date reached)
+  // returned  = merchant marked as returned
+  // overdue   = past return date, not yet returned
+  // cancelled = cancelled before start
+  status              String   @default("pending")
+  // Late fee tracking.
+  lateFeeCharged      Float    @default(0)
+  lateFeeInvoiceId    String   @default("")
+  // Internal notes the merchant can add.
+  merchantNotes       String   @default("")
+  returnedAt          DateTime?
+  cancelledAt         DateTime?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  shopConfig     ShopConfig    @relation(fields: [shop], references: [shop])
+  rentalProduct  RentalProduct @relation(fields: [rentalProductId], references: [id])
+
+  @@index([shop, status])
+  @@index([shop, startDate, endDate])
+  @@index([shop, customerEmail])
+  @@index([rentalProductId, startDate, endDate])
+}
+
+// Dates the merchant has manually blocked for a product (e.g. maintenance,
+// holidays). These prevent new bookings regardless of unit availability.
+model BlockedDate {
+  id               String   @id @default(cuid())
+  shop             String
+  // null = applies to all products in the shop
+  shopifyProductId String?
+  blockedDate      DateTime @db.Date
+  reason           String   @default("")
+  createdAt        DateTime @default(now())
+
+  shopConfig ShopConfig @relation(fields: [shop], references: [shop])
+
+  @@index([shop, shopifyProductId, blockedDate])
+}
+
+// Tracks every email we send so we don't send duplicates and the merchant
+// can see the communication history inside the booking detail page.
+model EmailLog {
+  id            String   @id @default(cuid())
+  shop          String
+  bookingId     String
+  type          String   // confirmation | return_reminder | overdue | late_fee
+  recipientEmail String
+  subject       String
+  status        String   @default("sent")  // sent | failed
+  sentAt        DateTime @default(now())
+
+  @@index([shop, bookingId])
+}

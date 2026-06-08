@@ -1,0 +1,10 @@
+api_version = "2026-04"
+
+[[extensions]]
+type = "theme"
+name = "Miko Rental Calendar"
+handle = "miko-rental-calendar"
+
+[extensions.targeting]
+  [[extensions.targeting.target]]
+  target = "section"

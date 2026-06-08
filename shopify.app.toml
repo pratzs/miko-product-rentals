@@ -1,0 +1,45 @@
+# Learn more about configuring your app at https://shopify.dev/docs/apps/tools/cli/configuration
+
+name = "Miko Product Rentals"
+application_url = "https://miko-product-rentals-production.up.railway.app"
+embedded = true
+
+[access_scopes]
+scopes = "read_products,write_products,read_orders,write_orders,read_customers,write_customers,read_draft_orders,write_draft_orders"
+
+[auth]
+redirect_urls = [
+  "https://miko-product-rentals-production.up.railway.app/auth/callback",
+  "http://localhost:3000/auth/callback"
+]
+
+[webhooks]
+api_version = "2026-04"
+
+  [[webhooks.subscriptions]]
+  uri = "/webhooks/orders/paid"
+  topics = ["orders/paid"]
+
+  [[webhooks.subscriptions]]
+  uri = "/webhooks/orders/cancelled"
+  topics = ["orders/cancelled"]
+
+  [[webhooks.subscriptions]]
+  uri = "/webhooks/app/uninstalled"
+  topics = ["app/uninstalled"]
+
+  [[webhooks.subscriptions]]
+  uri = "/webhooks/customers/data_request"
+  compliance_topics = ["customers/data_request"]
+
+  [[webhooks.subscriptions]]
+  uri = "/webhooks/customers/redact"
+  compliance_topics = ["customers/redact"]
+
+  [[webhooks.subscriptions]]
+  uri = "/webhooks/shop/redact"
+  compliance_topics = ["shop/redact"]
+
+[build]
+automatically_update_urls_on_dev = false
+dev_store_url = "pratham-testing-store.myshopify.com"

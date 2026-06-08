@@ -1,0 +1,215 @@
+/* Miko Rental Calendar Widget */
+#miko-rental-widget {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-size: 15px;
+  color: #1a1a1a;
+  margin: 20px 0;
+}
+
+.miko-widget-inner {
+  border: 1.5px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 20px;
+  background: #fff;
+}
+
+.miko-widget-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+  font-size: 16px;
+  margin-bottom: 16px;
+  color: #111;
+}
+
+.miko-calendar-icon {
+  color: #6366f1;
+  flex-shrink: 0;
+}
+
+.miko-date-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.miko-date-field {
+  flex: 1;
+}
+
+.miko-date-field label {
+  display: block;
+  font-size: 12px;
+  font-weight: 500;
+  color: #6b7280;
+  margin-bottom: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.miko-date-input {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1.5px solid #d1d5db;
+  border-radius: 8px;
+  font-size: 14px;
+  color: #111;
+  background: #f9fafb;
+  box-sizing: border-box;
+  cursor: pointer;
+  transition: border-color 0.15s;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.miko-date-input:focus {
+  outline: none;
+  border-color: #6366f1;
+  background: #fff;
+}
+
+.miko-date-arrow {
+  color: #9ca3af;
+  padding-bottom: 10px;
+  font-size: 18px;
+  flex-shrink: 0;
+}
+
+/* Messages */
+.miko-msg {
+  padding: 10px 14px;
+  border-radius: 8px;
+  font-size: 14px;
+  margin-bottom: 14px;
+  line-height: 1.5;
+}
+
+.miko-msg--hidden {
+  display: none;
+}
+
+.miko-msg--error {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #dc2626;
+}
+
+.miko-msg--success {
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  color: #15803d;
+}
+
+.miko-msg--loading {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  color: #64748b;
+}
+
+/* Pricing panel */
+.miko-pricing-panel {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 14px 16px;
+  margin-bottom: 14px;
+}
+
+.miko-pricing-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 14px;
+  padding: 4px 0;
+}
+
+.miko-pricing-row--sub {
+  color: #64748b;
+  font-size: 13px;
+}
+
+.miko-pricing-row--total {
+  font-weight: 600;
+  font-size: 15px;
+  border-top: 1px solid #e2e8f0;
+  margin-top: 8px;
+  padding-top: 10px;
+}
+
+.miko-price {
+  font-weight: 500;
+}
+
+.miko-breakdown {
+  color: #64748b;
+}
+
+/* Notes */
+.miko-notes {
+  font-size: 13px;
+  color: #4b5563;
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+  border-radius: 8px;
+  padding: 10px 14px;
+  margin-bottom: 14px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+}
+
+/* Add to cart button */
+.miko-btn {
+  width: 100%;
+  padding: 13px 20px;
+  border: none;
+  border-radius: 8px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s, opacity 0.15s;
+  background: #6366f1;
+  color: white;
+}
+
+.miko-btn:hover:not(.miko-btn--disabled) {
+  background: #4f46e5;
+}
+
+.miko-btn--disabled {
+  background: #e5e7eb;
+  color: #9ca3af;
+  cursor: not-allowed;
+}
+
+.miko-btn--loading {
+  opacity: 0.7;
+  cursor: wait;
+}
+
+/* Powered by */
+.miko-powered {
+  text-align: center;
+  font-size: 11px;
+  color: #9ca3af;
+  margin: 10px 0 0;
+}
+
+.miko-powered a {
+  color: #9ca3af;
+  text-decoration: none;
+}
+
+.miko-powered a:hover {
+  color: #6366f1;
+}
+
+@media (max-width: 480px) {
+  .miko-date-row {
+    flex-direction: column;
+  }
+  .miko-date-arrow {
+    display: none;
+  }
+}

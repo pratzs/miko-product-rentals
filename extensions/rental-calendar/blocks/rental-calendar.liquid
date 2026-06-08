@@ -1,0 +1,117 @@
+{% comment %}
+  Miko Rental Calendar — Theme App Extension Block
+  Add this block to any product page to show a date picker and pricing calculator.
+  Customers pick their start and end date; the block calls the Miko Rentals API
+  to check availability and show the price before adding to cart.
+{% endcomment %}
+
+{{ 'rental-calendar.css' | asset_url | stylesheet_tag }}
+
+<div
+  id="miko-rental-widget"
+  data-shop="{{ shop.permanent_domain }}"
+  data-product-id="{{ product.id | prepend: 'gid://shopify/Product/' }}"
+  data-app-url="{{ block.settings.app_url }}"
+  data-currency="{{ cart.currency.iso_code }}"
+  data-min-days="{{ block.settings.min_days | default: 1 }}"
+>
+  <div class="miko-widget-inner">
+    <div class="miko-widget-header">
+      <svg class="miko-calendar-icon" width="18" height="18" viewBox="0 0 20 20" fill="none">
+        <rect x="2" y="4" width="16" height="14" rx="2" stroke="currentColor" stroke-width="1.5"/>
+        <path d="M2 8h16" stroke="currentColor" stroke-width="1.5"/>
+        <path d="M6 2v3M14 2v3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+      </svg>
+      <span>{{ block.settings.heading | default: 'Choose your rental dates' }}</span>
+    </div>
+
+    <div class="miko-date-row">
+      <div class="miko-date-field">
+        <label for="miko-start-date">Rental start</label>
+        <input type="date" id="miko-start-date" class="miko-date-input" />
+      </div>
+      <div class="miko-date-arrow">→</div>
+      <div class="miko-date-field">
+        <label for="miko-end-date">Return by</label>
+        <input type="date" id="miko-end-date" class="miko-date-input" />
+      </div>
+    </div>
+
+    <div id="miko-availability-msg" class="miko-msg miko-msg--hidden"></div>
+
+    <div id="miko-pricing-panel" class="miko-pricing-panel miko-msg--hidden">
+      <div class="miko-pricing-row">
+        <span id="miko-breakdown-label" class="miko-breakdown"></span>
+        <span id="miko-rental-price" class="miko-price"></span>
+      </div>
+      <div id="miko-deposit-row" class="miko-pricing-row miko-pricing-row--sub miko-msg--hidden">
+        <span>Security deposit (refundable)</span>
+        <span id="miko-deposit-price"></span>
+      </div>
+      <div class="miko-pricing-row miko-pricing-row--total">
+        <span>Total at checkout</span>
+        <span id="miko-total-price"></span>
+      </div>
+    </div>
+
+    <div id="miko-notes" class="miko-notes miko-msg--hidden"></div>
+
+    <button id="miko-add-to-cart" class="miko-btn miko-btn--disabled" disabled>
+      Select dates to continue
+    </button>
+
+    <p class="miko-powered">
+      Powered by <a href="https://apps.shopify.com/miko-product-rentals" target="_blank" rel="noopener">Miko Rentals</a>
+    </p>
+  </div>
+
+  <form id="miko-cart-form" style="display:none;">
+    <input type="hidden" name="id" id="miko-variant-id" value="{{ product.selected_or_first_available_variant.id }}" />
+    <input type="hidden" name="quantity" value="1" />
+    <input type="hidden" name="properties[_miko_rental_product_id]" id="miko-prop-product-id" value="" />
+    <input type="hidden" name="properties[_miko_start_date]" id="miko-prop-start" value="" />
+    <input type="hidden" name="properties[_miko_end_date]" id="miko-prop-end" value="" />
+    <input type="hidden" name="properties[Rental start]" id="miko-prop-start-display" value="" />
+    <input type="hidden" name="properties[Return by]" id="miko-prop-end-display" value="" />
+    <input type="hidden" name="properties[Rental duration]" id="miko-prop-duration" value="" />
+    <input type="hidden" name="properties[Rental price]" id="miko-prop-price" value="" />
+    <input type="hidden" name="properties[Security deposit]" id="miko-prop-deposit" value="" />
+  </form>
+</div>
+
+<script src="{{ 'rental-calendar.js' | asset_url }}" defer></script>
+
+{% schema %}
+{
+  "name": "Miko Rental Calendar",
+  "target": "section",
+  "settings": [
+    {
+      "type": "text",
+      "id": "heading",
+      "label": "Widget heading",
+      "default": "Choose your rental dates"
+    },
+    {
+      "type": "url",
+      "id": "app_url",
+      "label": "App URL",
+      "info": "The URL of your Miko Rentals app (e.g. https://your-app.railway.app). Find this in your Railway project settings."
+    },
+    {
+      "type": "range",
+      "id": "min_days",
+      "label": "Minimum rental days shown",
+      "min": 1,
+      "max": 30,
+      "step": 1,
+      "default": 1
+    }
+  ],
+  "presets": [
+    {
+      "name": "Miko Rental Calendar"
+    }
+  ]
+}
+{% endschema %}
