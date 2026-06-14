@@ -1,4 +1,4 @@
-import type { LoaderFunctionArgs } from "@remix-run/node";
+import type { HeadersFunction, LoaderFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
 import { Link, Outlet, useLoaderData, useRouteError } from "@remix-run/react";
 import { boundary } from "@shopify/shopify-app-remix/server";
@@ -43,9 +43,14 @@ export default function App() {
 
 export function ErrorBoundary() {
   const error = useRouteError();
+  // Suppress the brief 401/302 flash during App Bridge token exchange.
+  // App Bridge intercepts and re-submits automatically — showing an error here breaks the flow.
+  if (error instanceof Response && (error.status === 401 || error.status === 302)) {
+    return null;
+  }
   return boundary.error(error);
 }
 
-export const headers = (headersArgs: any) => {
+export const headers: HeadersFunction = (headersArgs) => {
   return boundary.headers(headersArgs);
 };

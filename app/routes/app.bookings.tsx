@@ -149,7 +149,7 @@ export default function BookingsPage() {
               onClick={() => applyFilter("status", tab.value)}
               size="slim"
             >
-              {tab.label} ({tab.count})
+              {`${tab.label} (${tab.count})`}
             </Button>
           ))}
         </InlineStack>

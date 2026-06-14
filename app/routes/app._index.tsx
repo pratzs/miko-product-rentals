@@ -7,6 +7,7 @@ import {
   Card,
   BlockStack,
   InlineStack,
+  InlineGrid,
   Text,
   Button,
   Badge,
@@ -186,19 +187,17 @@ export default function Dashboard() {
         )}
 
         {/* Stats row */}
-        <Layout>
+        <InlineGrid columns={{ xs: 1, sm: 2, md: 4 }} gap="400">
           {statCards.map((card) => (
-            <Layout.Section key={card.label} variant="oneQuarter">
-              <Card>
-                <BlockStack gap="200">
-                  <Text as="p" variant="bodyMd" tone="subdued">{card.label}</Text>
-                  <Text as="p" variant="headingXl" fontWeight="bold">{card.value}</Text>
-                  <Text as="p" variant="bodySm" tone="subdued">{card.sublabel}</Text>
-                </BlockStack>
-              </Card>
-            </Layout.Section>
+            <Card key={card.label}>
+              <BlockStack gap="200">
+                <Text as="p" variant="bodyMd" tone="subdued">{card.label}</Text>
+                <Text as="p" variant="headingXl" fontWeight="bold">{card.value}</Text>
+                <Text as="p" variant="bodySm" tone="subdued">{card.sublabel}</Text>
+              </BlockStack>
+            </Card>
           ))}
-        </Layout>
+        </InlineGrid>
 
         <Layout>
           {/* Recent bookings table */}
@@ -245,7 +244,7 @@ export default function Dashboard() {
                     {upcomingBookings.map((b, i) => (
                       <Box key={b.id}>
                         {i > 0 && <Divider />}
-                        <Box paddingBlockStart={i > 0 ? "300" : "000"}>
+                        <Box paddingBlockStart={i > 0 ? "300" : "0"}>
                           <BlockStack gap="100">
                             <InlineStack align="space-between">
                               <Text as="p" variant="bodyMd" fontWeight="medium">{b.customerName}</Text>

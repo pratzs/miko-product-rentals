@@ -182,7 +182,7 @@ export default function ProductConfigPage() {
             fd.set("intent", "toggle_active");
             fetch("", { method: "POST", body: fd });
           },
-          tone: product.isActive ? "critical" : undefined,
+          destructive: product.isActive,
         },
       ]}
     >

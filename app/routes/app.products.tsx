@@ -15,11 +15,9 @@ import {
   Box,
   Divider,
   Banner,
-  Spinner,
 } from "@shopify/polaris";
 import { authenticate } from "../shopify.server";
 import { db } from "../db.server";
-import { useState } from "react";
 import { formatCurrency } from "../utils/pricing";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
@@ -122,27 +120,6 @@ export default function ProductsPage() {
   const actionData = useActionData<typeof action>();
   const navigate = useNavigate();
   const submit = useSubmit();
-  const [pickingProduct, setPickingProduct] = useState(false);
-
-  async function openProductPicker() {
-    setPickingProduct(true);
-    try {
-      const { ResourcePicker } = await import("@shopify/app-bridge-react");
-    } catch {
-      // fallback handled below
-    }
-    setPickingProduct(false);
-  }
-
-  function handleProductSelected(productId: string, title: string, image: string) {
-    const fd = new FormData();
-    fd.set("intent", "add_product");
-    fd.set("shopifyProductId", productId);
-    fd.set("title", title);
-    fd.set("image", image);
-    submit(fd, { method: "POST" });
-  }
-
   function toggleActive(productId: string, currentlyActive: boolean) {
     const fd = new FormData();
     fd.set("intent", "toggle_active");
@@ -209,7 +186,7 @@ export default function ProductsPage() {
                         </Text>
                         {product.activeBookings > 0 && (
                           <Badge tone="info">
-                            {product.activeBookings} active booking{product.activeBookings !== 1 ? "s" : ""}
+                            {`${product.activeBookings} active booking${product.activeBookings !== 1 ? "s" : ""}`}
                           </Badge>
                         )}
                       </BlockStack>
