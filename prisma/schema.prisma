@@ -42,11 +42,6 @@ model ShopConfig {
   gracePeriodDays     Int      @default(0)
   // Flat daily late fee in the shop's currency.
   lateFeePerDay       Float    @default(0)
-  // Email shown to customers in rental confirmation emails.
-  supportEmail        String   @default("")
-  resendApiKey        String   @default("")
-  senderEmail         String   @default("")
-  senderName          String   @default("Miko Rentals")
   onboardingCompleted Boolean  @default(false)
   installedAt         DateTime @default(now())
   createdAt           DateTime @default(now())

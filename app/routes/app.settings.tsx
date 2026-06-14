@@ -14,7 +14,6 @@ import {
   Select,
   Divider,
   Box,
-  Checkbox,
 } from "@shopify/polaris";
 import { authenticate } from "../shopify.server";
 import { db } from "../db.server";
@@ -62,23 +61,6 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     return json({ success: true, message: "Rental settings saved." });
   }
 
-  if (intent === "save_email") {
-    const resendApiKey = (formData.get("resendApiKey") as string).trim();
-    const senderEmail = (formData.get("senderEmail") as string).trim();
-    const senderName = (formData.get("senderName") as string).trim();
-    const supportEmail = (formData.get("supportEmail") as string).trim();
-
-    if (!senderEmail || !senderName) {
-      return json({ error: "Sender email and name are required." }, { status: 400 });
-    }
-
-    await db.shopConfig.updateMany({
-      where: { shop },
-      data: { resendApiKey, senderEmail, senderName, supportEmail },
-    });
-    return json({ success: true, message: "Email settings saved." });
-  }
-
   if (intent === "complete_onboarding") {
     await db.shopConfig.updateMany({
       where: { shop },
@@ -100,11 +82,6 @@ export default function SettingsPage() {
   const [gracePeriodDays, setGracePeriodDays] = useState(String(config?.gracePeriodDays ?? 0));
   const [lateFeePerDay, setLateFeePerDay] = useState(String(config?.lateFeePerDay ?? 0));
   const [bufferHours, setBufferHours] = useState(String(config?.bufferHours ?? 24));
-
-  const [resendApiKey, setResendApiKey] = useState(config?.resendApiKey || "");
-  const [senderEmail, setSenderEmail] = useState(config?.senderEmail || "");
-  const [senderName, setSenderName] = useState(config?.senderName || "");
-  const [supportEmail, setSupportEmail] = useState(config?.supportEmail || "");
 
   if (!config) {
     return (
@@ -205,137 +182,34 @@ export default function SettingsPage() {
                 </BlockStack>
               </Card>
 
-              {/* Email settings */}
-              <Card>
-                <BlockStack gap="400">
-                  <BlockStack gap="100">
-                    <Text as="h2" variant="headingMd">Email notifications</Text>
-                    <Text as="p" tone="subdued">
-                      Miko Rentals automatically emails your customers when a booking is confirmed,
-                      the day before a return is due, and when a booking goes overdue.
-                      You need a free Resend account to send these emails.
-                    </Text>
-                  </BlockStack>
-                  <Divider />
-
-                  <TextField
-                    label="Resend API key"
-                    value={resendApiKey}
-                    onChange={setResendApiKey}
-                    type="password"
-                    autoComplete="off"
-                    helpText={
-                      <span>
-                        Get your free API key at resend.com. Leave blank to disable email notifications.
-                      </span>
-                    }
-                    placeholder="re_xxxxxxxxxxxxxxxxxxxx"
-                  />
-
-                  <InlineStack gap="400" wrap>
-                    <Box minWidth="220px">
-                      <TextField
-                        label="Sender email address"
-                        value={senderEmail}
-                        onChange={setSenderEmail}
-                        type="email"
-                        autoComplete="off"
-                        helpText="The email address your customers see in their inbox. Must be verified in Resend."
-                        placeholder="rentals@yourdomain.com"
-                      />
-                    </Box>
-                    <Box minWidth="220px">
-                      <TextField
-                        label="Sender name"
-                        value={senderName}
-                        onChange={setSenderName}
-                        autoComplete="off"
-                        helpText="The display name your customers see — usually your store or business name."
-                        placeholder="Acme Rentals"
-                      />
-                    </Box>
-                  </InlineStack>
-
-                  <TextField
-                    label="Support email (shown to customers)"
-                    value={supportEmail}
-                    onChange={setSupportEmail}
-                    type="email"
-                    autoComplete="off"
-                    helpText="Customers can reply to this address if they have questions about their booking."
-                    placeholder="hello@yourdomain.com"
-                  />
-
-                  <InlineStack>
-                    <Form method="POST">
-                      <input type="hidden" name="intent" value="save_email" />
-                      <input type="hidden" name="resendApiKey" value={resendApiKey} />
-                      <input type="hidden" name="senderEmail" value={senderEmail} />
-                      <input type="hidden" name="senderName" value={senderName} />
-                      <input type="hidden" name="supportEmail" value={supportEmail} />
-                      <Button variant="primary" submit loading={saving}>Save email settings</Button>
-                    </Form>
-                  </InlineStack>
-                </BlockStack>
-              </Card>
             </BlockStack>
           </Layout.Section>
 
           {/* Sidebar */}
           <Layout.Section variant="oneThird">
-            <BlockStack gap="400">
-              <Card>
-                <BlockStack gap="300">
-                  <Text as="h2" variant="headingMd">How emails work</Text>
-                  <BlockStack gap="200">
-                    <InlineStack gap="200" blockAlign="start">
-                      <Text as="span" fontWeight="bold">1.</Text>
-                      <Text as="p" tone="subdued">A customer pays for a rental — they immediately receive a booking confirmation with all the details.</Text>
-                    </InlineStack>
-                    <InlineStack gap="200" blockAlign="start">
-                      <Text as="span" fontWeight="bold">2.</Text>
-                      <Text as="p" tone="subdued">The day before the return date, they get a friendly reminder with the return instructions.</Text>
-                    </InlineStack>
-                    <InlineStack gap="200" blockAlign="start">
-                      <Text as="span" fontWeight="bold">3.</Text>
-                      <Text as="p" tone="subdued">If the item isn't returned on time, they receive an overdue notice with any applicable late fees.</Text>
-                    </InlineStack>
-                    <InlineStack gap="200" blockAlign="start">
-                      <Text as="span" fontWeight="bold">4.</Text>
-                      <Text as="p" tone="subdued">You can also manually trigger a reminder or overdue notice from any booking's detail page.</Text>
-                    </InlineStack>
-                  </BlockStack>
+            <Card>
+              <BlockStack gap="300">
+                <Text as="h2" variant="headingMd">Setup status</Text>
+                <BlockStack gap="200">
+                  <InlineStack gap="200" blockAlign="center">
+                    <Text as="span">{config.onboardingCompleted ? "✅" : "⬜"}</Text>
+                    <Text as="p" tone="subdued">Onboarding complete</Text>
+                  </InlineStack>
+                  <InlineStack gap="200" blockAlign="center">
+                    <Text as="span">{config.currency ? "✅" : "⬜"}</Text>
+                    <Text as="p" tone="subdued">Currency set</Text>
+                  </InlineStack>
                 </BlockStack>
-              </Card>
-
-              <Card>
-                <BlockStack gap="300">
-                  <Text as="h2" variant="headingMd">Setup status</Text>
-                  <BlockStack gap="200">
-                    <InlineStack gap="200" blockAlign="center">
-                      <Text as="span">{config.onboardingCompleted ? "✅" : "⬜"}</Text>
-                      <Text as="p" tone="subdued">Onboarding complete</Text>
-                    </InlineStack>
-                    <InlineStack gap="200" blockAlign="center">
-                      <Text as="span">{config.resendApiKey ? "✅" : "⬜"}</Text>
-                      <Text as="p" tone="subdued">Email configured</Text>
-                    </InlineStack>
-                    <InlineStack gap="200" blockAlign="center">
-                      <Text as="span">{config.currency ? "✅" : "⬜"}</Text>
-                      <Text as="p" tone="subdued">Currency set</Text>
-                    </InlineStack>
-                  </BlockStack>
-                  {!config.onboardingCompleted && (
-                    <Form method="POST">
-                      <input type="hidden" name="intent" value="complete_onboarding" />
-                      <Button variant="secondary" submit fullWidth loading={saving}>
-                        Mark setup as complete
-                      </Button>
-                    </Form>
-                  )}
-                </BlockStack>
-              </Card>
-            </BlockStack>
+                {!config.onboardingCompleted && (
+                  <Form method="POST">
+                    <input type="hidden" name="intent" value="complete_onboarding" />
+                    <Button variant="secondary" submit fullWidth loading={saving}>
+                      Mark setup as complete
+                    </Button>
+                  </Form>
+                )}
+              </BlockStack>
+            </Card>
           </Layout.Section>
         </Layout>
       </BlockStack>

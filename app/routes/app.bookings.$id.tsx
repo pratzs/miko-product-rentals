@@ -16,14 +16,12 @@ import {
   TextField,
   Select,
   Modal,
-  DataTable,
 } from "@shopify/polaris";
 import { authenticate } from "../shopify.server";
 import { db } from "../db.server";
 import { format, differenceInDays } from "date-fns";
 import { formatCurrency } from "../utils/pricing";
 import { useState } from "react";
-import { sendBookingConfirmation, sendReturnReminder, sendOverdueNotice } from "../utils/email";
 
 export const loader = async ({ request, params }: LoaderFunctionArgs) => {
   const { session } = await authenticate.admin(request);
@@ -40,11 +38,6 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
   ]);
 
   if (!booking) throw new Response("Not found", { status: 404 });
-
-  const emailLogs = await db.emailLog.findMany({
-    where: { shop, bookingId: booking.id },
-    orderBy: { sentAt: "desc" },
-  });
 
   const daysOverdue =
     booking.status === "overdue" || (booking.status === "active" && new Date() > booking.endDate)
@@ -78,12 +71,6 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
       createdAt: booking.createdAt.toISOString(),
     },
     daysOverdue,
-    emailLogs: emailLogs.map((e) => ({
-      type: e.type,
-      status: e.status,
-      sentAt: e.sentAt.toISOString(),
-      subject: e.subject,
-    })),
   });
 };
 
@@ -165,33 +152,6 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
     return json({ success: true, message: "Notes saved." });
   }
 
-  if (intent === "send_reminder") {
-    await sendReturnReminder(
-      shop,
-      booking.id,
-      booking.customerName,
-      booking.customerEmail,
-      booking.rentalProduct.shopifyProductTitle,
-      booking.endDate,
-      config?.currency || "USD",
-    );
-    return json({ success: true, message: "Return reminder email sent." });
-  }
-
-  if (intent === "send_overdue") {
-    await sendOverdueNotice(
-      shop,
-      booking.id,
-      booking.customerName,
-      booking.customerEmail,
-      booking.rentalProduct.shopifyProductTitle,
-      booking.endDate,
-      config?.lateFeePerDay || 0,
-      config?.currency || "USD",
-    );
-    return json({ success: true, message: "Overdue notice email sent." });
-  }
-
   return json({ error: "Unknown action." }, { status: 400 });
 };
 
@@ -212,7 +172,7 @@ const DEPOSIT_BADGE: Record<string, { tone: any; label: string }> = {
 };
 
 export default function BookingDetailPage() {
-  const { booking, currency, lateFeePerDay, daysOverdue, emailLogs } = useLoaderData<typeof loader>();
+  const { booking, currency, lateFeePerDay, daysOverdue } = useLoaderData<typeof loader>();
   const actionData = useActionData<typeof action>();
   const navigation = useNavigation();
   const navigate = useNavigate();
@@ -408,24 +368,6 @@ export default function BookingDetailPage() {
               </BlockStack>
             </Card>
 
-            {/* Email history */}
-            {emailLogs.length > 0 && (
-              <Card>
-                <BlockStack gap="400">
-                  <Text as="h2" variant="headingMd">Email history</Text>
-                  <DataTable
-                    columnContentTypes={["text", "text", "text", "text"]}
-                    headings={["Type", "Subject", "Status", "Sent at"]}
-                    rows={emailLogs.map((e) => [
-                      e.type.replace(/_/g, " "),
-                      e.subject,
-                      <Badge tone={e.status === "sent" ? "success" : "critical"}>{e.status}</Badge>,
-                      format(new Date(e.sentAt), "d MMM yyyy HH:mm"),
-                    ])}
-                  />
-                </BlockStack>
-              </Card>
-            )}
           </BlockStack>
         </Layout.Section>
 
@@ -494,25 +436,6 @@ export default function BookingDetailPage() {
                   </Form>
                 )}
 
-                <Divider />
-
-                <Text as="h3" variant="headingSm">Send emails</Text>
-
-                <Form method="POST">
-                  <input type="hidden" name="intent" value="send_reminder" />
-                  <Button fullWidth submit loading={submitting} size="slim">
-                    Send return reminder
-                  </Button>
-                </Form>
-
-                {(booking.status === "overdue" || daysOverdue > 0) && (
-                  <Form method="POST">
-                    <input type="hidden" name="intent" value="send_overdue" />
-                    <Button fullWidth submit loading={submitting} size="slim" tone="critical">
-                      Send overdue notice
-                    </Button>
-                  </Form>
-                )}
               </BlockStack>
             </Card>
 
