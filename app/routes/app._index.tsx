@@ -167,15 +167,16 @@ export default function Dashboard() {
   } = useLoaderData<typeof loader>();
   const navigate = useNavigate();
 
-  const themeEditorUrl = `https://admin.shopify.com/store/${shopHandle}/themes/current/editor?template=product`;
+  // Deep-links directly to the product template with the "add block" prompt open
+  // for the Miko Rental Calendar extension (client ID + handle).
+  const themeEditorUrl = `https://admin.shopify.com/store/${shopHandle}/themes/current/editor?template=product&addAppBlockId=2306fcd511592e435b9b26ac07304811%2Fmiko-rental-calendar&target=newAppsSection`;
 
   const setupSteps: {
     title: string;
     description: string;
     done: boolean;
     actionLabel: string;
-    onAction?: () => void;
-    url?: string;
+    onAction: () => void;
   }[] = [
     {
       title: "Add your first rental product",
@@ -196,7 +197,7 @@ export default function Dashboard() {
       description: "Add the Miko Rental Calendar block to your product page in the theme editor. We tick this off automatically once it goes live.",
       done: onboarding.steps.calendarLive,
       actionLabel: "Open theme editor",
-      url: themeEditorUrl,
+      onAction: () => window.open(themeEditorUrl, "_blank"),
     },
     {
       title: "Set how your emails are signed",
@@ -309,8 +310,6 @@ export default function Dashboard() {
                         <Box minWidth="fit-content">
                           {step.done ? (
                             <Badge tone="success">Done</Badge>
-                          ) : step.url ? (
-                            <Button url={step.url} external>{step.actionLabel}</Button>
                           ) : (
                             <Button onClick={step.onAction}>{step.actionLabel}</Button>
                           )}
