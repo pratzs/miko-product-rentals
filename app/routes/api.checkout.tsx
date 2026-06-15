@@ -1,10 +1,19 @@
-import type { ActionFunctionArgs } from "@remix-run/node";
+import type { ActionFunctionArgs, LoaderFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
 import { db } from "../db.server";
 import { unauthenticated } from "../shopify.server";
 import { calculateRentalPrice } from "../utils/pricing";
 import { isRangeAvailable } from "../utils/availability";
 import { checkRentalLimit } from "../utils/plans";
+
+// Remix routes OPTIONS to the loader, not the action. Without this export
+// the CORS preflight returns 400 and the storefront POST is blocked.
+export const loader = async ({ request }: LoaderFunctionArgs) => {
+  return new Response(null, {
+    status: request.method === "OPTIONS" ? 204 : 405,
+    headers: corsHeaders(request),
+  });
+};
 
 /**
  * Public endpoint - no Shopify auth required.
