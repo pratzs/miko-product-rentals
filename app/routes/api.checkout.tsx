@@ -156,7 +156,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     taxable?: boolean;
     customAttributes?: { key: string; value: string }[];
     appliedDiscount?: {
-      type: string;
+      valueType: string;
       value: number;
       amount: string;
       description: string;
@@ -171,7 +171,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       ...(discountAmount > 0
         ? {
             appliedDiscount: {
-              type: "FIXED_AMOUNT",
+              valueType: "FIXED_AMOUNT",
               value: discountAmount,
               amount: discountAmount.toFixed(2),
               description: "Rental rate",
