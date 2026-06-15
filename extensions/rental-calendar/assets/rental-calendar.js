@@ -189,17 +189,18 @@
         body: JSON.stringify({ shop, productId, variantId, startDate, endDate }),
       });
 
-      const data = await res.json();
+      let data = {};
+      try { data = await res.json(); } catch { /* non-JSON response */ }
 
       if (!res.ok || !data.checkoutUrl) {
-        showMsg(data.error || "Could not create checkout. Please try again.", "error");
+        showMsg(data.error || "Could not create your checkout. Please try again.", "error");
         enableBtn(`Book now - ${formatCurrency(currentPricing.totalDue, currentPricing.currency || currency)}`);
         return;
       }
 
       window.location.href = data.checkoutUrl;
     } catch {
-      showMsg("Something went wrong. Please try again.", "error");
+      showMsg("Could not reach the booking server. Please try again in a moment.", "error");
       enableBtn(`Book now - ${formatCurrency(currentPricing.totalDue, currentPricing.currency || currency)}`);
     }
   }

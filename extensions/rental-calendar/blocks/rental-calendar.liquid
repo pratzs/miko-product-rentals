@@ -7,6 +7,28 @@
 
 {{ 'rental-calendar.css' | asset_url | stylesheet_tag }}
 
+{% if block.settings.rental_only %}
+<style>
+  /* Hide the theme's default price and buy button for rental-only products */
+  .product-form__buttons,
+  .product__buy-buttons,
+  .shopify-payment-button,
+  .product-form .product-form__cart-submit,
+  form[action*="/cart/add"] .btn,
+  form[action*="/cart/add"] button[type="submit"],
+  form[action*="/cart/add"] .product-form__submit,
+  [data-type="add-to-cart-form"] button[type="submit"] { display: none !important; }
+
+  .price,
+  .product__price,
+  .product-single__price,
+  .product__price-wrapper,
+  .price-item,
+  [data-product-price],
+  .product-block--price { display: none !important; }
+</style>
+{% endif %}
+
 <div
   id="miko-rental-widget"
   data-shop="{{ shop.permanent_domain }}"
@@ -80,6 +102,13 @@
       "id": "heading",
       "label": "Widget heading",
       "default": "Choose your rental dates"
+    },
+    {
+      "type": "checkbox",
+      "id": "rental_only",
+      "label": "Rental only product",
+      "info": "Turn this on to hide the regular price and Add to cart button. Use this when the product is available for rental only and should not be purchased outright.",
+      "default": false
     },
     {
       "type": "url",
