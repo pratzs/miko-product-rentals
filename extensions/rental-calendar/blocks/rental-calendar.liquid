@@ -65,18 +65,7 @@
     </p>
   </div>
 
-  <form id="miko-cart-form" style="display:none;">
-    <input type="hidden" name="id" id="miko-variant-id" value="{{ product.selected_or_first_available_variant.id }}" />
-    <input type="hidden" name="quantity" value="1" />
-    <input type="hidden" name="properties[_miko_rental_product_id]" id="miko-prop-product-id" value="" />
-    <input type="hidden" name="properties[_miko_start_date]" id="miko-prop-start" value="" />
-    <input type="hidden" name="properties[_miko_end_date]" id="miko-prop-end" value="" />
-    <input type="hidden" name="properties[Rental start]" id="miko-prop-start-display" value="" />
-    <input type="hidden" name="properties[Return by]" id="miko-prop-end-display" value="" />
-    <input type="hidden" name="properties[Rental duration]" id="miko-prop-duration" value="" />
-    <input type="hidden" name="properties[Rental price]" id="miko-prop-price" value="" />
-    <input type="hidden" name="properties[Security deposit]" id="miko-prop-deposit" value="" />
-  </form>
+  <input type="hidden" id="miko-variant-id" value="{{ product.selected_or_first_available_variant.id }}" />
 </div>
 
 <script src="{{ 'rental-calendar.js' | asset_url }}" defer></script>

@@ -30,17 +30,7 @@
   const totalPriceEl = document.getElementById("miko-total-price");
   const notesEl = document.getElementById("miko-notes");
   const addBtn = document.getElementById("miko-add-to-cart");
-  const cartForm = document.getElementById("miko-cart-form");
-
-  // Hidden form fields
-  const propProductId = document.getElementById("miko-prop-product-id");
-  const propStart = document.getElementById("miko-prop-start");
-  const propEnd = document.getElementById("miko-prop-end");
-  const propStartDisplay = document.getElementById("miko-prop-start-display");
-  const propEndDisplay = document.getElementById("miko-prop-end-display");
-  const propDuration = document.getElementById("miko-prop-duration");
-  const propPrice = document.getElementById("miko-prop-price");
-  const propDeposit = document.getElementById("miko-prop-deposit");
+  const variantIdInput = document.getElementById("miko-variant-id");
 
   // Set min date to today
   const today = new Date().toISOString().split("T")[0];
@@ -118,7 +108,7 @@
       hideMsg();
       currentPricing = data;
       showPricing(data);
-      enableBtn(`Add to cart - ${formatCurrency(data.totalDue, data.currency || currency)}`);
+      enableBtn(`Book now - ${formatCurrency(data.totalDue, data.currency || currency)}`);
 
       if (data.rentalNotes) {
         notesEl.textContent = data.rentalNotes;
@@ -181,44 +171,36 @@
 
     const startDate = startInput.value;
     const endDate = endInput.value;
+    const variantId = variantIdInput ? variantIdInput.value : "";
 
-    // Populate hidden form fields with rental metadata
-    propProductId.value = productId;
-    propStart.value = startDate;
-    propEnd.value = endDate;
-    propStartDisplay.value = formatDateDisplay(startDate);
-    propEndDisplay.value = formatDateDisplay(endDate);
-    propDuration.value = `${currentPricing.rentalDays} day${currentPricing.rentalDays !== 1 ? "s" : ""}`;
-    propPrice.value = formatCurrency(currentPricing.rentalPrice, currentPricing.currency || currency);
-    propDeposit.value = currentPricing.depositAmount > 0
-      ? formatCurrency(currentPricing.depositAmount, currentPricing.currency || currency)
-      : "None";
+    if (!variantId) {
+      showMsg("No variant found for this product. Please refresh and try again.", "error");
+      return;
+    }
 
-    addBtn.textContent = "Adding…";
+    addBtn.textContent = "Creating your checkout…";
     addBtn.classList.add("miko-btn--loading");
     addBtn.disabled = true;
 
     try {
-      const formData = new FormData(cartForm);
-      const res = await fetch("/cart/add.js", {
+      const res = await fetch(`${appUrl}/api/checkout`, {
         method: "POST",
-        body: formData,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ shop, productId, variantId, startDate, endDate }),
       });
 
-      if (res.ok) {
-        // Trigger a cart update event for themes that listen
-        document.dispatchEvent(new CustomEvent("cart:refresh", { bubbles: true }));
+      const data = await res.json();
 
-        // Redirect to cart - most themes expect this
-        window.location.href = "/cart";
-      } else {
-        const err = await res.json();
-        showMsg(err.description || "Could not add to cart. Please try again.", "error");
-        enableBtn(`Add to cart - ${formatCurrency(currentPricing.totalDue, currentPricing.currency || currency)}`);
+      if (!res.ok || !data.checkoutUrl) {
+        showMsg(data.error || "Could not create checkout. Please try again.", "error");
+        enableBtn(`Book now - ${formatCurrency(currentPricing.totalDue, currentPricing.currency || currency)}`);
+        return;
       }
+
+      window.location.href = data.checkoutUrl;
     } catch {
       showMsg("Something went wrong. Please try again.", "error");
-      enableBtn(`Add to cart - ${formatCurrency(currentPricing.totalDue, currentPricing.currency || currency)}`);
+      enableBtn(`Book now - ${formatCurrency(currentPricing.totalDue, currentPricing.currency || currency)}`);
     }
   }
 
