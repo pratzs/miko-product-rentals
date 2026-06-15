@@ -110,37 +110,76 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   const fmt = (d: Date) =>
     d.toLocaleDateString("en-NZ", { day: "numeric", month: "long", year: "numeric" });
 
-  // Shopify ignores originalUnitPrice when variantId is set on a draft order
-  // line item — it always falls back to the variant's Shopify price. To charge
-  // the rental price we use a custom line item (no variantId) which always
-  // uses our originalUnitPrice. We store the variantId in customAttributes so
-  // the orders/paid webhook can still match back to the right product.
-  const rentalLineItem = {
-    title: `${product.shopifyProductTitle} - ${pricing.rentalDays} day rental`,
-    quantity: 1,
-    originalUnitPrice: pricing.rentalPrice.toFixed(2),
-    requiresShipping: true,
-    taxable: true,
-    customAttributes: [
-      { key: "Rental start", value: fmt(startDate) },
-      { key: "Return by", value: fmt(endDate) },
-      { key: "Rental duration", value: `${pricing.rentalDays} day${pricing.rentalDays !== 1 ? "s" : ""}` },
-      { key: "_miko_rental_product_id", value: product.id },
-      { key: "_miko_start_date", value: startDateStr },
-      { key: "_miko_end_date", value: endDateStr },
-      { key: "_miko_variant_id", value: variantId },
-    ],
-  };
+  let admin: Awaited<ReturnType<typeof unauthenticated.admin>>["admin"];
+  try {
+    ({ admin } = await unauthenticated.admin(shop));
+  } catch {
+    return json(
+      { error: "Shop is not connected. Please reinstall the app." },
+      { status: 500, headers: corsHeaders(request) }
+    );
+  }
+
+  // Query the variant's current Shopify price so we can calculate the exact
+  // discount needed to bring it down to the rental rate. Using variantId on
+  // the draft order line item is what shows the product image in checkout —
+  // a FIXED_AMOUNT discount then sets the amount the customer actually pays.
+  const variantRes = await admin.graphql(
+    `#graphql
+    query variantPrice($id: ID!) {
+      productVariant(id: $id) {
+        price
+      }
+    }`,
+    { variables: { id: `gid://shopify/ProductVariant/${variantId}` } }
+  );
+  const variantData = await variantRes.json();
+  const variantPrice = parseFloat(variantData.data?.productVariant?.price ?? "0");
+
+  const customAttributes = [
+    { key: "Rental start", value: fmt(startDate) },
+    { key: "Return by", value: fmt(endDate) },
+    { key: "Rental duration", value: `${pricing.rentalDays} day${pricing.rentalDays !== 1 ? "s" : ""}` },
+    { key: "_miko_rental_product_id", value: product.id },
+    { key: "_miko_start_date", value: startDateStr },
+    { key: "_miko_end_date", value: endDateStr },
+  ];
+
+  const discountAmount = Math.max(0, variantPrice - pricing.rentalPrice);
 
   type LineItem = {
-    title: string;
+    variantId?: string;
+    title?: string;
     quantity: number;
-    originalUnitPrice: string;
-    requiresShipping: boolean;
-    taxable: boolean;
+    originalUnitPrice?: string;
+    requiresShipping?: boolean;
+    taxable?: boolean;
     customAttributes?: { key: string; value: string }[];
+    appliedDiscount?: {
+      type: string;
+      value: number;
+      amount: string;
+      description: string;
+    };
   };
-  const lineItems: LineItem[] = [rentalLineItem];
+
+  const lineItems: LineItem[] = [
+    {
+      variantId: `gid://shopify/ProductVariant/${variantId}`,
+      quantity: 1,
+      customAttributes,
+      ...(discountAmount > 0
+        ? {
+            appliedDiscount: {
+              type: "FIXED_AMOUNT",
+              value: discountAmount,
+              amount: discountAmount.toFixed(2),
+              description: "Rental rate",
+            },
+          }
+        : { originalUnitPrice: pricing.rentalPrice.toFixed(2) }),
+    },
+  ];
 
   if (pricing.depositAmount > 0) {
     lineItems.push({
@@ -150,16 +189,6 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       requiresShipping: false,
       taxable: false,
     });
-  }
-
-  let admin: Awaited<ReturnType<typeof unauthenticated.admin>>["admin"];
-  try {
-    ({ admin } = await unauthenticated.admin(shop));
-  } catch {
-    return json(
-      { error: "Shop is not connected. Please reinstall the app." },
-      { status: 500, headers: corsHeaders(request) }
-    );
   }
 
   const gqlResponse = await admin.graphql(
