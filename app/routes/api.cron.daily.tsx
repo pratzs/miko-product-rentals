@@ -5,7 +5,7 @@ import { sendReturnReminder, sendOverdueNotice } from "../utils/email";
 import { addDays, startOfDay, endOfDay } from "date-fns";
 
 /**
- * Daily cron endpoint — call this once per day via Railway cron or an external scheduler.
+ * Daily cron endpoint - call this once per day via Railway cron or an external scheduler.
  * Protected by a shared secret set in CRON_SECRET env variable.
  *
  * What it does:

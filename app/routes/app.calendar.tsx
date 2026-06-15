@@ -220,7 +220,7 @@ export default function CalendarPage() {
                             textOverflow: "ellipsis",
                             whiteSpace: "nowrap",
                           }}
-                          title={`${b.customerName} — ${b.productTitle}`}
+                          title={`${b.customerName} - ${b.productTitle}`}
                         >
                           {b.customerName.split(" ")[0]}
                         </button>

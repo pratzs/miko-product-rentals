@@ -1,5 +1,5 @@
 /**
- * Miko Rental Calendar — Storefront Widget
+ * Miko Rental Calendar - Storefront Widget
  * Handles date selection, availability checking, pricing calculation,
  * and adding to cart with rental metadata.
  */
@@ -95,7 +95,7 @@
       // Mark unavailable dates by disabling them in the date picker
       // (Native date inputs don't support per-day disabling, so we validate on change)
     } catch {
-      // Silently fail — availability check happens at pricing time too
+      // Silently fail - availability check happens at pricing time too
     }
   }
 
@@ -118,7 +118,7 @@
       hideMsg();
       currentPricing = data;
       showPricing(data);
-      enableBtn(`Add to cart — ${formatCurrency(data.totalDue, data.currency || currency)}`);
+      enableBtn(`Add to cart - ${formatCurrency(data.totalDue, data.currency || currency)}`);
 
       if (data.rentalNotes) {
         notesEl.textContent = data.rentalNotes;
@@ -209,16 +209,16 @@
         // Trigger a cart update event for themes that listen
         document.dispatchEvent(new CustomEvent("cart:refresh", { bubbles: true }));
 
-        // Redirect to cart — most themes expect this
+        // Redirect to cart - most themes expect this
         window.location.href = "/cart";
       } else {
         const err = await res.json();
         showMsg(err.description || "Could not add to cart. Please try again.", "error");
-        enableBtn(`Add to cart — ${formatCurrency(currentPricing.totalDue, currentPricing.currency || currency)}`);
+        enableBtn(`Add to cart - ${formatCurrency(currentPricing.totalDue, currentPricing.currency || currency)}`);
       }
     } catch {
       showMsg("Something went wrong. Please try again.", "error");
-      enableBtn(`Add to cart — ${formatCurrency(currentPricing.totalDue, currentPricing.currency || currency)}`);
+      enableBtn(`Add to cart - ${formatCurrency(currentPricing.totalDue, currentPricing.currency || currency)}`);
     }
   }
 

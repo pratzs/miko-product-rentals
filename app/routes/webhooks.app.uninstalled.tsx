@@ -14,7 +14,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   await db.session.deleteMany({ where: { shop } });
 
   // We intentionally keep RentalBooking and ShopConfig records in case
-  // the merchant reinstalls — their historical data and settings will
+  // the merchant reinstalls - their historical data and settings will
   // still be there. They can manually delete via the settings page if needed.
 
   return json({ ok: true });

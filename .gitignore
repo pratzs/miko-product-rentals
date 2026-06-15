@@ -9,3 +9,4 @@ prisma/migrations/*.sql
 
 # Railway
 .railway/
+.claude/

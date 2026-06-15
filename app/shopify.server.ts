@@ -2,6 +2,7 @@ import "@shopify/shopify-app-remix/adapters/node";
 import {
   ApiVersion,
   AppDistribution,
+  BillingInterval,
   shopifyApp,
 } from "@shopify/shopify-app-remix/server";
 import { PrismaSessionStorage } from "@shopify/shopify-app-session-storage-prisma";
@@ -17,6 +18,24 @@ const shopify = shopifyApp({
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   sessionStorage: new PrismaSessionStorage(db) as any,
   distribution: AppDistribution.AppStore,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  billing: {
+    starter: {
+      trialDays: 14,
+      test: process.env.SHOPIFY_BILLING_TEST !== "false",
+      lineItems: [{ amount: 19.95, currencyCode: "USD", interval: BillingInterval.Every30Days }],
+    },
+    growth: {
+      trialDays: 14,
+      test: process.env.SHOPIFY_BILLING_TEST !== "false",
+      lineItems: [{ amount: 49.95, currencyCode: "USD", interval: BillingInterval.Every30Days }],
+    },
+    pro: {
+      trialDays: 14,
+      test: process.env.SHOPIFY_BILLING_TEST !== "false",
+      lineItems: [{ amount: 89.95, currencyCode: "USD", interval: BillingInterval.Every30Days }],
+    },
+  } as any,
   future: {
     unstable_newEmbeddedAuthStrategy: true,
     expiringOfflineAccessTokens: true,

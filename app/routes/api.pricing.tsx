@@ -3,16 +3,17 @@ import { json } from "@remix-run/node";
 import { db } from "../db.server";
 import { calculateRentalPrice } from "../utils/pricing";
 import { isRangeAvailable } from "../utils/availability";
+import { checkRentalLimit } from "../utils/plans";
 
 /**
- * Public endpoint — no Shopify auth required.
+ * Public endpoint - no Shopify auth required.
  * Called from the storefront to calculate rental price for a chosen date range.
  *
  * Query params:
- *   shop          — myshopify domain
- *   productId     — Shopify product GID
- *   startDate     — ISO date string
- *   endDate       — ISO date string
+ *   shop          - myshopify domain
+ *   productId     - Shopify product GID
+ *   startDate     - ISO date string
+ *   endDate       - ISO date string
  */
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const url = new URL(request.url);
@@ -46,6 +47,18 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   if (!product) {
     return json({ error: "Product not found or not available for rental." }, {
       status: 404,
+      headers: corsHeaders(request),
+    });
+  }
+
+  // Respect the merchant's plan limit. When they are at their cap we stop
+  // quoting new bookings so the storefront never takes an order the app cannot
+  // record. The merchant sees an upgrade prompt in their dashboard.
+  const shopConfig = await db.shopConfig.findUnique({ where: { shop } });
+  const planLimit = await checkRentalLimit(shop, shopConfig?.planName ?? "free", db);
+  if (!planLimit.allowed) {
+    return json({ error: "Online booking is temporarily unavailable for this item. Please contact us to arrange your rental." }, {
+      status: 403,
       headers: corsHeaders(request),
     });
   }
@@ -85,8 +98,6 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     depositAmount: product.depositAmount,
   });
 
-  const config = await db.shopConfig.findUnique({ where: { shop } });
-
   return json({
     available: true,
     rentalDays: pricing.rentalDays,
@@ -94,7 +105,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     depositAmount: pricing.depositAmount,
     totalDue: pricing.totalDue,
     breakdown: pricing.breakdown,
-    currency: config?.currency || "USD",
+    currency: shopConfig?.currency || "USD",
     rentalNotes: product.rentalNotes || null,
     minRentalDays: product.minRentalDays,
     maxRentalDays: product.maxRentalDays,

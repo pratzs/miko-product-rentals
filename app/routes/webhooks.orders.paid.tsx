@@ -17,8 +17,10 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   const shopifyOrderName = order.name as string;
   const customerName = `${order.customer?.first_name || ""} ${order.customer?.last_name || ""}`.trim() || "Customer";
   const customerEmail = order.customer?.email || order.email || "";
+  const customerPhone =
+    order.customer?.phone || order.phone || order.shipping_address?.phone || order.billing_address?.phone || "";
 
-  // Look for rental line items — they carry rental metadata in note_attributes or properties
+  // Look for rental line items - they carry rental metadata in note_attributes or properties
   // We use line item properties: start_date, end_date, rental_product_id
   for (const item of order.line_items || []) {
     const properties: { name: string; value: string }[] = item.properties || [];
@@ -64,6 +66,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         shopifyOrderName,
         customerName,
         customerEmail,
+        customerPhone,
         startDate,
         endDate,
         unitsRented: 1,
@@ -78,23 +81,29 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       },
     });
 
-    // Send confirmation email (config is fetched internally)
+    // Send confirmation email (config is fetched internally). A failed email
+    // must never fail the webhook, otherwise Shopify retries it forever against
+    // an already-created booking. Log and move on.
     if (customerEmail) {
-      await sendBookingConfirmation({
-        shop,
-        bookingId: booking.id,
-        customerEmail,
-        customerName,
-        productTitle: rentalProduct.shopifyProductTitle,
-        orderName: shopifyOrderName,
-        startDate,
-        endDate,
-        rentalDays: pricing.rentalDays,
-        rentalPrice: pricing.rentalPrice,
-        depositAmount: pricing.depositAmount,
-        totalCharged: pricing.totalDue,
-        currency: config?.currency || "USD",
-      });
+      try {
+        await sendBookingConfirmation({
+          shop,
+          bookingId: booking.id,
+          customerEmail,
+          customerName,
+          productTitle: rentalProduct.shopifyProductTitle,
+          orderName: shopifyOrderName,
+          startDate,
+          endDate,
+          rentalDays: pricing.rentalDays,
+          rentalPrice: pricing.rentalPrice,
+          depositAmount: pricing.depositAmount,
+          totalCharged: pricing.totalDue,
+          currency: config?.currency || "USD",
+        });
+      } catch (err) {
+        console.error(`[orders/paid] confirmation email failed for booking ${booking.id}:`, err);
+      }
     }
   }
 

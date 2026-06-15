@@ -64,7 +64,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   const intent = formData.get("intent") as string;
 
   if (intent === "add_product") {
-    // Open the Shopify product picker — handled client-side via App Bridge.
+    // Open the Shopify product picker - handled client-side via App Bridge.
     // The client POSTs the selected product details back here.
     const shopifyProductId = formData.get("shopifyProductId") as string;
     const title = formData.get("title") as string;

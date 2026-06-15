@@ -1,6 +1,6 @@
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "@remix-run/node";
 import { json, redirect } from "@remix-run/node";
-import { useLoaderData, useNavigate, Form, useActionData, useNavigation } from "@remix-run/react";
+import { useLoaderData, useNavigate, Form, useActionData, useNavigation, useSubmit } from "@remix-run/react";
 import {
   Page,
   Layout,
@@ -142,6 +142,7 @@ export default function ProductConfigPage() {
   const actionData = useActionData<typeof action>();
   const navigation = useNavigation();
   const navigate = useNavigate();
+  const submit = useSubmit();
   const saving = navigation.state === "submitting";
 
   const [pricePerDay, setPricePerDay] = useState(product.pricePerDay.toString());
@@ -180,7 +181,7 @@ export default function ProductConfigPage() {
           onAction: () => {
             const fd = new FormData();
             fd.set("intent", "toggle_active");
-            fetch("", { method: "POST", body: fd });
+            submit(fd, { method: "POST" });
           },
           destructive: product.isActive,
         },
@@ -222,7 +223,7 @@ export default function ProductConfigPage() {
                   <Text as="h2" variant="headingMd">Rental pricing</Text>
                   <Text as="p" tone="subdued">
                     Set how much customers pay to rent this item. Daily rate is required.
-                    Weekly and monthly rates are optional — when offered, customers automatically
+                    Weekly and monthly rates are optional - when offered, customers automatically
                     get the best rate for their chosen dates.
                   </Text>
                 </BlockStack>
@@ -251,7 +252,7 @@ export default function ProductConfigPage() {
                       min={0}
                       step={0.01}
                       autoComplete="off"
-                      helpText="Optional — leave at 0 to not offer"
+                      helpText="Optional - leave at 0 to not offer"
                     />
                   </Box>
                   <Box minWidth="180px">
@@ -264,7 +265,7 @@ export default function ProductConfigPage() {
                       min={0}
                       step={0.01}
                       autoComplete="off"
-                      helpText="Optional — leave at 0 to not offer"
+                      helpText="Optional - leave at 0 to not offer"
                     />
                   </Box>
                 </InlineStack>
@@ -360,7 +361,7 @@ export default function ProductConfigPage() {
                 <BlockStack gap="100">
                   <Text as="h2" variant="headingMd">Customer-facing notes</Text>
                   <Text as="p" tone="subdued">
-                    Any extra instructions shown to the customer on the product page — for example,
+                    Any extra instructions shown to the customer on the product page - for example,
                     pickup location, what is included, or care instructions.
                   </Text>
                 </BlockStack>
@@ -371,7 +372,7 @@ export default function ProductConfigPage() {
                   onChange={setRentalNotes}
                   multiline={4}
                   autoComplete="off"
-                  placeholder="e.g. Collect from our store at 123 Main Street between 9am–5pm. Helmet and lock included."
+                  placeholder="e.g. Collect from our store at 123 Main Street between 9am-5pm. Helmet and lock included."
                 />
               </BlockStack>
             </Card>
@@ -383,7 +384,7 @@ export default function ProductConfigPage() {
                   <Text as="h2" variant="headingMd" tone="critical">Remove product</Text>
                   <Text as="p" tone="subdued">
                     This removes the rental configuration from this product. The product itself
-                    stays in your Shopify store — only the rental settings are deleted.
+                    stays in your Shopify store - only the rental settings are deleted.
                     You cannot do this while the product is active.
                   </Text>
                   <Form method="POST">

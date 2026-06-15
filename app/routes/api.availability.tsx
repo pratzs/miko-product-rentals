@@ -5,14 +5,14 @@ import { getUnavailableDates } from "../utils/availability";
 import { addMonths } from "date-fns";
 
 /**
- * Public endpoint — no Shopify auth required.
+ * Public endpoint - no Shopify auth required.
  * Called from the storefront theme extension to fetch unavailable dates.
  *
  * Query params:
- *   shop          — myshopify domain e.g. example.myshopify.com
- *   productId     — Shopify product GID e.g. gid://shopify/Product/123
- *   from          — ISO date string (defaults to today)
- *   to            — ISO date string (defaults to 3 months from today)
+ *   shop          - myshopify domain e.g. example.myshopify.com
+ *   productId     - Shopify product GID e.g. gid://shopify/Product/123
+ *   from          - ISO date string (defaults to today)
+ *   to            - ISO date string (defaults to 3 months from today)
  */
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const url = new URL(request.url);
@@ -35,6 +35,14 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   const config = await db.shopConfig.findUnique({ where: { shop } });
   if (!config) {
     return json({ unavailableDates: [] }, { headers: corsHeaders(request) });
+  }
+
+  // Record the first time the storefront calendar reaches us, so onboarding
+  // can confirm the theme block is live without the merchant telling us.
+  if (!config.widgetSeenAt) {
+    await db.shopConfig
+      .update({ where: { shop }, data: { widgetSeenAt: new Date() } })
+      .catch(() => {});
   }
 
   try {

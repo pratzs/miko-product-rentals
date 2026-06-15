@@ -43,6 +43,24 @@ model ShopConfig {
   // Flat daily late fee in the shop's currency.
   lateFeePerDay       Float    @default(0)
   onboardingCompleted Boolean  @default(false)
+  // First time the storefront booking calendar called our API for this shop.
+  // Used to auto-detect that the theme block is live during onboarding.
+  widgetSeenAt        DateTime?
+  // Email identity — shown to customers on every email sent.
+  senderName          String   @default("")   // From: display name, e.g. "Kiwi Surf Gear"
+  replyToEmail        String   @default("")   // Reply-To address, e.g. owner@kiwisurfgear.co.nz
+  // BYO SMTP — available on Starter plan and above.
+  smtpHost            String   @default("")
+  smtpPort            Int      @default(587)
+  smtpUser            String   @default("")
+  smtpPass            String   @default("")
+  smtpFromEmail       String   @default("")
+  smtpFromName        String   @default("")
+  smtpSecure          Boolean  @default(false)
+  // Brand visuals — used in email templates.
+  brandLogoUrl        String?
+  brandPrimaryColor   String?  @default("#1a1a1a")
+  brandName           String?
   installedAt         DateTime @default(now())
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
@@ -50,6 +68,22 @@ model ShopConfig {
   rentalProducts RentalProduct[]
   bookings       RentalBooking[]
   blockedDates   BlockedDate[]
+}
+
+model EmailTemplate {
+  id        String   @id @default(cuid())
+  shop      String
+  type      String   // confirmation | return_reminder | overdue | custom
+  name      String
+  subject   String   @default("")
+  blocks    Json
+  html      String   @default("") @db.Text
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([shop])
+  @@index([shop, type])
 }
 
 // Each Shopify product that the merchant has enabled for rental.

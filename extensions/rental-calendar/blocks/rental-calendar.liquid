@@ -1,5 +1,5 @@
 {% comment %}
-  Miko Rental Calendar — Theme App Extension Block
+  Miko Rental Calendar - Theme App Extension Block
   Add this block to any product page to show a date picker and pricing calculator.
   Customers pick their start and end date; the block calls the Miko Rentals API
   to check availability and show the price before adding to cart.
@@ -11,7 +11,7 @@
   id="miko-rental-widget"
   data-shop="{{ shop.permanent_domain }}"
   data-product-id="{{ product.id | prepend: 'gid://shopify/Product/' }}"
-  data-app-url="{{ block.settings.app_url }}"
+  data-app-url="{{ block.settings.app_url | default: 'https://miko-product-rentals-production.up.railway.app' }}"
   data-currency="{{ cart.currency.iso_code }}"
   data-min-days="{{ block.settings.min_days | default: 1 }}"
 >
@@ -95,8 +95,8 @@
     {
       "type": "url",
       "id": "app_url",
-      "label": "App URL",
-      "info": "The URL of your Miko Rentals app (e.g. https://your-app.railway.app). Find this in your Railway project settings."
+      "label": "App URL (advanced)",
+      "info": "Leave this blank. It is only needed if you run Miko Rentals on a custom domain."
     },
     {
       "type": "range",

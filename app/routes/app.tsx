@@ -34,6 +34,8 @@ export default function App() {
         <Link to="/app/bookings">Bookings</Link>
         <Link to="/app/calendar">Calendar</Link>
         <Link to="/app/analytics">Analytics</Link>
+        <Link to="/app/emails">Emails</Link>
+        <Link to="/app/pricing">Pricing</Link>
         <Link to="/app/settings">Settings</Link>
       </NavMenu>
       <Outlet />
@@ -44,7 +46,7 @@ export default function App() {
 export function ErrorBoundary() {
   const error = useRouteError();
   // Suppress the brief 401/302 flash during App Bridge token exchange.
-  // App Bridge intercepts and re-submits automatically — showing an error here breaks the flow.
+  // App Bridge intercepts and re-submits automatically - showing an error here breaks the flow.
   if (error instanceof Response && (error.status === 401 || error.status === 302)) {
     return null;
   }

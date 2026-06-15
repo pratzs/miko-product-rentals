@@ -68,7 +68,7 @@ export default function NewProductPage() {
 
   const openPicker = useCallback(async () => {
     setPicking(true);
-    // App Bridge ResourcePicker — dynamically imported so it only loads client-side.
+    // App Bridge ResourcePicker - dynamically imported so it only loads client-side.
     try {
       const shopify = (window as any).shopify;
       if (shopify?.resourcePicker) {
@@ -115,7 +115,7 @@ export default function NewProductPage() {
               <Text as="h2" variant="headingMd">Select a product</Text>
               <Text as="p" tone="subdued">
                 Pick any physical product you want to make available for rental.
-                The product's existing Shopify listing stays unchanged — Miko Rentals
+                The product's existing Shopify listing stays unchanged - Miko Rentals
                 adds a booking calendar to it automatically.
               </Text>
             </BlockStack>

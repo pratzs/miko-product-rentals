@@ -16,25 +16,51 @@ import {
   Banner,
   Box,
   Divider,
+  Icon,
+  ProgressBar,
 } from "@shopify/polaris";
+import { CheckCircleIcon } from "@shopify/polaris-icons";
 import { authenticate } from "../shopify.server";
 import { db } from "../db.server";
-import { format, isToday, isTomorrow, isPast, addDays } from "date-fns";
+import { format, isToday, isTomorrow } from "date-fns";
 import { formatCurrency } from "../utils/pricing";
+import { checkRentalLimit, getPlan } from "../utils/plans";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const { session } = await authenticate.admin(request);
   const shop = session.shop;
 
-  const [config, totalProducts, bookings] = await Promise.all([
+  const [config, totalProducts, liveProducts, totalBookingsCount, bookings] = await Promise.all([
     db.shopConfig.findUnique({ where: { shop } }),
-    db.rentalProduct.count({ where: { shop, isActive: true } }),
+    db.rentalProduct.count({ where: { shop } }),
+    db.rentalProduct.count({ where: { shop, isActive: true, pricePerDay: { gt: 0 } } }),
+    db.rentalBooking.count({ where: { shop } }),
     db.rentalBooking.findMany({
       where: { shop },
       include: { rentalProduct: true },
       orderBy: { createdAt: "desc" },
     }),
   ]);
+
+  // ---- Onboarding: detect what the merchant has already done ----
+  const steps = {
+    productAdded: totalProducts > 0,
+    pricingLive: liveProducts > 0,
+    // The storefront block is "live" once it has called our API, or once any
+    // real booking has come through (which proves the whole flow works).
+    calendarLive: Boolean(config?.widgetSeenAt) || totalBookingsCount > 0,
+    emailReady: Boolean(config?.senderName && config.senderName.trim().length > 0),
+  };
+  const stepsDone = Object.values(steps).filter(Boolean).length;
+  const allStepsDone = stepsDone === 4;
+
+  // Auto-complete onboarding once every step is detected, so the checklist
+  // disappears on its own without the merchant clicking anything.
+  if (config && allStepsDone && !config.onboardingCompleted) {
+    await db.shopConfig
+      .update({ where: { shop }, data: { onboardingCompleted: true } })
+      .catch(() => {});
+  }
 
   const now = new Date();
   const activeBookings = bookings.filter((b) => b.status === "active");
@@ -64,12 +90,31 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     })
     .reduce((sum, b) => sum + b.rentalPrice, 0);
 
+  const shopHandle = shop.replace(".myshopify.com", "");
+
+  // Plan usage, so we can warn the merchant before bookings stop being created.
+  const planName = config?.planName ?? "free";
+  const limit = await checkRentalLimit(shop, planName, db);
+  const planLabel = getPlan(planName).name;
+
   return json({
     shop,
+    shopHandle,
     currency: config?.currency || "USD",
     onboardingCompleted: config?.onboardingCompleted || false,
+    onboarding: { steps, stepsDone, allStepsDone },
+    usage: {
+      planName,
+      planLabel,
+      current: limit.current,
+      limit: limit.limit,
+      atLimit: limit.current >= limit.limit,
+      nearLimit: limit.current >= Math.floor(limit.limit * 0.8) && limit.current < limit.limit,
+      isLifetime: planName === "free",
+    },
     stats: {
       totalProducts,
+      liveProducts,
       activeBookings: activeBookings.length,
       overdueBookings: overdueBookings.length,
       returningTomorrow: returningTomorrow.length,
@@ -109,9 +154,58 @@ const STATUS_BADGE: Record<string, { tone: any; label: string }> = {
 };
 
 export default function Dashboard() {
-  const { stats, upcomingBookings, recentBookings, currency, onboardingCompleted, overdueCount } =
-    useLoaderData<typeof loader>();
+  const {
+    stats,
+    upcomingBookings,
+    recentBookings,
+    currency,
+    onboardingCompleted,
+    onboarding,
+    usage,
+    shopHandle,
+    overdueCount,
+  } = useLoaderData<typeof loader>();
   const navigate = useNavigate();
+
+  const themeEditorUrl = `https://admin.shopify.com/store/${shopHandle}/themes/current/editor?template=product`;
+
+  const setupSteps: {
+    title: string;
+    description: string;
+    done: boolean;
+    actionLabel: string;
+    onAction?: () => void;
+    url?: string;
+  }[] = [
+    {
+      title: "Add your first rental product",
+      description: "Pick any product from your store and turn it into a rental. Its normal listing stays exactly the same.",
+      done: onboarding.steps.productAdded,
+      actionLabel: "Add a product",
+      onAction: () => navigate("/app/products/new"),
+    },
+    {
+      title: "Set your pricing and switch it on",
+      description: "Add a daily rate (weekly and monthly are optional), then activate the product so customers can book it.",
+      done: onboarding.steps.pricingLive,
+      actionLabel: "Set pricing",
+      onAction: () => navigate("/app/products"),
+    },
+    {
+      title: "Show the booking calendar on your store",
+      description: "Add the Miko Rental Calendar block to your product page in the theme editor. We tick this off automatically once it goes live.",
+      done: onboarding.steps.calendarLive,
+      actionLabel: "Open theme editor",
+      url: themeEditorUrl,
+    },
+    {
+      title: "Set how your emails are signed",
+      description: "Choose the sender name customers see on their booking confirmation and reminder emails.",
+      done: onboarding.steps.emailReady,
+      actionLabel: "Set sender name",
+      onAction: () => navigate("/app/settings"),
+    },
+  ];
 
   const statCards = [
     {
@@ -141,7 +235,7 @@ export default function Dashboard() {
   ];
 
   const tableRows = recentBookings.map((b) => [
-    b.orderName || "—",
+    b.orderName || "-",
     b.customerName,
     b.productTitle,
     format(new Date(b.startDate), "d MMM yyyy"),
@@ -163,16 +257,99 @@ export default function Dashboard() {
       }
     >
       <BlockStack gap="600">
-        {!onboardingCompleted && stats.totalProducts === 0 && (
+        {!onboardingCompleted && (
+          <Card>
+            <BlockStack gap="400">
+              <BlockStack gap="100">
+                <InlineStack align="space-between" blockAlign="center">
+                  <Text as="h2" variant="headingMd">Get your rentals up and running</Text>
+                  <Badge tone={onboarding.allStepsDone ? "success" : "attention"}>
+                    {`${onboarding.stepsDone} of 4 done`}
+                  </Badge>
+                </InlineStack>
+                <Text as="p" tone="subdued">
+                  Work through these steps and your first product will be ready to rent. Each one ticks itself off as soon as we detect it is done, so there is nothing to mark by hand.
+                </Text>
+              </BlockStack>
+
+              <ProgressBar progress={(onboarding.stepsDone / 4) * 100} tone="success" size="small" />
+
+              <BlockStack gap="0">
+                {setupSteps.map((step, i) => (
+                  <Box key={step.title}>
+                    {i > 0 && <Divider />}
+                    <Box paddingBlock="300">
+                      <InlineStack gap="300" blockAlign="center" wrap={false}>
+                        <Box minWidth="28px">
+                          {step.done ? (
+                            <Icon source={CheckCircleIcon} tone="success" />
+                          ) : (
+                            <Box
+                              background="bg-surface-secondary"
+                              borderColor="border"
+                              borderWidth="025"
+                              borderRadius="full"
+                              minWidth="28px"
+                              minHeight="28px"
+                            >
+                              <div style={{ width: 28, height: 28, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                                <Text as="span" variant="bodySm" tone="subdued" fontWeight="medium">{i + 1}</Text>
+                              </div>
+                            </Box>
+                          )}
+                        </Box>
+                        <Box width="100%">
+                          <BlockStack gap="050">
+                            <Text as="p" variant="bodyMd" fontWeight="medium" tone={step.done ? "subdued" : undefined}>
+                              {step.title}
+                            </Text>
+                            <Text as="p" variant="bodySm" tone="subdued">{step.description}</Text>
+                          </BlockStack>
+                        </Box>
+                        <Box minWidth="fit-content">
+                          {step.done ? (
+                            <Badge tone="success">Done</Badge>
+                          ) : step.url ? (
+                            <Button url={step.url} external>{step.actionLabel}</Button>
+                          ) : (
+                            <Button onClick={step.onAction}>{step.actionLabel}</Button>
+                          )}
+                        </Box>
+                      </InlineStack>
+                    </Box>
+                  </Box>
+                ))}
+              </BlockStack>
+
+              {onboarding.allStepsDone && (
+                <Banner tone="success" title="You are all set. Your store is ready to take rental bookings.">
+                  <p>This checklist will disappear on its own now that every step is complete.</p>
+                </Banner>
+              )}
+            </BlockStack>
+          </Card>
+        )}
+
+        {usage.atLimit && (
           <Banner
-            title="Set up your first rental product to get started"
-            tone="info"
-            action={{ content: "Go to Rental Products", onAction: () => navigate("/app/products") }}
+            title={`You have reached your ${usage.planLabel} plan limit of ${usage.limit} rentals${usage.isLifetime ? "" : " this month"}`}
+            tone="warning"
+            action={{ content: "See plans", onAction: () => navigate("/app/pricing") }}
           >
             <p>
-              Add any product from your Shopify store to Miko Rentals, set your pricing and deposit,
-              and a booking calendar will appear on that product page automatically.
+              New online bookings are paused until you upgrade
+              {usage.isLifetime ? "" : ", or until your count resets next month"}. Your existing bookings are safe. Upgrade any time to start taking rentals again right away.
             </p>
+          </Banner>
+        )}
+
+        {usage.nearLimit && !usage.atLimit && (
+          <Banner
+            title={`You have used ${usage.current} of your ${usage.limit} rentals on the ${usage.planLabel} plan`}
+            tone="info"
+            action={{ content: "See plans", onAction: () => navigate("/app/pricing") }}
+          >
+            <p>You are getting close to your plan limit. Upgrading now keeps new bookings flowing without a gap.</p>
           </Banner>
         )}
 

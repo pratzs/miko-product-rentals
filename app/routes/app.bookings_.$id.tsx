@@ -15,7 +15,6 @@ import {
   Box,
   TextField,
   Select,
-  Modal,
 } from "@shopify/polaris";
 import { authenticate } from "../shopify.server";
 import { db } from "../db.server";
@@ -97,7 +96,7 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
         depositStatus: booking.rentalProduct.autoReleaseDeposit ? "released" : booking.depositStatus,
       },
     });
-    return json({ success: true, message: `Booking marked as returned.${booking.rentalProduct.autoReleaseDeposit && booking.depositAmount > 0 ? " Deposit marked as released — process the refund in Shopify." : ""}` });
+    return json({ success: true, message: `Booking marked as returned.${booking.rentalProduct.autoReleaseDeposit && booking.depositAmount > 0 ? " Deposit marked as released - process the refund in Shopify." : ""}` });
   }
 
   if (intent === "mark_active") {
@@ -157,10 +156,10 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
 
 const STATUS_BADGE: Record<string, { tone: any; label: string }> = {
   pending:   { tone: "attention", label: "Pending payment" },
-  confirmed: { tone: "info",      label: "Confirmed — not started yet" },
+  confirmed: { tone: "info",      label: "Confirmed - not started yet" },
   active:    { tone: "success",   label: "Out on rental" },
   returned:  { tone: "success",   label: "Returned" },
-  overdue:   { tone: "critical",  label: "Overdue — not returned" },
+  overdue:   { tone: "critical",  label: "Overdue - not returned" },
   cancelled: { tone: "subdued",   label: "Cancelled" },
 };
 
@@ -189,7 +188,7 @@ export default function BookingDetailPage() {
   return (
     <Page
       title={booking.orderName || `Booking ${booking.id.slice(-8).toUpperCase()}`}
-      subtitle={`${booking.productTitle} — ${booking.customerName}`}
+      subtitle={`${booking.productTitle} - ${booking.customerName}`}
       backAction={{ content: "Bookings", url: "/app/bookings" }}
     >
       <Layout>
@@ -350,7 +349,7 @@ export default function BookingDetailPage() {
             <Card>
               <BlockStack gap="400">
                 <Text as="h2" variant="headingMd">Internal notes</Text>
-                <Text as="p" tone="subdued">These notes are only visible to you — not to the customer.</Text>
+                <Text as="p" tone="subdued">These notes are only visible to you - not to the customer.</Text>
                 <TextField
                   label="Notes"
                   labelHidden
@@ -371,7 +370,7 @@ export default function BookingDetailPage() {
           </BlockStack>
         </Layout.Section>
 
-        {/* Sidebar — actions */}
+        {/* Sidebar - actions */}
         <Layout.Section variant="oneThird">
           <BlockStack gap="400">
             {/* Customer info */}
