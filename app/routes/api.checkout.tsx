@@ -110,32 +110,37 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   const fmt = (d: Date) =>
     d.toLocaleDateString("en-NZ", { day: "numeric", month: "long", year: "numeric" });
 
-  // Build the line items. The rental product is charged at the rental price
-  // (not its regular Shopify price). The deposit is a separate custom line
-  // item with no shipping or tax.
-  const lineItems: {
-    variantId?: string;
-    title?: string;
+  // Shopify ignores originalUnitPrice when variantId is set on a draft order
+  // line item — it always falls back to the variant's Shopify price. To charge
+  // the rental price we use a custom line item (no variantId) which always
+  // uses our originalUnitPrice. We store the variantId in customAttributes so
+  // the orders/paid webhook can still match back to the right product.
+  const rentalLineItem = {
+    title: `${product.shopifyProductTitle} - ${pricing.rentalDays} day rental`,
+    quantity: 1,
+    originalUnitPrice: pricing.rentalPrice.toFixed(2),
+    requiresShipping: true,
+    taxable: true,
+    customAttributes: [
+      { key: "Rental start", value: fmt(startDate) },
+      { key: "Return by", value: fmt(endDate) },
+      { key: "Rental duration", value: `${pricing.rentalDays} day${pricing.rentalDays !== 1 ? "s" : ""}` },
+      { key: "_miko_rental_product_id", value: product.id },
+      { key: "_miko_start_date", value: startDateStr },
+      { key: "_miko_end_date", value: endDateStr },
+      { key: "_miko_variant_id", value: variantId },
+    ],
+  };
+
+  type LineItem = {
+    title: string;
     quantity: number;
     originalUnitPrice: string;
-    requiresShipping?: boolean;
-    taxable?: boolean;
+    requiresShipping: boolean;
+    taxable: boolean;
     customAttributes?: { key: string; value: string }[];
-  }[] = [
-    {
-      variantId: `gid://shopify/ProductVariant/${variantId}`,
-      quantity: 1,
-      originalUnitPrice: pricing.rentalPrice.toFixed(2),
-      customAttributes: [
-        { key: "Rental start", value: fmt(startDate) },
-        { key: "Return by", value: fmt(endDate) },
-        { key: "Rental duration", value: `${pricing.rentalDays} day${pricing.rentalDays !== 1 ? "s" : ""}` },
-        { key: "_miko_rental_product_id", value: product.id },
-        { key: "_miko_start_date", value: startDateStr },
-        { key: "_miko_end_date", value: endDateStr },
-      ],
-    },
-  ];
+  };
+  const lineItems: LineItem[] = [rentalLineItem];
 
   if (pricing.depositAmount > 0) {
     lineItems.push({
