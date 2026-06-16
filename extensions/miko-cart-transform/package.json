@@ -1,5 +1,35 @@
 {
   "name": "miko-cart-transform",
   "version": "1.0.0",
-  "type": "module"
+  "type": "module",
+  "scripts": {
+    "build": "shopify-function-runner build"
+  },
+  "dependencies": {
+    "@shopify/shopify_function": "~2.0.0"
+  },
+  "devDependencies": {
+    "@graphql-codegen/typescript": "^4.0.0",
+    "@graphql-codegen/typescript-operations": "^4.0.0"
+  },
+  "graphql": {
+    "projects": {
+      "default": {
+        "schema": "schema.graphql",
+        "documents": ["src/*.graphql"],
+        "extensions": {
+          "codegen": {
+            "generates": {
+              "generated/api.ts": {
+                "plugins": [
+                  "@graphql-codegen/typescript",
+                  "@graphql-codegen/typescript-operations"
+                ]
+              }
+            }
+          }
+        }
+      }
+    }
+  }
 }

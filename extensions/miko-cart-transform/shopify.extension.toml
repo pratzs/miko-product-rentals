@@ -1,7 +1,12 @@
 api_version = "2026-04"
+uid = "5dd1145b-f91d-a151-c9d6-5dc66d744fd17a37453c"
 
 [[extensions]]
 type = "function"
 name = "Miko Cart Transform"
 handle = "miko-cart-transform"
 api_type = "cart_transform"
+
+[[extensions.targeting]]
+module = "./src/index.js"
+target = "purchase.cart-transform.run"

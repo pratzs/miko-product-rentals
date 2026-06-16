@@ -1,0 +1,31 @@
+# Minimal Cart Transform API schema - covers the fields used in run.graphql.
+# Full schema is available via Shopify Partners API.
+
+scalar Decimal
+scalar ID
+
+type Query {
+  cart: Cart!
+}
+
+type Cart {
+  lines: [CartLine!]!
+}
+
+type CartLine {
+  id: ID!
+  quantity: Int!
+  merchandise: Merchandise!
+  attributes: [CartAttribute!]!
+}
+
+union Merchandise = ProductVariant
+
+type ProductVariant {
+  id: ID!
+}
+
+type CartAttribute {
+  key: String!
+  value: String
+}

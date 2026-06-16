@@ -25,17 +25,14 @@ api_version = "2026-04"
   uri = "/webhooks/app_subscriptions/update"
   topics = ["app_subscriptions/update"]
 
-  # Creates a rental booking the moment an order with rental line items is paid.
   [[webhooks.subscriptions]]
   uri = "/webhooks/orders/paid"
   topics = ["orders/paid"]
 
-  # Cancels the matching booking when its order is cancelled.
   [[webhooks.subscriptions]]
   uri = "/webhooks/orders/cancelled"
   topics = ["orders/cancelled"]
 
-  # Mandatory privacy and compliance webhooks for App Store listing.
   [[webhooks.subscriptions]]
   uri = "/webhooks/customers/data_request"
   compliance_topics = ["customers/data_request"]
