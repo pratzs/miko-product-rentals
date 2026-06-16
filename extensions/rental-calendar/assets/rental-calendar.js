@@ -1,7 +1,12 @@
 /**
  * Miko Rental Calendar - Storefront Widget
- * Handles date selection, availability checking, pricing calculation,
- * and adding to cart with rental metadata.
+ *
+ * Adds the chosen dates and rental total to the standard Shopify cart as
+ * line item properties. A Cart Transform Function (miko-cart-transform)
+ * intercepts the checkout and sets the actual charge to _miko_total_price
+ * (rental fee + deposit combined). The customer can continue shopping,
+ * mix rental and regular products, and return to the cart without losing
+ * their selections - because it is just a normal Shopify cart.
  */
 (function () {
   "use strict";
@@ -15,7 +20,7 @@
   const currency = widget.dataset.currency || "USD";
 
   if (!appUrl) {
-    console.warn("[Miko Rentals] App URL not configured. Edit the theme block settings.");
+    console.warn("[Miko Rentals] App URL not configured.");
     return;
   }
 
@@ -30,9 +35,8 @@
   const totalPriceEl = document.getElementById("miko-total-price");
   const notesEl = document.getElementById("miko-notes");
   const addBtn = document.getElementById("miko-add-to-cart");
-  const variantIdInput = document.getElementById("miko-variant-id");
+  const cartForm = document.getElementById("miko-cart-form");
 
-  // Set min date to today
   const today = new Date().toISOString().split("T")[0];
   startInput.min = today;
   endInput.min = today;
@@ -41,7 +45,6 @@
   let checkTimeout = null;
   let currentPricing = null;
 
-  // Fetch unavailable dates on load
   fetchUnavailableDates();
 
   startInput.addEventListener("change", onDateChange);
@@ -52,7 +55,6 @@
     const start = startInput.value;
     const end = endInput.value;
 
-    // Enforce end >= start + 1 day
     if (start) {
       const minEnd = new Date(start);
       minEnd.setDate(minEnd.getDate() + 1);
@@ -72,25 +74,21 @@
 
   async function fetchUnavailableDates() {
     try {
-      const from = today;
       const to = new Date(new Date().setMonth(new Date().getMonth() + 4))
         .toISOString()
         .split("T")[0];
       const res = await fetch(
-        `${appUrl}/api/availability?shop=${encodeURIComponent(shop)}&productId=${encodeURIComponent(productId)}&from=${from}&to=${to}`
+        `${appUrl}/api/availability?shop=${encodeURIComponent(shop)}&productId=${encodeURIComponent(productId)}&from=${today}&to=${to}`
       );
       const data = await res.json();
       unavailableDates = data.unavailableDates || [];
-
-      // Mark unavailable dates by disabling them in the date picker
-      // (Native date inputs don't support per-day disabling, so we validate on change)
     } catch {
-      // Silently fail - availability check happens at pricing time too
+      // Silently fail - availability is re-checked when dates are chosen
     }
   }
 
   async function checkPricing(startDate, endDate) {
-    showMsg("Checking availability…", "loading");
+    showMsg("Checking availability...", "loading");
     disableBtn();
 
     try {
@@ -171,36 +169,51 @@
 
     const startDate = startInput.value;
     const endDate = endInput.value;
-    const variantId = variantIdInput ? variantIdInput.value : "";
 
-    if (!variantId) {
-      showMsg("No variant found for this product. Please refresh and try again.", "error");
-      return;
-    }
+    // Populate hidden form fields
+    document.getElementById("miko-prop-product-id").value = productId;
+    document.getElementById("miko-prop-start").value = startDate;
+    document.getElementById("miko-prop-end").value = endDate;
+    document.getElementById("miko-prop-start-display").value = formatDateDisplay(startDate);
+    document.getElementById("miko-prop-end-display").value = formatDateDisplay(endDate);
+    document.getElementById("miko-prop-duration").value =
+      `${currentPricing.rentalDays} day${currentPricing.rentalDays !== 1 ? "s" : ""}`;
+    // Visible breakdown shown in cart/checkout order details
+    document.getElementById("miko-prop-price").value =
+      formatCurrency(currentPricing.rentalPrice, currentPricing.currency || currency);
+    document.getElementById("miko-prop-deposit").value =
+      currentPricing.depositAmount > 0
+        ? formatCurrency(currentPricing.depositAmount, currentPricing.currency || currency)
+        : "None";
+    // Private pricing fields read by the Cart Transform Function
+    document.getElementById("miko-prop-total-price").value =
+      currentPricing.totalDue.toFixed(2);
+    document.getElementById("miko-prop-rental-price").value =
+      currentPricing.rentalPrice.toFixed(2);
+    document.getElementById("miko-prop-deposit-amount").value =
+      currentPricing.depositAmount.toFixed(2);
 
-    addBtn.textContent = "Creating your checkout…";
+    addBtn.textContent = "Adding to cart...";
     addBtn.classList.add("miko-btn--loading");
     addBtn.disabled = true;
 
     try {
-      const res = await fetch(`${appUrl}/api/checkout`, {
+      const formData = new FormData(cartForm);
+      const res = await fetch("/cart/add.js", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ shop, productId, variantId, startDate, endDate }),
+        body: formData,
       });
 
-      let data = {};
-      try { data = await res.json(); } catch { /* non-JSON response */ }
-
-      if (!res.ok || !data.checkoutUrl) {
-        showMsg(data.error || "Could not create your checkout. Please try again.", "error");
+      if (res.ok) {
+        document.dispatchEvent(new CustomEvent("cart:refresh", { bubbles: true }));
+        window.location.href = "/cart";
+      } else {
+        const err = await res.json().catch(() => ({}));
+        showMsg(err.description || "Could not add to cart. Please try again.", "error");
         enableBtn(`Book now - ${formatCurrency(currentPricing.totalDue, currentPricing.currency || currency)}`);
-        return;
       }
-
-      window.location.href = data.checkoutUrl;
     } catch {
-      showMsg("Could not reach the booking server. Please try again in a moment.", "error");
+      showMsg("Something went wrong. Please try again.", "error");
       enableBtn(`Book now - ${formatCurrency(currentPricing.totalDue, currentPricing.currency || currency)}`);
     }
   }
@@ -220,8 +233,11 @@
 
   function formatDateDisplay(isoDate) {
     try {
-      const d = new Date(isoDate + "T00:00:00");
-      return d.toLocaleDateString(undefined, { day: "numeric", month: "long", year: "numeric" });
+      return new Date(isoDate + "T00:00:00").toLocaleDateString(undefined, {
+        day: "numeric",
+        month: "long",
+        year: "numeric",
+      });
     } catch {
       return isoDate;
     }

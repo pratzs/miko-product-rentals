@@ -87,7 +87,29 @@
     </p>
   </div>
 
-  <input type="hidden" id="miko-variant-id" value="{{ product.selected_or_first_available_variant.id }}" />
+  {%- comment -%}
+    Hidden form submitted to /cart/add.js. All private fields prefixed with
+    `_miko_` are hidden from the customer-facing cart UI by Shopify because
+    the key starts with an underscore. The Cart Transform Function reads
+    `_miko_total_price` to set the actual checkout price.
+  {%- endcomment -%}
+  <form id="miko-cart-form" style="display:none;" action="/cart/add" method="post" enctype="multipart/form-data">
+    <input type="hidden" name="id" id="miko-variant-id" value="{{ product.selected_or_first_available_variant.id }}" />
+    <input type="hidden" name="quantity" value="1" />
+    {%- comment -%}Visible in cart and order emails{%- endcomment -%}
+    <input type="hidden" name="properties[Rental start]" id="miko-prop-start-display" value="" />
+    <input type="hidden" name="properties[Return by]" id="miko-prop-end-display" value="" />
+    <input type="hidden" name="properties[Rental duration]" id="miko-prop-duration" value="" />
+    <input type="hidden" name="properties[Rental price]" id="miko-prop-price" value="" />
+    <input type="hidden" name="properties[Deposit]" id="miko-prop-deposit" value="" />
+    {%- comment -%}Private - read by Cart Transform Function and webhook handlers{%- endcomment -%}
+    <input type="hidden" name="properties[_miko_total_price]" id="miko-prop-total-price" value="" />
+    <input type="hidden" name="properties[_miko_rental_price]" id="miko-prop-rental-price" value="" />
+    <input type="hidden" name="properties[_miko_deposit_amount]" id="miko-prop-deposit-amount" value="" />
+    <input type="hidden" name="properties[_miko_rental_product_id]" id="miko-prop-product-id" value="" />
+    <input type="hidden" name="properties[_miko_start_date]" id="miko-prop-start" value="" />
+    <input type="hidden" name="properties[_miko_end_date]" id="miko-prop-end" value="" />
+  </form>
 </div>
 
 <script src="{{ 'rental-calendar.js' | asset_url }}" defer></script>
