@@ -136,20 +136,57 @@
   </style>
 {%- endif -%}
 
-{%- if hide_collection_price and request.page_type contains 'collection' -%}
-  {%- comment -%}
-    Emit a list of rental product IDs in the current collection so the JS can
-    target their cards. Limited to first 250 to avoid blowing up huge pages.
-  {%- endcomment -%}
-  {%- assign rental_ids = "" -%}
+{%- comment -%}
+  Sitewide rental badge + price-hide. Runs on EVERY page (not just collection
+  pages) so it covers home-page featured-product grids, search results,
+  related-product strips, etc. - anywhere a rental product card might appear.
+
+  We identify rental cards by product HANDLE in the link href, because the
+  data-product-id attribute that older code relied on is not present on
+  most modern themes (Dawn, Horizon, Sense, Refresh, Studio, ...). Handles
+  are stable, themable-agnostic, and always in the /products/<handle> URL.
+{%- endcomment -%}
+{%- if hide_collection_price -%}
+  {%- assign rental_handles = "" -%}
   {%- for prod in collection.products limit: 250 -%}
     {%- if prod.metafields.miko.is_rental -%}
-      {%- assign rental_ids = rental_ids | append: prod.id | append: "," -%}
+      {%- assign rental_handles = rental_handles | append: prod.handle | append: "," -%}
     {%- endif -%}
   {%- endfor -%}
+  {%- comment -%}
+    On non-collection pages (home, search, etc.) `collection` is empty. Fall
+    back to scanning featured collections / all products via a recommendations
+    pattern - but cheapest is a global allowlist seeded by all_products. To
+    keep this lightweight we also include `all_products` when on home page.
+  {%- endcomment -%}
+  {%- if request.page_type == 'index' or request.page_type == 'search' or request.page_type == 'product' -%}
+    {%- for prod in collections.all.products limit: 250 -%}
+      {%- if prod.metafields.miko.is_rental -%}
+        {%- unless rental_handles contains prod.handle -%}
+          {%- assign rental_handles = rental_handles | append: prod.handle | append: "," -%}
+        {%- endunless -%}
+      {%- endif -%}
+    {%- endfor -%}
+  {%- endif -%}
 
-  {%- if rental_ids != "" -%}
+  {%- if rental_handles != "" -%}
     <style data-miko-display-rules="collection-badge">
+      [data-miko-rental-card] {
+        position: relative;
+      }
+      [data-miko-rental-card] .price,
+      [data-miko-rental-card] [class*="price" i]:not(.miko-rental-badge):not([class*="strikethrough" i]),
+      [data-miko-rental-card] [data-product-price],
+      [data-miko-rental-card] .product-price,
+      [data-miko-rental-card] .product__price,
+      [data-miko-rental-card] .card__price,
+      [data-miko-rental-card] .card-information__price,
+      [data-miko-rental-card] .price-item,
+      [data-miko-rental-card] .price__regular,
+      [data-miko-rental-card] .price__current,
+      [data-miko-rental-card] money-element {
+        display: none !important;
+      }
       .miko-rental-badge {
         position: absolute;
         top: 10px;
@@ -180,81 +217,61 @@
     </style>
     <script data-miko-display-rules="collection">
       (function () {
-        var ids = "{{ rental_ids }}".split(",").filter(Boolean);
-        if (!ids.length) return;
-        var idSet = new Set(ids);
+        var handles = "{{ rental_handles }}".split(",").filter(Boolean);
+        if (!handles.length) return;
+        var handleSet = new Set(handles);
 
-        // Hide prices on rental cards via a broad selector list so it works
-        // across themes (Dawn, Horizon, Sense, Refresh, Studio, plus most
-        // third-party themes).
-        var PRICE_SUFFIXES = [
-          '.price', '.product-price', '.product__price',
-          '.price-item', '.price-item--regular', '.price__current',
-          '.product-card__price', '.product-card-price',
-          '.card__price', '.card-information__price',
-          '.product-grid-item__price', '.grid-product__price',
-          '.price-container', '[data-product-price]',
-        ];
-        var CARD_KEYS = [
-          'data-product-id',
-          'data-id',
-          'data-product',
-          'data-card-product-id',
-        ];
-        var hideRules = [];
-        ids.forEach(function (id) {
-          CARD_KEYS.forEach(function (key) {
-            var base = '[' + key + '="' + id + '"]';
-            PRICE_SUFFIXES.forEach(function (suffix) {
-              hideRules.push(base + ' ' + suffix);
-              hideRules.push(base + suffix);
-            });
-          });
-        });
-        var hideStyle = document.createElement('style');
-        hideStyle.setAttribute('data-miko-display-rules', 'collection-css');
-        hideStyle.textContent = hideRules.join(',') + ' { display: none !important; }';
-        document.head.appendChild(hideStyle);
+        // Walk up from a product link to the closest ancestor that "looks
+        // like" a card. We pick the first ancestor matching common card
+        // semantics: a list-item, an <article>, or a div whose class hints
+        // at card / product / grid-item. Limit walk depth so we don't tag
+        // entire page sections by accident.
+        var CARD_HINT_RE = /(card|product-item|product__card|product-card|grid__item|grid-item|collection-item|featured-collection__item)/i;
+        function findCard(anchor) {
+          var node = anchor.parentElement;
+          for (var i = 0; i < 8 && node; i++) {
+            var tag = node.tagName;
+            if (tag === 'LI' || tag === 'ARTICLE') return node;
+            var cls = node.className;
+            if (typeof cls === 'string' && CARD_HINT_RE.test(cls)) return node;
+            node = node.parentElement;
+          }
+          return null;
+        }
 
-        // Inject a "Rental" badge into each rental product card. We look at
-        // every link to a /products/<handle> URL the page renders, find its
-        // surrounding card container, and prepend a badge once.
-        function injectBadges() {
+        function extractHandle(href) {
+          // /products/<handle>(?...|#...|/...)
+          var m = href.match(/\/products\/([^/?#]+)/);
+          return m ? m[1] : null;
+        }
+
+        function tagRentalCards() {
           var anchors = document.querySelectorAll('a[href*="/products/"]');
-          anchors.forEach(function (a) {
-            // Walk up to a sensible card container (the closest ancestor with
-            // a data-product-id matching one of our rental IDs).
-            var node = a;
-            var card = null;
-            for (var i = 0; i < 6 && node; i++) {
-              for (var k = 0; k < CARD_KEYS.length; k++) {
-                var attr = node.getAttribute && node.getAttribute(CARD_KEYS[k]);
-                if (attr && idSet.has(String(attr))) { card = node; break; }
-              }
-              if (card) break;
-              node = node.parentElement;
-            }
-            if (!card || card.querySelector(':scope > .miko-rental-badge')) return;
-            // The badge needs a positioned ancestor.
-            var computed = window.getComputedStyle(card);
-            if (computed.position === 'static') {
-              card.style.position = 'relative';
-            }
+          for (var i = 0; i < anchors.length; i++) {
+            var a = anchors[i];
+            var handle = extractHandle(a.getAttribute('href') || '');
+            if (!handle || !handleSet.has(handle)) continue;
+            var card = findCard(a);
+            if (!card || card.hasAttribute('data-miko-rental-card')) continue;
+            card.setAttribute('data-miko-rental-card', '1');
+            // Skip badge injection on PDPs - we already hide the price there
+            // via a different rule and a "Rental" badge would be redundant.
+            if (document.body && document.body.classList.contains('template-product')) continue;
             var badge = document.createElement('span');
             badge.className = 'miko-rental-badge';
             badge.textContent = 'Rental';
             card.insertBefore(badge, card.firstChild);
-          });
+          }
         }
         if (document.readyState === 'loading') {
-          document.addEventListener('DOMContentLoaded', injectBadges);
+          document.addEventListener('DOMContentLoaded', tagRentalCards);
         } else {
-          injectBadges();
+          tagRentalCards();
         }
-        // Re-run after lazy-loaded grids / infinite scroll updates.
+        // Re-run after lazy-loaded grids / infinite scroll / drawer mounts.
         new MutationObserver(function () {
           if (window.__mikoBadgeTimer) clearTimeout(window.__mikoBadgeTimer);
-          window.__mikoBadgeTimer = setTimeout(injectBadges, 100);
+          window.__mikoBadgeTimer = setTimeout(tagRentalCards, 100);
         }).observe(document.documentElement, { childList: true, subtree: true });
       })();
     </script>
