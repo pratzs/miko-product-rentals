@@ -319,6 +319,56 @@ export default function HelpPage() {
             {/* Late fees */}
             <Card>
               <BlockStack gap="400">
+                <Text as="h2" variant="headingMd">Theme compatibility</Text>
+                <Divider />
+                <Text as="p">
+                  Our app embed (<strong>Miko Rental Display Rules</strong>) auto-hides the regular price and injects a <strong>Rental</strong> badge on rental product cards across your storefront. It works out of the box on every Shopify-built theme (Dawn, Horizon, Sense, Refresh, Studio, Craft, Origin, and the rest) and the vast majority of third-party themes.
+                </Text>
+                <Text as="p">
+                  If you're on a heavily customized theme and the badge doesn't appear or the price isn't hidden on rental cards, paste this snippet into your theme's CSS file (<strong>Online Store → Themes → Edit code → assets/base.css</strong> or your theme's main stylesheet). Replace <code>.your-card-class</code> with the wrapper class your theme uses for each product card:
+                </Text>
+                <Box
+                  background="bg-surface-secondary"
+                  borderRadius="200"
+                  padding="300"
+                  borderColor="border"
+                  borderWidth="025"
+                >
+                  <pre style={{ margin: 0, fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace", fontSize: "12px", whiteSpace: "pre-wrap", lineHeight: "1.5" }}>
+{`/* Miko - custom-theme fallback for rental product cards */
+.your-card-class[data-miko-rental-card] {
+  position: relative;
+}
+.your-card-class[data-miko-rental-card] .your-price-class {
+  display: none !important;
+}
+.your-card-class[data-miko-rental-card] .miko-rental-badge {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  z-index: 5;
+  padding: 5px 10px;
+  background: #0e1b3a;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border-radius: 4px;
+}`}
+                  </pre>
+                </Box>
+                <Text as="p" tone="subdued">
+                  Not sure what your card / price class names are? Right-click a product card on your storefront → <strong>Inspect</strong>. The wrapping element's <code>class</code> attribute is what goes in place of <code>.your-card-class</code>; the visible price element's class goes in <code>.your-price-class</code>.
+                </Text>
+                <Text as="p" tone="subdued">
+                  If you'd rather not touch code, email support and we'll send you a snippet tailored to your theme.
+                </Text>
+              </BlockStack>
+            </Card>
+
+            <Card>
+              <BlockStack gap="400">
                 <Text as="h2" variant="headingMd">How late fees work</Text>
                 <Divider />
                 <BlockStack gap="200">
