@@ -210,6 +210,23 @@ export default function HelpPage() {
   } = useLoaderData<typeof loader>();
   const navigate = useNavigate();
 
+  // Shopify embeds the admin app in an iframe, which blocks mailto: from
+  // navigating to a system handler. window.top.location escapes the iframe
+  // so the merchant's actual mail client opens. We fall back to window.open
+  // for non-iframe contexts (local dev, standalone).
+  function openMailto(subject: string, body?: string) {
+    const params = new URLSearchParams();
+    params.set("subject", subject);
+    if (body) params.set("body", body);
+    const href = `mailto:${supportEmail}?${params.toString()}`;
+    try {
+      const top = window.top || window;
+      top.location.href = href;
+    } catch {
+      window.open(href, "_blank");
+    }
+  }
+
   return (
     <Page
       title="Help center"
@@ -277,8 +294,7 @@ export default function HelpPage() {
                     </Button>
                     <Button
                       icon={EmailIcon}
-                      url={`mailto:${supportEmail}`}
-                      external
+                      onClick={() => openMailto("Miko support request")}
                       variant="plain"
                     >
                       Email support
@@ -577,8 +593,12 @@ export default function HelpPage() {
                       </Text>
                     </BlockStack>
                     <Button
-                      url={`mailto:${supportEmail}?subject=Custom%20theme%20CSS%20help&body=Hi%20Miko%20team%2C%0A%0AMy%20store%20URL%3A%20%0AMy%20theme%3A%20%0A%0AThe%20Rental%20badge%20%2F%20price%20hide%20is%20not%20working%20on%20my%20collection%20pages.%20Could%20you%20send%20me%20a%20CSS%20snippet%20that%20works%20for%20my%20theme%3F%0A%0AThanks%21`}
-                      external
+                      onClick={() =>
+                        openMailto(
+                          "Custom theme CSS help",
+                          "Hi Miko team,\n\nMy store URL: \nMy theme: \n\nThe Rental badge / price hide is not working on my collection pages. Could you send me a CSS snippet that works for my theme?\n\nThanks!",
+                        )
+                      }
                       variant="primary"
                       icon={EmailIcon}
                     >
@@ -630,7 +650,7 @@ export default function HelpPage() {
                 <Text as="p" tone="subdued">
                   Stuck on something? Email our team and we will get back to you within one business day.
                 </Text>
-                <Button url={`mailto:${supportEmail}?subject=Miko%20support%20request`} external fullWidth variant="primary" icon={EmailIcon}>
+                <Button onClick={() => openMailto("Miko support request")} fullWidth variant="primary" icon={EmailIcon}>
                   Email our team
                 </Button>
               </BlockStack>
@@ -642,7 +662,16 @@ export default function HelpPage() {
                 <Text as="p" tone="subdued">
                   Want to use Miko for event bookings, equipment hire, studio time, or any other date based booking? Tell us your use case and we will see if we can help.
                 </Text>
-                <Button url={`mailto:${supportEmail}?subject=Use%20case%20beyond%20rentals`} external fullWidth icon={EmailIcon}>
+                <Button
+                  onClick={() =>
+                    openMailto(
+                      "Use case beyond rentals",
+                      "Hi Miko team,\n\nI run a store on Shopify and I'm interested in using Miko for:\n\n(Describe your use case here, e.g. event bookings, equipment hire, studio time, appointments...)\n\nIs this something you can help with?\n\nThanks!",
+                    )
+                  }
+                  fullWidth
+                  icon={EmailIcon}
+                >
                   Share your use case
                 </Button>
               </BlockStack>
