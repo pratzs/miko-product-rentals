@@ -45,7 +45,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     themeEditorBlockUrl: `https://admin.shopify.com/store/${shopHandle}/themes/current/editor?template=product&addAppBlockId=${clientId}/${EXTENSION_HANDLE}&target=newAppsSection`,
     themeEditorEmbedUrl: `https://admin.shopify.com/store/${shopHandle}/themes/current/editor?context=apps&activateAppId=${clientId}/${EMBED_HANDLE}`,
     appEmbedsUrl: `https://admin.shopify.com/store/${shopHandle}/themes/current/editor?context=apps`,
-    supportEmail: "support@miko.co.nz",
+    supportEmail: "hello@tripsterdevelopers.com",
   });
 };
 
