@@ -3,10 +3,9 @@
  *
  * Adds the chosen dates and rental total to the standard Shopify cart as
  * line item properties. A Cart Transform Function (miko-cart-transform)
- * intercepts the checkout and sets the actual charge to _miko_total_price
- * (rental fee + deposit combined). The customer can continue shopping,
- * mix rental and regular products, and return to the cart without losing
- * their selections - because it is just a normal Shopify cart.
+ * intercepts the checkout and sets the actual per-unit charge based on
+ * what the merchant has configured. Cart line quantity = number of units
+ * the customer is renting.
  */
 (function () {
   "use strict";
@@ -36,12 +35,20 @@
   const notesEl = document.getElementById("miko-notes");
   const addBtn = document.getElementById("miko-add-to-cart");
   const cartForm = document.getElementById("miko-cart-form");
+  const cartQuantityInput = document.getElementById("miko-cart-quantity");
+
+  const unitRow = document.getElementById("miko-unit-row");
+  const unitInput = document.getElementById("miko-units");
+  const unitMinus = document.getElementById("miko-unit-minus");
+  const unitPlus = document.getElementById("miko-unit-plus");
+  const unitAvailableEl = document.getElementById("miko-unit-available");
 
   const today = new Date().toISOString().split("T")[0];
   startInput.min = today;
   endInput.min = today;
 
   let unavailableDates = [];
+  let totalUnits = 1;
   let checkTimeout = null;
   let currentPricing = null;
 
@@ -50,6 +57,44 @@
   startInput.addEventListener("change", onDateChange);
   endInput.addEventListener("change", onDateChange);
   addBtn.addEventListener("click", onAddToCart);
+
+  unitMinus.addEventListener("click", () => changeUnits(-1));
+  unitPlus.addEventListener("click", () => changeUnits(+1));
+  unitInput.addEventListener("input", onUnitInput);
+  unitInput.addEventListener("blur", onUnitInput);
+
+  function getUnits() {
+    const raw = parseInt(unitInput.value, 10);
+    if (isNaN(raw) || raw < 1) return 1;
+    return Math.min(raw, totalUnits);
+  }
+
+  function changeUnits(delta) {
+    const current = getUnits();
+    const next = Math.max(1, Math.min(totalUnits, current + delta));
+    unitInput.value = String(next);
+    refreshUnitButtonState();
+    if (startInput.value && endInput.value) {
+      clearTimeout(checkTimeout);
+      checkTimeout = setTimeout(() => checkPricing(startInput.value, endInput.value), 250);
+    }
+  }
+
+  function onUnitInput() {
+    const next = getUnits();
+    if (String(next) !== unitInput.value) unitInput.value = String(next);
+    refreshUnitButtonState();
+    if (startInput.value && endInput.value) {
+      clearTimeout(checkTimeout);
+      checkTimeout = setTimeout(() => checkPricing(startInput.value, endInput.value), 400);
+    }
+  }
+
+  function refreshUnitButtonState() {
+    const current = getUnits();
+    unitMinus.disabled = current <= 1;
+    unitPlus.disabled = current >= totalUnits;
+  }
 
   function onDateChange() {
     const start = startInput.value;
@@ -82,6 +127,21 @@
       );
       const data = await res.json();
       unavailableDates = data.unavailableDates || [];
+      totalUnits = Math.max(1, data.totalUnits || 1);
+
+      // Show the unit selector only when the merchant has more than one unit.
+      if (totalUnits > 1) {
+        unitRow.classList.remove("miko-msg--hidden");
+        unitInput.max = String(totalUnits);
+        refreshUnitButtonState();
+      }
+
+      // Hide the "Powered by Miko Rentals" credit if the merchant's plan
+      // (or per-shop setting) doesn't include it.
+      if (data.showBadge === false) {
+        const poweredEl = widget.querySelector(".miko-powered");
+        if (poweredEl) poweredEl.style.display = "none";
+      }
     } catch {
       // Silently fail - availability is re-checked when dates are chosen
     }
@@ -91,9 +151,11 @@
     showMsg("Checking availability...", "loading");
     disableBtn();
 
+    const units = getUnits();
+
     try {
       const res = await fetch(
-        `${appUrl}/api/pricing?shop=${encodeURIComponent(shop)}&productId=${encodeURIComponent(productId)}&startDate=${startDate}&endDate=${endDate}`
+        `${appUrl}/api/pricing?shop=${encodeURIComponent(shop)}&productId=${encodeURIComponent(productId)}&startDate=${startDate}&endDate=${endDate}&units=${units}`
       );
       const data = await res.json();
 
@@ -107,6 +169,11 @@
       currentPricing = data;
       showPricing(data);
       enableBtn(`Book now - ${formatCurrency(data.totalDue, data.currency || currency)}`);
+
+      // Show remaining inventory hint
+      if (totalUnits > 1 && typeof data.unitsAvailable === "number") {
+        unitAvailableEl.textContent = `${data.unitsAvailable} of ${totalUnits} available`;
+      }
 
       if (data.rentalNotes) {
         notesEl.textContent = data.rentalNotes;
@@ -169,29 +236,42 @@
 
     const startDate = startInput.value;
     const endDate = endInput.value;
+    const units = currentPricing.units || getUnits();
 
-    // Populate hidden form fields
-    document.getElementById("miko-prop-product-id").value = productId;
-    document.getElementById("miko-prop-start").value = startDate;
-    document.getElementById("miko-prop-end").value = endDate;
+    // Cart quantity mirrors units so the cart shows "3 × Product" and the
+    // Cart Transform Function uses perUnitPrice as fixedPricePerUnit.
+    cartQuantityInput.value = String(units);
+
     document.getElementById("miko-prop-start-display").value = formatDateDisplay(startDate);
     document.getElementById("miko-prop-end-display").value = formatDateDisplay(endDate);
     document.getElementById("miko-prop-duration").value =
       `${currentPricing.rentalDays} day${currentPricing.rentalDays !== 1 ? "s" : ""}`;
-    // Visible breakdown shown in cart/checkout order details
     document.getElementById("miko-prop-price").value =
       formatCurrency(currentPricing.rentalPrice, currentPricing.currency || currency);
     document.getElementById("miko-prop-deposit").value =
       currentPricing.depositAmount > 0
         ? formatCurrency(currentPricing.depositAmount, currentPricing.currency || currency)
         : "None";
-    // Private pricing fields read by the Cart Transform Function
-    document.getElementById("miko-prop-total-price").value =
-      currentPricing.totalDue.toFixed(2);
-    document.getElementById("miko-prop-rental-price").value =
-      currentPricing.rentalPrice.toFixed(2);
-    document.getElementById("miko-prop-deposit-amount").value =
-      currentPricing.depositAmount.toFixed(2);
+
+    // Compact form keeps the admin order-line view tidy. Short keys map:
+    //   p  = product numeric ID (gid:// stripped, prepended on read)
+    //   s  = start date (ISO)
+    //   e  = end date (ISO)
+    //   u  = units rented
+    //   r  = total rental fee
+    //   d  = total deposit
+    //   pu = per-unit price (rental + deposit per unit) - precomputed for
+    //        the Cart Transform Function so it never has to divide.
+    const numericProductId = String(productId).split("/").pop() || productId;
+    document.getElementById("miko-prop-data").value = JSON.stringify({
+      p: numericProductId,
+      s: startDate,
+      e: endDate,
+      u: units,
+      r: currentPricing.rentalPrice.toFixed(2),
+      d: currentPricing.depositAmount.toFixed(2),
+      pu: currentPricing.perUnitPrice.toFixed(2),
+    });
 
     addBtn.textContent = "Adding to cart...";
     addBtn.classList.add("miko-btn--loading");

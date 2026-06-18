@@ -7,33 +7,38 @@ var __export = (target, all) => {
 // extensions/miko-cart-transform/src/index.js
 var src_exports = {};
 __export(src_exports, {
-  run: () => run
+  default: () => run
 });
 function run(input) {
   const operations = [];
   for (const line of input.cart.lines) {
-    const totalPriceProp = line.attributes.find(
-      (a) => a.key === "_miko_total_price"
-    );
-    if (!totalPriceProp?.value) continue;
-    const amount = parseFloat(totalPriceProp.value);
-    if (isNaN(amount) || amount <= 0) continue;
+    const raw = line.mikoData?.value;
+    if (!raw) continue;
+    let perUnit = NaN;
+    let lockedUnits = NaN;
+    try {
+      const data = JSON.parse(raw);
+      perUnit = parseFloat(data.pu ?? data.perUnitPrice);
+      if (isNaN(perUnit)) perUnit = parseFloat(data.totalPrice);
+      lockedUnits = parseInt(data.u ?? data.units, 10);
+    } catch {
+      continue;
+    }
+    if (isNaN(perUnit) || perUnit <= 0) continue;
+    if (line.quantity < 1) continue;
+    const effectiveLockedUnits = !isNaN(lockedUnits) && lockedUnits >= 1 ? lockedUnits : line.quantity;
+    const bookingTotal = effectiveLockedUnits * perUnit;
+    const scaledPerUnit = bookingTotal / line.quantity;
     operations.push({
-      expand: {
+      update: {
         cartLineId: line.id,
-        expandedCartItems: [
-          {
-            merchandiseId: line.merchandise.id,
-            quantity: line.quantity,
-            price: {
-              adjustment: {
-                fixedPricePerUnit: {
-                  amount: amount.toFixed(2)
-                }
-              }
+        price: {
+          adjustment: {
+            fixedPricePerUnit: {
+              amount: scaledPerUnit.toFixed(2)
             }
           }
-        ]
+        }
       }
     });
   }

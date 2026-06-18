@@ -1,0 +1,302 @@
+{% comment %}
+  Miko Rental Display Rules - App Embed Block
+
+  Sitewide block that hides the regular price and/or Add to cart button on
+  any product the merchant has enabled as a rental. Detects rental products
+  via the `miko.is_rental` metafield, which the app sets automatically when
+  a rental is activated.
+
+  Add this once via the Online Store > Themes > Customize > App embeds
+  panel and it applies across every product page and collection page.
+{% endcomment %}
+
+{%- liquid
+  assign hide_pdp_price = block.settings.hide_price_pdp
+  assign hide_pdp_button = block.settings.hide_buy_button_pdp
+  assign hide_collection_price = block.settings.hide_price_collection
+  assign app_url = block.settings.app_url | default: 'https://miko-product-rentals-production.up.railway.app'
+-%}
+
+{%- comment -%}
+  Once-per-session ping so the merchant dashboard can auto-detect that the
+  embed is live and tick the corresponding onboarding step. Uses
+  sessionStorage so we ping at most one time per browser session, not on
+  every page navigation.
+{%- endcomment -%}
+<script>
+  (function () {
+    try {
+      if (sessionStorage.getItem('mikoDisplayRulesPinged')) return;
+      sessionStorage.setItem('mikoDisplayRulesPinged', '1');
+      var img = new Image();
+      img.src = '{{ app_url }}/api/embed-ping?shop={{ shop.permanent_domain | url_encode }}';
+    } catch (e) { /* sessionStorage blocked - silently skip */ }
+  })();
+</script>
+
+{%- comment -%}
+  Sitewide enforcement: hide the quantity selector on any cart line that
+  carries our `_miko_data` line item property. Runs on EVERY page (not just
+  the cart page) so it covers cart drawers / slide-outs that themes open
+  from product pages, the header, collection pages, etc. The
+  MutationObserver picks up the drawer's qty controls the moment it mounts.
+
+  Even if a customer bypasses this and changes the qty via the cart API
+  directly, the Cart Transform Function rescales the per-unit price so the
+  total stays locked to what they booked.
+{%- endcomment -%}
+<script>
+  (function () {
+    var LINE_SELECTORS = [
+      '[data-key]', '[data-cart-item]', '[data-line-item]',
+      '.cart-item', '.cart__row', '.cart-items__row', '.cart-drawer__item',
+      '.drawer-cart-item', '.line-item', '.cart-line',
+      'tr[class*="cart"]', 'li[class*="cart"]', 'div[class*="cart-item"]',
+    ].join(',');
+
+    var QTY_SELECTORS = [
+      'input[name*="quantity"]',
+      'button[name*="quantity"]',
+      'button[name*="minus"]',
+      'button[name*="plus"]',
+      '.quantity',
+      '.qty',
+      '.cart__quantity',
+      '.cart-item__qty',
+      '.drawer-cart-item__qty',
+      'quantity-input',
+      'quantity-popover',
+      'quantity-popover-container',
+      '[data-quantity-selector]',
+      'plus-button',
+      'minus-button',
+    ].join(',');
+
+    function isRentalLine(el) {
+      var text = el.textContent || '';
+      // Visible rental properties from the widget's hidden cart form.
+      return text.indexOf('Rental start') !== -1 ||
+             text.indexOf('Rental duration') !== -1 ||
+             text.indexOf('Return by') !== -1;
+    }
+
+    function hideRentalQty() {
+      var lines = document.querySelectorAll(LINE_SELECTORS);
+      for (var i = 0; i < lines.length; i++) {
+        if (!isRentalLine(lines[i])) continue;
+        var controls = lines[i].querySelectorAll(QTY_SELECTORS);
+        for (var j = 0; j < controls.length; j++) {
+          controls[j].style.display = 'none';
+        }
+      }
+    }
+
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', hideRentalQty);
+    } else {
+      hideRentalQty();
+    }
+
+    // Themes mount cart drawers asynchronously. MutationObserver catches the
+    // drawer opening, ajax cart refreshes, and Section Rendering API updates.
+    var observer = new MutationObserver(function () {
+      // Debounce so we don't run on every keystroke in unrelated inputs.
+      if (window.__mikoQtyTimer) clearTimeout(window.__mikoQtyTimer);
+      window.__mikoQtyTimer = setTimeout(hideRentalQty, 50);
+    });
+    observer.observe(document.documentElement, { childList: true, subtree: true });
+
+    // Some themes fire cart events when the drawer is opened or refreshed.
+    ['cart:refresh', 'cart:open', 'cart:updated', 'cart:change'].forEach(function (evt) {
+      document.addEventListener(evt, hideRentalQty);
+    });
+  })();
+</script>
+
+{%- if request.page_type == 'product' and product.metafields.miko.is_rental -%}
+  <style data-miko-display-rules="pdp">
+    {%- if hide_pdp_price -%}
+      .product__price, .price, .product-price, .product__price-wrapper,
+      .price-item, [data-product-price], .product-block--price,
+      .product__pricing, .product-single__price,
+      .price--regular, .price__regular { display: none !important; }
+    {%- endif -%}
+    {%- if hide_pdp_button -%}
+      .product-form__buttons, .product__buy-buttons, .shopify-payment-button,
+      form[action*="/cart/add"] .btn,
+      form[action*="/cart/add"] button[type="submit"]:not(.miko-btn),
+      form[action*="/cart/add"] .product-form__submit,
+      [data-type="add-to-cart-form"] button[type="submit"] { display: none !important; }
+      /* Quantity selector - belongs to the regular buy flow, hide alongside the button. */
+      .product-form__quantity, .product__quantity, .product-single__quantity,
+      quantity-input, quantity-popover, quantity-popover-container,
+      .quantity, .quantity-selector, .product-quantity, .product__quantity-wrapper,
+      [data-quantity-selector] { display: none !important; }
+    {%- endif -%}
+  </style>
+{%- endif -%}
+
+{%- if hide_collection_price and request.page_type contains 'collection' -%}
+  {%- comment -%}
+    Emit a list of rental product IDs in the current collection so the JS can
+    target their cards. Limited to first 250 to avoid blowing up huge pages.
+  {%- endcomment -%}
+  {%- assign rental_ids = "" -%}
+  {%- for prod in collection.products limit: 250 -%}
+    {%- if prod.metafields.miko.is_rental -%}
+      {%- assign rental_ids = rental_ids | append: prod.id | append: "," -%}
+    {%- endif -%}
+  {%- endfor -%}
+
+  {%- if rental_ids != "" -%}
+    <style data-miko-display-rules="collection-badge">
+      .miko-rental-badge {
+        position: absolute;
+        top: 10px;
+        left: 10px;
+        z-index: 5;
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 5px 10px;
+        background: #0e1b3a;
+        color: #ffffff;
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 0.5px;
+        text-transform: uppercase;
+        border-radius: 4px;
+        pointer-events: none;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+        box-shadow: 0 2px 6px rgba(14, 27, 58, 0.25);
+      }
+      .miko-rental-badge::before {
+        content: "";
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: #6366f1;
+      }
+    </style>
+    <script data-miko-display-rules="collection">
+      (function () {
+        var ids = "{{ rental_ids }}".split(",").filter(Boolean);
+        if (!ids.length) return;
+        var idSet = new Set(ids);
+
+        // Hide prices on rental cards via a broad selector list so it works
+        // across themes (Dawn, Horizon, Sense, Refresh, Studio, plus most
+        // third-party themes).
+        var PRICE_SUFFIXES = [
+          '.price', '.product-price', '.product__price',
+          '.price-item', '.price-item--regular', '.price__current',
+          '.product-card__price', '.product-card-price',
+          '.card__price', '.card-information__price',
+          '.product-grid-item__price', '.grid-product__price',
+          '.price-container', '[data-product-price]',
+        ];
+        var CARD_KEYS = [
+          'data-product-id',
+          'data-id',
+          'data-product',
+          'data-card-product-id',
+        ];
+        var hideRules = [];
+        ids.forEach(function (id) {
+          CARD_KEYS.forEach(function (key) {
+            var base = '[' + key + '="' + id + '"]';
+            PRICE_SUFFIXES.forEach(function (suffix) {
+              hideRules.push(base + ' ' + suffix);
+              hideRules.push(base + suffix);
+            });
+          });
+        });
+        var hideStyle = document.createElement('style');
+        hideStyle.setAttribute('data-miko-display-rules', 'collection-css');
+        hideStyle.textContent = hideRules.join(',') + ' { display: none !important; }';
+        document.head.appendChild(hideStyle);
+
+        // Inject a "Rental" badge into each rental product card. We look at
+        // every link to a /products/<handle> URL the page renders, find its
+        // surrounding card container, and prepend a badge once.
+        function injectBadges() {
+          var anchors = document.querySelectorAll('a[href*="/products/"]');
+          anchors.forEach(function (a) {
+            // Walk up to a sensible card container (the closest ancestor with
+            // a data-product-id matching one of our rental IDs).
+            var node = a;
+            var card = null;
+            for (var i = 0; i < 6 && node; i++) {
+              for (var k = 0; k < CARD_KEYS.length; k++) {
+                var attr = node.getAttribute && node.getAttribute(CARD_KEYS[k]);
+                if (attr && idSet.has(String(attr))) { card = node; break; }
+              }
+              if (card) break;
+              node = node.parentElement;
+            }
+            if (!card || card.querySelector(':scope > .miko-rental-badge')) return;
+            // The badge needs a positioned ancestor.
+            var computed = window.getComputedStyle(card);
+            if (computed.position === 'static') {
+              card.style.position = 'relative';
+            }
+            var badge = document.createElement('span');
+            badge.className = 'miko-rental-badge';
+            badge.textContent = 'Rental';
+            card.insertBefore(badge, card.firstChild);
+          });
+        }
+        if (document.readyState === 'loading') {
+          document.addEventListener('DOMContentLoaded', injectBadges);
+        } else {
+          injectBadges();
+        }
+        // Re-run after lazy-loaded grids / infinite scroll updates.
+        new MutationObserver(function () {
+          if (window.__mikoBadgeTimer) clearTimeout(window.__mikoBadgeTimer);
+          window.__mikoBadgeTimer = setTimeout(injectBadges, 100);
+        }).observe(document.documentElement, { childList: true, subtree: true });
+      })();
+    </script>
+  {%- endif -%}
+{%- endif -%}
+
+{% schema %}
+{
+  "name": "Miko Rental Display Rules",
+  "target": "head",
+  "settings": [
+    {
+      "type": "paragraph",
+      "content": "Controls how rental products appear across your storefront. Only products you have enabled as rentals in the Miko app are affected."
+    },
+    {
+      "type": "checkbox",
+      "id": "hide_price_pdp",
+      "label": "Hide regular price on rental product pages",
+      "info": "The rental price (from the booking widget) is shown instead.",
+      "default": true
+    },
+    {
+      "type": "checkbox",
+      "id": "hide_buy_button_pdp",
+      "label": "Hide Add to cart button on rental product pages",
+      "info": "Customers can only check out via the Book now button from the rental widget.",
+      "default": true
+    },
+    {
+      "type": "checkbox",
+      "id": "hide_price_collection",
+      "label": "Hide regular price on rental cards in collection pages",
+      "info": "Hides the price on rental products when shown in collection or search listings. Works best with standard themes - some custom themes may need manual CSS.",
+      "default": true
+    },
+    {
+      "type": "url",
+      "id": "app_url",
+      "label": "App URL (advanced)",
+      "info": "Leave blank. Only needed if you run the app on a custom domain."
+    }
+  ]
+}
+{% endschema %}
