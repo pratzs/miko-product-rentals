@@ -19,7 +19,15 @@ import {
   Icon,
   ProgressBar,
 } from "@shopify/polaris";
-import { CheckCircleIcon } from "@shopify/polaris-icons";
+import {
+  CheckCircleIcon,
+  CalendarIcon,
+  CashDollarIcon,
+  ClockIcon,
+  AlertCircleIcon,
+  ProductIcon,
+  CreditCardIcon,
+} from "@shopify/polaris-icons";
 import { authenticate } from "../shopify.server";
 import { db } from "../db.server";
 import { format, isToday, isTomorrow } from "date-fns";
@@ -278,22 +286,28 @@ export default function Dashboard() {
         stats.confirmedBookings > 0
           ? `${stats.confirmedBookings} more confirmed, not yet started`
           : "Items currently with customers",
-      tone: "success" as const,
+      accent: "#10b981",
+      accentBg: "#ecfdf5",
+      icon: CalendarIcon,
     },
     {
       label: "Awaiting payment",
       value: stats.pendingPaymentBookings.toString(),
       sublabel:
         stats.pendingPaymentBookings > 0
-          ? `${formatCurrency(stats.pendingPaymentValue, currency)} unpaid - mark orders paid in Shopify`
+          ? `${formatCurrency(stats.pendingPaymentValue, currency)} unpaid. Mark orders paid in Shopify.`
           : "All recent orders are paid",
-      tone: stats.pendingPaymentBookings > 0 ? ("attention" as const) : ("subdued" as const),
+      accent: stats.pendingPaymentBookings > 0 ? "#f59e0b" : "#9ca3af",
+      accentBg: stats.pendingPaymentBookings > 0 ? "#fffbeb" : "#f3f4f6",
+      icon: CreditCardIcon,
     },
     {
       label: "Overdue returns",
       value: stats.overdueBookings.toString(),
       sublabel: stats.overdueBookings > 0 ? "Past the return date" : "Everything on track",
-      tone: stats.overdueBookings > 0 ? ("critical" as const) : ("subdued" as const),
+      accent: stats.overdueBookings > 0 ? "#ef4444" : "#9ca3af",
+      accentBg: stats.overdueBookings > 0 ? "#fef2f2" : "#f3f4f6",
+      icon: ClockIcon,
     },
     {
       label: "Deposits held",
@@ -302,19 +316,25 @@ export default function Dashboard() {
         stats.depositsHeldCount > 0
           ? `Owed back across ${stats.depositsHeldCount} booking${stats.depositsHeldCount > 1 ? "s" : ""}`
           : "No deposits outstanding",
-      tone: "info" as const,
+      accent: "#6366f1",
+      accentBg: "#eef2ff",
+      icon: CashDollarIcon,
     },
     {
       label: "Revenue this month",
       value: formatCurrency(stats.thisMonthRevenue, currency),
       sublabel: `${formatCurrency(stats.totalRevenue, currency)} all time (rental fees only)`,
-      tone: "info" as const,
+      accent: "#0ea5e9",
+      accentBg: "#f0f9ff",
+      icon: CashDollarIcon,
     },
     {
       label: "Rental products",
       value: stats.totalProducts.toString(),
       sublabel: `${stats.totalBookings} total bookings`,
-      tone: "subdued" as const,
+      accent: "#8b5cf6",
+      accentBg: "#f5f3ff",
+      icon: ProductIcon,
     },
   ];
 
@@ -479,8 +499,27 @@ export default function Dashboard() {
         <InlineGrid columns={{ xs: 1, sm: 2, md: 3 }} gap="400">
           {statCards.map((card) => (
             <Card key={card.label}>
-              <BlockStack gap="200">
-                <Text as="p" variant="bodyMd" tone="subdued">{card.label}</Text>
+              <BlockStack gap="300">
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                  <Text as="p" variant="bodyMd" tone="subdued">{card.label}</Text>
+                  <div
+                    style={{
+                      width: 32,
+                      height: 32,
+                      borderRadius: 8,
+                      background: card.accentBg,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      color: card.accent,
+                      flexShrink: 0,
+                    }}
+                  >
+                    <div style={{ width: 18, height: 18, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                      <Icon source={card.icon} />
+                    </div>
+                  </div>
+                </div>
                 <Text as="p" variant="headingXl" fontWeight="bold">{card.value}</Text>
                 <Text as="p" variant="bodySm" tone="subdued">{card.sublabel}</Text>
               </BlockStack>

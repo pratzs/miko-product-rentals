@@ -14,7 +14,6 @@ import {
   Badge,
   List,
   Icon,
-  InlineGrid,
 } from "@shopify/polaris";
 import {
   MagicIcon,
@@ -68,7 +67,7 @@ function StepCard({ number, icon, title, body, cta }: StepCardProps) {
       borderWidth="025"
     >
       <BlockStack gap="300">
-        <InlineStack gap="300" blockAlign="center">
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
           <div
             style={{
               width: 36,
@@ -82,15 +81,16 @@ function StepCard({ number, icon, title, body, cta }: StepCardProps) {
               fontWeight: 700,
               fontSize: 15,
               boxShadow: "0 2px 8px rgba(99, 102, 241, 0.25)",
+              flexShrink: 0,
             }}
           >
             {number}
           </div>
-          <Box>
+          <div style={{ width: 20, height: 20, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
             <Icon source={icon} tone="subdued" />
-          </Box>
+          </div>
           <Text as="h3" variant="headingSm">{title}</Text>
-        </InlineStack>
+        </div>
         <Box paddingInlineStart="800">
           <BlockStack gap="300">
             <Text as="p" tone="subdued">{body}</Text>
@@ -147,6 +147,37 @@ function JourneyStep({ number, title, body }: JourneyStepProps) {
   );
 }
 
+interface SectionHeaderProps {
+  icon: React.FunctionComponent<React.SVGProps<SVGSVGElement>>;
+  title: string;
+  tone?: "magic" | "success" | "warning" | "critical" | "info" | "subdued";
+  iconBg?: string;
+}
+
+function SectionHeader({ icon, title, tone = "magic", iconBg = "#f4f3ff" }: SectionHeaderProps) {
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+      <div
+        style={{
+          width: 32,
+          height: 32,
+          borderRadius: 8,
+          background: iconBg,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          flexShrink: 0,
+        }}
+      >
+        <div style={{ width: 18, height: 18, display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <Icon source={icon} tone={tone} />
+        </div>
+      </div>
+      <Text as="h2" variant="headingMd">{title}</Text>
+    </div>
+  );
+}
+
 interface ScenarioProps {
   question: string;
   answer: React.ReactNode;
@@ -156,12 +187,12 @@ function Scenario({ question, answer }: ScenarioProps) {
   return (
     <Box paddingBlock="400" paddingInline="100">
       <BlockStack gap="200">
-        <InlineStack gap="200" blockAlign="start" wrap={false}>
-          <Box>
+        <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
+          <div style={{ width: 20, height: 20, marginTop: 2, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
             <Icon source={QuestionCircleIcon} tone="magic" />
-          </Box>
+          </div>
           <Text as="h3" variant="headingSm">{question}</Text>
-        </InlineStack>
+        </div>
         <Box paddingInlineStart="600">
           <Text as="p" tone="subdued">{answer}</Text>
         </Box>
@@ -204,7 +235,7 @@ export default function HelpPage() {
                 }}
               >
                 <BlockStack gap="400">
-                  <InlineStack gap="300" blockAlign="center">
+                  <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
                     <div
                       style={{
                         width: 48,
@@ -215,9 +246,12 @@ export default function HelpPage() {
                         alignItems: "center",
                         justifyContent: "center",
                         boxShadow: "0 2px 8px rgba(99, 102, 241, 0.15)",
+                        flexShrink: 0,
                       }}
                     >
-                      <Icon source={MagicIcon} tone="magic" />
+                      <div style={{ width: 22, height: 22, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                        <Icon source={MagicIcon} tone="magic" />
+                      </div>
                     </div>
                     <BlockStack gap="100">
                       <Text as="h2" variant="headingLg">Welcome to Miko</Text>
@@ -225,7 +259,7 @@ export default function HelpPage() {
                         Get your first rental product live in about 5 minutes. We will walk you through every step.
                       </Text>
                     </BlockStack>
-                  </InlineStack>
+                  </div>
                   <InlineStack gap="200" wrap>
                     <Button
                       variant="primary"
@@ -258,11 +292,8 @@ export default function HelpPage() {
             <Card>
               <BlockStack gap="500">
                 <InlineStack gap="300" align="space-between" blockAlign="center">
-                  <BlockStack gap="100">
-                    <InlineStack gap="200" blockAlign="center">
-                      <Icon source={CheckCircleIcon} tone="success" />
-                      <Text as="h2" variant="headingMd">Quick start</Text>
-                    </InlineStack>
+                  <BlockStack gap="200">
+                    <SectionHeader icon={CheckCircleIcon} title="Quick start" tone="success" iconBg="#ecfdf5" />
                     <Text as="p" tone="subdued">
                       Follow these in order. The dashboard checklist ticks each one off as you go.
                     </Text>
@@ -316,10 +347,7 @@ export default function HelpPage() {
             {/* How it works */}
             <Card>
               <BlockStack gap="400">
-                <InlineStack gap="200" blockAlign="center">
-                  <Icon source={PlayIcon} tone="magic" />
-                  <Text as="h2" variant="headingMd">How a rental flows through Miko</Text>
-                </InlineStack>
+                <SectionHeader icon={PlayIcon} title="How a rental flows through Miko" />
                 <Text as="p" tone="subdued">
                   Here is what happens from the moment a customer picks their dates to the day the item is back on your shelf.
                 </Text>
@@ -368,10 +396,7 @@ export default function HelpPage() {
             {/* Common scenarios */}
             <Card>
               <BlockStack gap="400">
-                <InlineStack gap="200" blockAlign="center">
-                  <Icon source={QuestionCircleIcon} tone="magic" />
-                  <Text as="h2" variant="headingMd">Common questions</Text>
-                </InlineStack>
+                <SectionHeader icon={QuestionCircleIcon} title="Common questions" />
                 <Text as="p" tone="subdued">
                   Real situations you may run into and the quickest way to handle each one.
                 </Text>
@@ -461,10 +486,7 @@ export default function HelpPage() {
             {/* Multi-unit + overbooking */}
             <Card>
               <BlockStack gap="400">
-                <InlineStack gap="200" blockAlign="center">
-                  <Icon source={AlertCircleIcon} tone="warning" />
-                  <Text as="h2" variant="headingMd">Multi unit rentals and overbooking protection</Text>
-                </InlineStack>
+                <SectionHeader icon={AlertCircleIcon} title="Multi unit rentals and overbooking protection" tone="warning" iconBg="#fffbeb" />
                 <Text as="p">
                   Set <strong>Total units available</strong> on each product to how many physical copies you have on hand. When a product has more than one unit, customers see a quantity picker on the storefront, and the calendar only blocks dates when every unit is booked.
                 </Text>
@@ -483,10 +505,7 @@ export default function HelpPage() {
             {/* Theme compatibility */}
             <Card>
               <BlockStack gap="400">
-                <InlineStack gap="200" blockAlign="center">
-                  <Icon source={CodeIcon} tone="magic" />
-                  <Text as="h2" variant="headingMd">Works on every modern Shopify theme</Text>
-                </InlineStack>
+                <SectionHeader icon={CodeIcon} title="Works on every modern Shopify theme" />
                 <Text as="p">
                   Our display rules embed works automatically on every Shopify built theme (Dawn, Horizon, Sense, Refresh, Studio, Craft, Origin, and the rest) and the vast majority of third party themes. No setup needed beyond turning the embed on.
                 </Text>
@@ -498,10 +517,12 @@ export default function HelpPage() {
                   borderWidth="025"
                 >
                   <BlockStack gap="200">
-                    <InlineStack gap="200" blockAlign="center">
-                      <Icon source={AlertCircleIcon} tone="info" />
+                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                      <div style={{ width: 20, height: 20, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                        <Icon source={AlertCircleIcon} tone="info" />
+                      </div>
                       <Text as="h3" variant="headingSm">On a heavily customized theme?</Text>
-                    </InlineStack>
+                    </div>
                     <Text as="p" tone="subdued">
                       If the Rental badge does not appear or the price is still showing on rental cards, paste this snippet into your theme's main CSS file. Go to <strong>Online Store, then Themes, then Edit code, then assets/base.css</strong> (or whatever stylesheet your theme uses) and replace <code>.your-card-class</code> with the wrapper class your theme actually uses.
                     </Text>
@@ -541,19 +562,37 @@ export default function HelpPage() {
                 <Text as="p" tone="subdued">
                   Not sure what your class names are? Right click any product card on your storefront and choose <strong>Inspect</strong>. The wrapping element's <code>class</code> attribute is what goes in place of <code>.your-card-class</code>. The visible price element's class goes in place of <code>.your-price-class</code>.
                 </Text>
-                <Text as="p" tone="subdued">
-                  Prefer not to touch code? Email our support team and we will send you a snippet tailored to your theme.
-                </Text>
+                <Box
+                  background="bg-surface-success"
+                  padding="400"
+                  borderRadius="300"
+                  borderColor="border-success"
+                  borderWidth="025"
+                >
+                  <InlineStack gap="400" align="space-between" blockAlign="center" wrap>
+                    <BlockStack gap="100">
+                      <Text as="h3" variant="headingSm">Don't want to touch code?</Text>
+                      <Text as="p" tone="subdued" variant="bodySm">
+                        Send us your store URL and we will send back a ready to paste snippet tailored to your theme. Usually within one business day.
+                      </Text>
+                    </BlockStack>
+                    <Button
+                      url={`mailto:${supportEmail}?subject=Custom%20theme%20CSS%20help&body=Hi%20Miko%20team%2C%0A%0AMy%20store%20URL%3A%20%0AMy%20theme%3A%20%0A%0AThe%20Rental%20badge%20%2F%20price%20hide%20is%20not%20working%20on%20my%20collection%20pages.%20Could%20you%20send%20me%20a%20CSS%20snippet%20that%20works%20for%20my%20theme%3F%0A%0AThanks%21`}
+                      external
+                      variant="primary"
+                      icon={EmailIcon}
+                    >
+                      Get a custom snippet
+                    </Button>
+                  </InlineStack>
+                </Box>
               </BlockStack>
             </Card>
 
             {/* Late fees */}
             <Card>
               <BlockStack gap="400">
-                <InlineStack gap="200" blockAlign="center">
-                  <Icon source={ClockIcon} tone="critical" />
-                  <Text as="h2" variant="headingMd">How late fees work</Text>
-                </InlineStack>
+                <SectionHeader icon={ClockIcon} title="How late fees work" tone="critical" iconBg="#fef2f2" />
                 <Text as="p">
                   Set the <strong>Late fee per day</strong> and a <strong>Grace period</strong> in Settings. After a rental's return date passes, Miko automatically marks it as Overdue and sends the customer an overdue notice showing your late fee rate.
                 </Text>
@@ -570,10 +609,7 @@ export default function HelpPage() {
           <BlockStack gap="400">
             <Card>
               <BlockStack gap="300">
-                <InlineStack gap="200" blockAlign="center">
-                  <Icon source={ExternalIcon} tone="magic" />
-                  <Text as="h2" variant="headingMd">Quick links</Text>
-                </InlineStack>
+                <SectionHeader icon={ExternalIcon} title="Quick links" />
                 <BlockStack gap="200">
                   <Button url={themeEditorBlockUrl} target="_blank" fullWidth icon={CalendarIcon}>
                     Add calendar block
@@ -590,14 +626,11 @@ export default function HelpPage() {
 
             <Card>
               <BlockStack gap="300">
-                <InlineStack gap="200" blockAlign="center">
-                  <Icon source={ChatIcon} tone="success" />
-                  <Text as="h2" variant="headingMd">Talk to a human</Text>
-                </InlineStack>
+                <SectionHeader icon={ChatIcon} title="Talk to a human" tone="success" iconBg="#ecfdf5" />
                 <Text as="p" tone="subdued">
                   Stuck on something? Email our team and we will get back to you within one business day.
                 </Text>
-                <Button url={`mailto:${supportEmail}`} external fullWidth variant="primary" icon={EmailIcon}>
+                <Button url={`mailto:${supportEmail}?subject=Miko%20support%20request`} external fullWidth variant="primary" icon={EmailIcon}>
                   Email our team
                 </Button>
               </BlockStack>
@@ -605,10 +638,19 @@ export default function HelpPage() {
 
             <Card>
               <BlockStack gap="300">
-                <InlineStack gap="200" blockAlign="center">
-                  <Icon source={LockIcon} tone="subdued" />
-                  <Text as="h2" variant="headingMd">Privacy and your data</Text>
-                </InlineStack>
+                <SectionHeader icon={MagicIcon} title="Beyond rentals?" />
+                <Text as="p" tone="subdued">
+                  Want to use Miko for event bookings, equipment hire, studio time, or any other date based booking? Tell us your use case and we will see if we can help.
+                </Text>
+                <Button url={`mailto:${supportEmail}?subject=Use%20case%20beyond%20rentals`} external fullWidth icon={EmailIcon}>
+                  Share your use case
+                </Button>
+              </BlockStack>
+            </Card>
+
+            <Card>
+              <BlockStack gap="300">
+                <SectionHeader icon={LockIcon} title="Privacy and your data" tone="subdued" iconBg="#f3f4f6" />
                 <Text as="p" tone="subdued">
                   Miko only stores the data you create through the app: rental products, bookings, settings, and email templates. Customer data is limited to the name, email, and phone attached to orders.
                 </Text>
