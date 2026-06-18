@@ -95,7 +95,7 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
         depositStatus: booking.rentalProduct.autoReleaseDeposit ? "released" : booking.depositStatus,
       },
     });
-    return json({ success: true, message: `Booking marked as returned.${booking.rentalProduct.autoReleaseDeposit && booking.depositAmount > 0 ? " Deposit marked as released - process the refund in Shopify." : ""}` });
+    return json({ success: true, message: `Booking marked as returned.${booking.rentalProduct.autoReleaseDeposit && booking.depositAmount > 0 ? " Deposit marked as released. You can now process the refund in Shopify." : ""}` });
   }
 
   if (intent === "mark_active") {
@@ -133,7 +133,7 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
 
   if (intent === "refund_deposit") {
     if (!booking.shopifyOrderId) {
-      return json({ error: "No Shopify order linked to this booking - cannot refund." }, { status: 400 });
+      return json({ error: "No Shopify order is linked to this booking, so it cannot be refunded." }, { status: 400 });
     }
     if (booking.depositAmount <= 0) {
       return json({ error: "No deposit on this booking to refund." }, { status: 400 });
@@ -280,12 +280,12 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
 
 const STATUS_BADGE: Record<string, { tone: any; label: string }> = {
   pending:      { tone: "attention", label: "Pending payment" },
-  confirmed:    { tone: "info",      label: "Confirmed - not started yet" },
+  confirmed:    { tone: "info",      label: "Confirmed, not started yet" },
   active:       { tone: "success",   label: "Out on rental" },
   returned:     { tone: "success",   label: "Returned" },
-  overdue:      { tone: "critical",  label: "Overdue - not returned" },
+  overdue:      { tone: "critical",  label: "Overdue, not returned" },
   cancelled:    { tone: "subdued",   label: "Cancelled" },
-  needs_review: { tone: "warning",   label: "Needs review - overbooked" },
+  needs_review: { tone: "warning",   label: "Needs review, overbooked" },
 };
 
 const DEPOSIT_BADGE: Record<string, { tone: any; label: string }> = {
@@ -494,7 +494,7 @@ export default function BookingDetailPage() {
             <Card>
               <BlockStack gap="400">
                 <Text as="h2" variant="headingMd">Internal notes</Text>
-                <Text as="p" tone="subdued">These notes are only visible to you - not to the customer.</Text>
+                <Text as="p" tone="subdued">Only you can see these notes. They are never shown to the customer.</Text>
                 <TextField
                   label="Notes"
                   labelHidden

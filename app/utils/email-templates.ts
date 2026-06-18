@@ -224,7 +224,7 @@ export function defaultReturnReminderBlocks(): EmailBlock[] {
     {
       id: uid(),
       type: "text",
-      content: "Thank you - {{shop_name}}",
+      content: "Thank you from {{shop_name}}",
       fontSize: 13,
       fontWeight: "normal",
       textAlign: "center",
@@ -443,7 +443,7 @@ export function substituteVariables(
 export function getDefaultSubject(type: string): string {
   switch (type) {
     case "confirmation":
-      return "Your rental booking is confirmed - {{order_name}}";
+      return "Your rental booking is confirmed: {{order_name}}";
     case "return_reminder":
       return "Reminder: {{product_title}} is due back tomorrow";
     case "overdue":

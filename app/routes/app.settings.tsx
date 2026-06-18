@@ -22,18 +22,18 @@ import { db } from "../db.server";
 import { useState } from "react";
 
 const CURRENCIES = [
-  { label: "USD - US Dollar", value: "USD" },
-  { label: "AUD - Australian Dollar", value: "AUD" },
-  { label: "NZD - New Zealand Dollar", value: "NZD" },
-  { label: "GBP - British Pound", value: "GBP" },
-  { label: "EUR - Euro", value: "EUR" },
-  { label: "CAD - Canadian Dollar", value: "CAD" },
-  { label: "SGD - Singapore Dollar", value: "SGD" },
-  { label: "INR - Indian Rupee", value: "INR" },
-  { label: "JPY - Japanese Yen", value: "JPY" },
-  { label: "MXN - Mexican Peso", value: "MXN" },
-  { label: "BRL - Brazilian Real", value: "BRL" },
-  { label: "ZAR - South African Rand", value: "ZAR" },
+  { label: "US Dollar (USD)", value: "USD" },
+  { label: "Australian Dollar (AUD)", value: "AUD" },
+  { label: "New Zealand Dollar (NZD)", value: "NZD" },
+  { label: "British Pound (GBP)", value: "GBP" },
+  { label: "Euro (EUR)", value: "EUR" },
+  { label: "Canadian Dollar (CAD)", value: "CAD" },
+  { label: "Singapore Dollar (SGD)", value: "SGD" },
+  { label: "Indian Rupee (INR)", value: "INR" },
+  { label: "Japanese Yen (JPY)", value: "JPY" },
+  { label: "Mexican Peso (MXN)", value: "MXN" },
+  { label: "Brazilian Real (BRL)", value: "BRL" },
+  { label: "South African Rand (ZAR)", value: "ZAR" },
 ];
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
@@ -226,13 +226,13 @@ export default function SettingsPage() {
                         1. A rental's status flips to <strong>overdue</strong> automatically the day after its return date passes.
                       </Text>
                       <Text as="p" variant="bodySm" tone="subdued">
-                        2. The customer receives the <strong>Overdue Notice</strong> email - it shows your "Late fee per day" rate.
+                        2. The customer gets the <strong>Overdue Notice</strong> email, which shows your daily late fee rate.
                       </Text>
                       <Text as="p" variant="bodySm" tone="subdued">
-                        3. When the item is returned, you can open the booking and click <strong>Record late fee</strong>. We calculate <em>(days overdue - grace) × late fee</em> and store it on the booking.
+                        3. When the item is returned, open the booking and click <strong>Record late fee</strong>. We calculate it as <em>(days overdue minus grace period) times your daily rate</em> and save it on the booking.
                       </Text>
                       <Text as="p" variant="bodySm" tone="subdued">
-                        4. The actual charge happens through Shopify - create a draft order for that customer, add the late fee as a custom line item, and send the invoice. We don't auto-charge cards so you stay in control of the customer relationship.
+                        4. To actually charge the customer, create a draft order in Shopify, add the late fee as a custom line item, and send the invoice. Miko never auto charges cards so you stay in control of every customer interaction.
                       </Text>
                     </BlockStack>
                   </Box>
@@ -353,7 +353,7 @@ export default function SettingsPage() {
                         value={senderName}
                         onChange={setSenderName}
                         autoComplete="off"
-                        helpText="What customers see as the sender in their inbox - usually your store name."
+                        helpText="What customers see as the sender in their inbox. Usually your store name."
                         placeholder="Kiwi Surf Gear"
                       />
                     </Box>
@@ -479,7 +479,7 @@ export default function SettingsPage() {
                   <BlockStack gap="200">
                     <InlineStack gap="200" blockAlign="start">
                       <Text as="span" fontWeight="bold">1.</Text>
-                      <Text as="p" tone="subdued">A customer pays for a rental - they immediately receive a booking confirmation with all the details.</Text>
+                      <Text as="p" tone="subdued">When a customer pays for a rental, they immediately get a booking confirmation with all the details.</Text>
                     </InlineStack>
                     <InlineStack gap="200" blockAlign="start">
                       <Text as="span" fontWeight="bold">2.</Text>

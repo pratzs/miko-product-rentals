@@ -11,13 +11,29 @@ import {
   Button,
   Box,
   Divider,
-  Banner,
   Badge,
   List,
+  Icon,
+  InlineGrid,
 } from "@shopify/polaris";
+import {
+  MagicIcon,
+  PlayIcon,
+  QuestionCircleIcon,
+  CodeIcon,
+  ClockIcon,
+  ChatIcon,
+  LockIcon,
+  ExternalIcon,
+  ProductIcon,
+  CalendarIcon,
+  EmailIcon,
+  StoreIcon,
+  CheckCircleIcon,
+  AlertCircleIcon,
+} from "@shopify/polaris-icons";
 import { authenticate } from "../shopify.server";
 
-const APP_HANDLE = "miko-product-rentals";
 const EXTENSION_HANDLE = "rental-calendar";
 const EMBED_HANDLE = "rental-display-rules";
 
@@ -34,50 +50,100 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   });
 };
 
-interface StepProps {
+interface StepCardProps {
   number: number;
+  icon: React.FunctionComponent<React.SVGProps<SVGSVGElement>>;
   title: string;
   body: React.ReactNode;
   cta?: { label: string; url?: string; onClick?: () => void };
 }
 
-function Step({ number, title, body, cta }: StepProps) {
+function StepCard({ number, icon, title, body, cta }: StepCardProps) {
   return (
-    <Box paddingBlock="300">
-      <InlineStack gap="400" wrap={false} blockAlign="start">
-        <Box minWidth="32px">
+    <Box
+      padding="500"
+      borderRadius="300"
+      background="bg-surface"
+      borderColor="border"
+      borderWidth="025"
+    >
+      <BlockStack gap="300">
+        <InlineStack gap="300" blockAlign="center">
           <div
             style={{
-              width: 32,
-              height: 32,
-              borderRadius: 16,
-              background: "#eef2ff",
-              color: "#4338ca",
+              width: 36,
+              height: 36,
+              borderRadius: 10,
+              background: "linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)",
+              color: "#ffffff",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
               fontWeight: 700,
-              fontSize: 14,
+              fontSize: 15,
+              boxShadow: "0 2px 8px rgba(99, 102, 241, 0.25)",
             }}
           >
             {number}
           </div>
-        </Box>
-        <BlockStack gap="200">
+          <Box>
+            <Icon source={icon} tone="subdued" />
+          </Box>
           <Text as="h3" variant="headingSm">{title}</Text>
-          <Text as="p" tone="subdued">{body}</Text>
-          {cta && (
-            <InlineStack>
-              {cta.url ? (
-                <Button url={cta.url} target="_blank">{cta.label}</Button>
-              ) : (
-                <Button onClick={cta.onClick}>{cta.label}</Button>
-              )}
-            </InlineStack>
-          )}
-        </BlockStack>
-      </InlineStack>
+        </InlineStack>
+        <Box paddingInlineStart="800">
+          <BlockStack gap="300">
+            <Text as="p" tone="subdued">{body}</Text>
+            {cta && (
+              <InlineStack>
+                {cta.url ? (
+                  <Button url={cta.url} target="_blank" variant="primary" icon={ExternalIcon}>
+                    {cta.label}
+                  </Button>
+                ) : (
+                  <Button onClick={cta.onClick} variant="primary">{cta.label}</Button>
+                )}
+              </InlineStack>
+            )}
+          </BlockStack>
+        </Box>
+      </BlockStack>
     </Box>
+  );
+}
+
+interface JourneyStepProps {
+  number: number;
+  title: string;
+  body: React.ReactNode;
+}
+
+function JourneyStep({ number, title, body }: JourneyStepProps) {
+  return (
+    <InlineStack gap="400" wrap={false} blockAlign="start">
+      <Box minWidth="40px">
+        <div
+          style={{
+            width: 32,
+            height: 32,
+            borderRadius: 16,
+            background: "#f4f3ff",
+            color: "#6366f1",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            fontWeight: 700,
+            fontSize: 13,
+          }}
+        >
+          {number}
+        </div>
+      </Box>
+      <BlockStack gap="100">
+        <Text as="h3" variant="headingSm">{title}</Text>
+        <Text as="p" tone="subdued">{body}</Text>
+      </BlockStack>
+    </InlineStack>
   );
 }
 
@@ -88,10 +154,17 @@ interface ScenarioProps {
 
 function Scenario({ question, answer }: ScenarioProps) {
   return (
-    <Box paddingBlock="300">
+    <Box paddingBlock="400" paddingInline="100">
       <BlockStack gap="200">
-        <Text as="h3" variant="headingSm">{question}</Text>
-        <Text as="p" tone="subdued">{answer}</Text>
+        <InlineStack gap="200" blockAlign="start" wrap={false}>
+          <Box>
+            <Icon source={QuestionCircleIcon} tone="magic" />
+          </Box>
+          <Text as="h3" variant="headingSm">{question}</Text>
+        </InlineStack>
+        <Box paddingInlineStart="600">
+          <Text as="p" tone="subdued">{answer}</Text>
+        </Box>
       </BlockStack>
     </Box>
   );
@@ -108,116 +181,207 @@ export default function HelpPage() {
 
   return (
     <Page
-      title="Help & how-to"
-      subtitle="Everything you need to run rentals smoothly."
+      title="Help center"
+      subtitle="Everything you need to launch and run rentals with confidence."
     >
       <Layout>
         <Layout.Section>
           <BlockStack gap="600">
+            {/* Hero */}
+            <Box
+              padding="600"
+              borderRadius="400"
+              background="bg-surface"
+              borderColor="border"
+              borderWidth="025"
+            >
+              <div
+                style={{
+                  background: "linear-gradient(135deg, #f4f3ff 0%, #ede9fe 50%, #f0f9ff 100%)",
+                  borderRadius: 12,
+                  padding: 24,
+                  margin: -8,
+                }}
+              >
+                <BlockStack gap="400">
+                  <InlineStack gap="300" blockAlign="center">
+                    <div
+                      style={{
+                        width: 48,
+                        height: 48,
+                        borderRadius: 12,
+                        background: "#ffffff",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        boxShadow: "0 2px 8px rgba(99, 102, 241, 0.15)",
+                      }}
+                    >
+                      <Icon source={MagicIcon} tone="magic" />
+                    </div>
+                    <BlockStack gap="100">
+                      <Text as="h2" variant="headingLg">Welcome to Miko</Text>
+                      <Text as="p" tone="subdued">
+                        Get your first rental product live in about 5 minutes. We will walk you through every step.
+                      </Text>
+                    </BlockStack>
+                  </InlineStack>
+                  <InlineStack gap="200" wrap>
+                    <Button
+                      variant="primary"
+                      icon={ProductIcon}
+                      onClick={() => navigate("/app/products")}
+                    >
+                      Add your first rental
+                    </Button>
+                    <Button
+                      icon={ExternalIcon}
+                      url={themeEditorBlockUrl}
+                      target="_blank"
+                    >
+                      Open theme editor
+                    </Button>
+                    <Button
+                      icon={EmailIcon}
+                      url={`mailto:${supportEmail}`}
+                      external
+                      variant="plain"
+                    >
+                      Email support
+                    </Button>
+                  </InlineStack>
+                </BlockStack>
+              </div>
+            </Box>
+
             {/* Quick Start */}
             <Card>
-              <BlockStack gap="400">
-                <BlockStack gap="100">
-                  <InlineStack gap="200" blockAlign="center">
-                    <Text as="h2" variant="headingMd">Quick start - get your first rental live in 5 minutes</Text>
-                    <Badge tone="info">5 steps</Badge>
-                  </InlineStack>
-                  <Text as="p" tone="subdued">
-                    Follow these in order. The dashboard checklist will tick each one off as you go.
-                  </Text>
+              <BlockStack gap="500">
+                <InlineStack gap="300" align="space-between" blockAlign="center">
+                  <BlockStack gap="100">
+                    <InlineStack gap="200" blockAlign="center">
+                      <Icon source={CheckCircleIcon} tone="success" />
+                      <Text as="h2" variant="headingMd">Quick start</Text>
+                    </InlineStack>
+                    <Text as="p" tone="subdued">
+                      Follow these in order. The dashboard checklist ticks each one off as you go.
+                    </Text>
+                  </BlockStack>
+                  <Badge tone="info">5 steps</Badge>
+                </InlineStack>
+                <BlockStack gap="300">
+                  <StepCard
+                    number={1}
+                    icon={ProductIcon}
+                    title="Add your first rental product"
+                    body="Pick any product from your Shopify store and turn on rentals for it. Its normal listing stays the same. You are just adding a rental option on top."
+                    cta={{ label: "Manage products", onClick: () => navigate("/app/products") }}
+                  />
+                  <StepCard
+                    number={2}
+                    icon={StoreIcon}
+                    title="Set your rental pricing and units"
+                    body={
+                      <>
+                        Enter at least a <strong>daily price</strong>. Weekly and monthly rates are optional and we will automatically apply the best one for the customer's chosen dates. Set <strong>Total units available</strong> to how many of this item you have on hand to rent out.
+                      </>
+                    }
+                    cta={{ label: "Open products", onClick: () => navigate("/app/products") }}
+                  />
+                  <StepCard
+                    number={3}
+                    icon={CalendarIcon}
+                    title="Add the booking calendar to your product page"
+                    body="Open your theme editor and drop the Miko Rental Calendar block onto your product template. As soon as a customer views the product, we automatically detect that the calendar is live."
+                    cta={{ label: "Open theme editor", url: themeEditorBlockUrl }}
+                  />
+                  <StepCard
+                    number={4}
+                    icon={CodeIcon}
+                    title="Turn on the display rules (recommended)"
+                    body="Enable the Miko Rental Display Rules app embed. It hides the normal price and Add to cart button on rental products so customers can only check out through the rental flow. It also adds a Rental badge on your collection pages."
+                    cta={{ label: "Enable app embed", url: themeEditorEmbedUrl }}
+                  />
+                  <StepCard
+                    number={5}
+                    icon={EmailIcon}
+                    title="Set your email sender name"
+                    body="Customers receive booking confirmations, return reminders, and overdue notices from Miko. The sender name is what shows up in their inbox, usually your store name."
+                    cta={{ label: "Email settings", onClick: () => navigate("/app/settings") }}
+                  />
                 </BlockStack>
-                <Divider />
-
-                <Step
-                  number={1}
-                  title="Add your first rental product"
-                  body="Pick any product from your Shopify store and enable it for rentals. Its normal listing stays exactly the same - you're just adding a rental layer on top."
-                  cta={{ label: "Add a product", onClick: () => navigate("/app/products/new") }}
-                />
-                <Divider />
-
-                <Step
-                  number={2}
-                  title="Set the rental price and units"
-                  body={
-                    <>
-                      Enter at least a <strong>daily price</strong>. Weekly and monthly are optional - we'll pick the cheapest valid rate for the customer's chosen dates automatically. Set <strong>Total units available</strong> to how many physical copies of this item you have to rent out.
-                    </>
-                  }
-                  cta={{ label: "Manage products", onClick: () => navigate("/app/products") }}
-                />
-                <Divider />
-
-                <Step
-                  number={3}
-                  title="Add the booking calendar to your product page"
-                  body="Open the theme editor and drop the Miko Rental Calendar block onto your product template. Once a customer views the product, we'll auto-detect the block is live."
-                  cta={{ label: "Open theme editor", url: themeEditorBlockUrl }}
-                />
-                <Divider />
-
-                <Step
-                  number={4}
-                  title="Hide regular price + Add to cart for rental products (recommended)"
-                  body="Turn on the Miko Rental Display Rules app embed. It uses a metafield to hide the standard price and buy buttons on any product you've marked as a rental - so customers can only check out via the rental flow."
-                  cta={{ label: "Enable app embed", url: themeEditorEmbedUrl }}
-                />
-                <Divider />
-
-                <Step
-                  number={5}
-                  title="Set your sender name"
-                  body="Customers will receive booking confirmation, return reminder, and overdue emails. The sender name shows in their inbox - usually your store name."
-                  cta={{ label: "Email identity", onClick: () => navigate("/app/settings") }}
-                />
               </BlockStack>
             </Card>
 
             {/* How it works */}
             <Card>
               <BlockStack gap="400">
-                <Text as="h2" variant="headingMd">How rentals flow through Miko</Text>
-                <Divider />
-                <BlockStack gap="300">
-                  <Text as="p">
-                    <strong>1. Customer picks dates on your product page.</strong> The widget calls our API to confirm units are available, calculates the rental fee + deposit, and shows the total at checkout.
-                  </Text>
-                  <Text as="p">
-                    <strong>2. Customer clicks Book now.</strong> The item is added to the standard Shopify cart with the dates and per-unit price as line item properties. A <em>Cart Transform Function</em> overrides the price in checkout so the customer pays the rental amount, not the product's list price.
-                  </Text>
-                  <Text as="p">
-                    <strong>3. Order placed.</strong> A pending booking appears in your dashboard immediately - even before payment is captured. Useful for Cash on Delivery / Net 45 flows.
-                  </Text>
-                  <Text as="p">
-                    <strong>4. Payment captured.</strong> The booking auto-upgrades to <em>Confirmed</em> and the customer receives the booking confirmation email.
-                  </Text>
-                  <Text as="p">
-                    <strong>5. Rental day arrives.</strong> The daily cron flips the booking to <em>Out on rental</em> and sends a return reminder the day before the return date.
-                  </Text>
-                  <Text as="p">
-                    <strong>6. Item returned.</strong> Open the booking and click <em>Mark as returned</em>. If you've enabled auto-release of deposits, we'll mark it released for you. Otherwise click <em>Refund deposit to customer</em> and we'll process a Shopify refund to their original payment method.
-                  </Text>
-                  <Text as="p">
-                    <strong>7. Late returns.</strong> The cron flips active bookings to <em>Overdue</em> after the return date passes and sends an overdue notice with your late fee rate. When the item is back, click <em>Record late fee</em> on the booking and create a draft order in Shopify to charge them.
-                  </Text>
-                </BlockStack>
+                <InlineStack gap="200" blockAlign="center">
+                  <Icon source={PlayIcon} tone="magic" />
+                  <Text as="h2" variant="headingMd">How a rental flows through Miko</Text>
+                </InlineStack>
+                <Text as="p" tone="subdued">
+                  Here is what happens from the moment a customer picks their dates to the day the item is back on your shelf.
+                </Text>
+                <Box paddingBlockStart="200">
+                  <BlockStack gap="400">
+                    <JourneyStep
+                      number={1}
+                      title="Customer picks their dates"
+                      body="The booking widget on your product page checks availability, calculates the rental fee and deposit, and shows the total before checkout."
+                    />
+                    <JourneyStep
+                      number={2}
+                      title="Customer clicks Book now"
+                      body="The item is added to the standard Shopify cart with the rental dates and price attached. We override the cart price so the customer pays the rental amount, not the product's regular price."
+                    />
+                    <JourneyStep
+                      number={3}
+                      title="Order placed"
+                      body="A pending booking appears in your dashboard right away, even before payment is captured. This is handy for Cash on Delivery or Net payment terms."
+                    />
+                    <JourneyStep
+                      number={4}
+                      title="Payment captured"
+                      body="The booking automatically moves to Confirmed and the customer receives a booking confirmation email."
+                    />
+                    <JourneyStep
+                      number={5}
+                      title="Rental day arrives"
+                      body="Miko flips the booking to Out on rental and sends a friendly return reminder the day before the return date."
+                    />
+                    <JourneyStep
+                      number={6}
+                      title="Item comes back"
+                      body="Open the booking and click Mark as returned. If you enabled auto release of deposits, the deposit is released. Otherwise click Refund deposit and Miko sends the money back through Shopify to the customer's original payment method."
+                    />
+                    <JourneyStep
+                      number={7}
+                      title="Late returns"
+                      body="If the return date passes, the booking moves to Overdue and the customer gets an overdue notice showing your late fee rate. When the item is back, click Record late fee and create a draft order in Shopify to collect."
+                    />
+                  </BlockStack>
+                </Box>
               </BlockStack>
             </Card>
 
             {/* Common scenarios */}
             <Card>
               <BlockStack gap="400">
-                <BlockStack gap="100">
-                  <Text as="h2" variant="headingMd">What to do when...</Text>
-                  <Text as="p" tone="subdued">Common situations and the quickest way to handle them.</Text>
-                </BlockStack>
+                <InlineStack gap="200" blockAlign="center">
+                  <Icon source={QuestionCircleIcon} tone="magic" />
+                  <Text as="h2" variant="headingMd">Common questions</Text>
+                </InlineStack>
+                <Text as="p" tone="subdued">
+                  Real situations you may run into and the quickest way to handle each one.
+                </Text>
                 <Divider />
 
                 <Scenario
-                  question="An order came in but I don't see a booking"
+                  question="An order came in but I don't see a booking for it"
                   answer={
                     <>
-                      Open the <strong>Bookings</strong> page and click <strong>Sync from Shopify</strong> at the top. It pulls the last 50 orders and creates bookings for any that have rental data but were missed (typically because of webhook downtime). New orders going forward show up automatically.
+                      Open the <strong>Bookings</strong> page and click <strong>Sync from Shopify</strong> at the top. It pulls in the last 50 orders and creates bookings for any that have rental info but were missed (usually because of a brief webhook outage). New orders going forward show up automatically.
                     </>
                   }
                 />
@@ -227,7 +391,7 @@ export default function HelpPage() {
                   question="A booking is flagged as Needs review"
                   answer={
                     <>
-                      That means an order came in for dates where you'd be overbooked - e.g. you have 2 units and 2 are already rented for those dates, and a 3rd customer paid. Open the booking, contact the customer, and either refund or shift their dates. The booking still holds inventory until you cancel it, so deal with it before the rental day.
+                      That means an order came in for dates where you would be overbooked. For example, you have 2 units, both are already rented for those dates, and a third customer paid. Open the booking, contact the customer, and either refund or move their dates. The booking still holds inventory until you cancel it, so handle it before the rental day.
                     </>
                   }
                 />
@@ -237,7 +401,7 @@ export default function HelpPage() {
                   question="The product page still shows the regular price"
                   answer={
                     <>
-                      Two things to check. First, in <strong>Rental Products</strong> click <strong>Sync with storefront</strong> - this writes the rental metafield Shopify needs. Second, confirm the Miko Rental Display Rules app embed is enabled in your theme editor. Hard-refresh the product page (Cmd+Shift+R) afterwards.
+                      Two quick checks. First, go to <strong>Rental Products</strong> and click <strong>Sync with storefront</strong> so the rental flag is written to your product. Second, confirm the Miko Rental Display Rules app embed is turned on in the theme editor. Then do a hard refresh of the product page (<strong>Cmd + Shift + R</strong> on Mac or <strong>Ctrl + Shift + R</strong> on Windows) to clear the cached version.
                     </>
                   }
                 />
@@ -247,37 +411,37 @@ export default function HelpPage() {
                   question="The customer's deposit needs to be refunded"
                   answer={
                     <>
-                      Open the booking → in the <strong>Deposit management</strong> section click <strong>Refund X to customer</strong>. We call Shopify's refund API directly so the customer gets the money back on their original payment method, and they're notified by Shopify's standard refund email.
+                      Open the booking, scroll to <strong>Deposit management</strong>, and click <strong>Refund deposit to customer</strong>. We use Shopify's standard refund flow so the customer gets the money back on their original payment method, and Shopify automatically sends them a refund email.
                     </>
                   }
                 />
                 <Divider />
 
                 <Scenario
-                  question="The customer damaged the item or didn't return it"
+                  question="The customer damaged the item or did not return it"
                   answer={
                     <>
-                      Open the booking → in the <strong>Deposit management</strong> section click <strong>Mark forfeited</strong>. The deposit stays with you and the customer's not refunded. For anything beyond the deposit, create a draft order in Shopify and send them an invoice.
+                      Open the booking, scroll to <strong>Deposit management</strong>, and click <strong>Mark forfeited</strong>. The deposit stays with you and the customer is not refunded. If you need to charge more than the deposit, create a draft order in Shopify for the extra amount and send them an invoice.
                     </>
                   }
                 />
                 <Divider />
 
                 <Scenario
-                  question="I want to block certain dates (holidays, maintenance)"
+                  question="I want to block out certain dates (holidays, maintenance)"
                   answer={
                     <>
-                      Open the product → scroll to <strong>Blocked dates</strong> and add the dates you want unavailable. Customers won't be able to pick those dates in the calendar.
+                      Open the product, scroll to <strong>Blocked dates</strong>, and add the dates you want to keep unavailable. Customers will not be able to pick those dates in the calendar.
                     </>
                   }
                 />
                 <Divider />
 
                 <Scenario
-                  question="I changed my plan but rentals are still being rejected at the limit"
+                  question="I changed my plan but rentals are still being blocked at the limit"
                   answer={
                     <>
-                      Plan changes are reflected immediately, but if your monthly usage already exceeded the new plan's limit it stays blocked until the next calendar month. The dashboard's <strong>Awaiting payment</strong> count helps you see this.
+                      Plan changes apply right away, but if your monthly usage already passed the new plan's limit, it stays blocked until the next calendar month. The <strong>Awaiting payment</strong> count on your dashboard shows where you stand.
                     </>
                   }
                 />
@@ -287,55 +451,71 @@ export default function HelpPage() {
                   question="I uninstalled and reinstalled the app"
                   answer={
                     <>
-                      Your products, bookings, settings, and email templates are all preserved. Your previous paid subscription was cancelled by Shopify on uninstall - you'll be on the Free plan until you reactivate from <strong>Pricing</strong>. The Cart Transform Function is recreated automatically during reinstall.
+                      No worries, your products, bookings, settings, and email templates are all kept. Shopify cancels paid subscriptions on uninstall, so you will be on the Free plan until you reactivate from <strong>Pricing</strong>. The cart price override is set back up automatically when you reinstall.
                     </>
                   }
                 />
               </BlockStack>
             </Card>
 
-            {/* Multi-unit + overbooking explainer */}
+            {/* Multi-unit + overbooking */}
             <Card>
               <BlockStack gap="400">
-                <Text as="h2" variant="headingMd">Multi-unit rentals and overbooking protection</Text>
-                <Divider />
+                <InlineStack gap="200" blockAlign="center">
+                  <Icon source={AlertCircleIcon} tone="warning" />
+                  <Text as="h2" variant="headingMd">Multi unit rentals and overbooking protection</Text>
+                </InlineStack>
                 <Text as="p">
-                  Set <strong>Total units available</strong> on each product to how many physical copies you have to rent out. When a product has more than one unit, customers see a quantity picker on the storefront and the calendar only blocks dates when <em>every</em> unit is booked.
+                  Set <strong>Total units available</strong> on each product to how many physical copies you have on hand. When a product has more than one unit, customers see a quantity picker on the storefront, and the calendar only blocks dates when every unit is booked.
                 </Text>
-                <Text as="p">
-                  We protect you from overbooking in two places:
-                </Text>
+                <Text as="p">We protect you from overbooking in two places:</Text>
                 <List type="bullet">
                   <List.Item>
-                    The booking widget checks unit availability before the customer can pay - it shows a "Only X units available for these dates" warning if needed.
+                    The booking widget checks availability before the customer can pay and shows a clear warning if not enough units are free for their dates.
                   </List.Item>
                   <List.Item>
-                    The webhook handler re-checks at order creation and at payment. If a race with another customer would push you over capacity, the booking is created as <strong>Needs review</strong> instead of silently overbooking. You'll see a banner on the dashboard until you resolve it.
+                    The order webhook checks again at order creation and at payment. If two customers race for the last unit, the second booking is created as <strong>Needs review</strong> instead of silently overbooking. A banner on your dashboard tells you what to do.
                   </List.Item>
                 </List>
               </BlockStack>
             </Card>
 
-            {/* Late fees */}
+            {/* Theme compatibility */}
             <Card>
               <BlockStack gap="400">
-                <Text as="h2" variant="headingMd">Theme compatibility</Text>
-                <Divider />
+                <InlineStack gap="200" blockAlign="center">
+                  <Icon source={CodeIcon} tone="magic" />
+                  <Text as="h2" variant="headingMd">Works on every modern Shopify theme</Text>
+                </InlineStack>
                 <Text as="p">
-                  Our app embed (<strong>Miko Rental Display Rules</strong>) auto-hides the regular price and injects a <strong>Rental</strong> badge on rental product cards across your storefront. It works out of the box on every Shopify-built theme (Dawn, Horizon, Sense, Refresh, Studio, Craft, Origin, and the rest) and the vast majority of third-party themes.
+                  Our display rules embed works automatically on every Shopify built theme (Dawn, Horizon, Sense, Refresh, Studio, Craft, Origin, and the rest) and the vast majority of third party themes. No setup needed beyond turning the embed on.
                 </Text>
-                <Text as="p">
-                  If you're on a heavily customized theme and the badge doesn't appear or the price isn't hidden on rental cards, paste this snippet into your theme's CSS file (<strong>Online Store → Themes → Edit code → assets/base.css</strong> or your theme's main stylesheet). Replace <code>.your-card-class</code> with the wrapper class your theme uses for each product card:
-                </Text>
+                <Box
+                  background="bg-surface-info"
+                  padding="400"
+                  borderRadius="300"
+                  borderColor="border-info"
+                  borderWidth="025"
+                >
+                  <BlockStack gap="200">
+                    <InlineStack gap="200" blockAlign="center">
+                      <Icon source={AlertCircleIcon} tone="info" />
+                      <Text as="h3" variant="headingSm">On a heavily customized theme?</Text>
+                    </InlineStack>
+                    <Text as="p" tone="subdued">
+                      If the Rental badge does not appear or the price is still showing on rental cards, paste this snippet into your theme's main CSS file. Go to <strong>Online Store, then Themes, then Edit code, then assets/base.css</strong> (or whatever stylesheet your theme uses) and replace <code>.your-card-class</code> with the wrapper class your theme actually uses.
+                    </Text>
+                  </BlockStack>
+                </Box>
                 <Box
                   background="bg-surface-secondary"
                   borderRadius="200"
-                  padding="300"
+                  padding="400"
                   borderColor="border"
                   borderWidth="025"
                 >
-                  <pre style={{ margin: 0, fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace", fontSize: "12px", whiteSpace: "pre-wrap", lineHeight: "1.5" }}>
-{`/* Miko - custom-theme fallback for rental product cards */
+                  <pre style={{ margin: 0, fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace", fontSize: "12px", whiteSpace: "pre-wrap", lineHeight: "1.6" }}>
+{`/* Miko fallback for custom themes */
 .your-card-class[data-miko-rental-card] {
   position: relative;
 }
@@ -359,26 +539,27 @@ export default function HelpPage() {
                   </pre>
                 </Box>
                 <Text as="p" tone="subdued">
-                  Not sure what your card / price class names are? Right-click a product card on your storefront → <strong>Inspect</strong>. The wrapping element's <code>class</code> attribute is what goes in place of <code>.your-card-class</code>; the visible price element's class goes in <code>.your-price-class</code>.
+                  Not sure what your class names are? Right click any product card on your storefront and choose <strong>Inspect</strong>. The wrapping element's <code>class</code> attribute is what goes in place of <code>.your-card-class</code>. The visible price element's class goes in place of <code>.your-price-class</code>.
                 </Text>
                 <Text as="p" tone="subdued">
-                  If you'd rather not touch code, email support and we'll send you a snippet tailored to your theme.
+                  Prefer not to touch code? Email our support team and we will send you a snippet tailored to your theme.
                 </Text>
               </BlockStack>
             </Card>
 
+            {/* Late fees */}
             <Card>
               <BlockStack gap="400">
-                <Text as="h2" variant="headingMd">How late fees work</Text>
-                <Divider />
-                <BlockStack gap="200">
-                  <Text as="p">
-                    Set the <strong>Late fee per day</strong> and <strong>Grace period</strong> in Settings. After a rental's return date passes, the daily cron auto-flips it to <em>Overdue</em> and sends an overdue notice showing your rate.
-                  </Text>
-                  <Text as="p">
-                    When the item is returned, open the booking and click <strong>Record late fee</strong>. We calculate <em>(days overdue - grace) × rate</em> and store it on the booking. We don't auto-charge the customer's card - to collect, create a draft order in Shopify with a custom line item and send the invoice. This keeps you in control of any goodwill exceptions.
-                  </Text>
-                </BlockStack>
+                <InlineStack gap="200" blockAlign="center">
+                  <Icon source={ClockIcon} tone="critical" />
+                  <Text as="h2" variant="headingMd">How late fees work</Text>
+                </InlineStack>
+                <Text as="p">
+                  Set the <strong>Late fee per day</strong> and a <strong>Grace period</strong> in Settings. After a rental's return date passes, Miko automatically marks it as Overdue and sends the customer an overdue notice showing your late fee rate.
+                </Text>
+                <Text as="p">
+                  When the item is back, open the booking and click <strong>Record late fee</strong>. We calculate it as (days overdue minus your grace period) times your daily rate and save it on the booking. We do not auto charge the card. To collect, create a draft order in Shopify with a custom line item and send the invoice. This keeps you in control of any goodwill exceptions you want to make.
+                </Text>
               </BlockStack>
             </Card>
           </BlockStack>
@@ -389,12 +570,15 @@ export default function HelpPage() {
           <BlockStack gap="400">
             <Card>
               <BlockStack gap="300">
-                <Text as="h2" variant="headingMd">Direct links</Text>
+                <InlineStack gap="200" blockAlign="center">
+                  <Icon source={ExternalIcon} tone="magic" />
+                  <Text as="h2" variant="headingMd">Quick links</Text>
+                </InlineStack>
                 <BlockStack gap="200">
-                  <Button url={themeEditorBlockUrl} target="_blank" fullWidth>
+                  <Button url={themeEditorBlockUrl} target="_blank" fullWidth icon={CalendarIcon}>
                     Add calendar block
                   </Button>
-                  <Button url={themeEditorEmbedUrl} target="_blank" fullWidth>
+                  <Button url={themeEditorEmbedUrl} target="_blank" fullWidth icon={CodeIcon}>
                     Enable display rules
                   </Button>
                   <Button url={appEmbedsUrl} target="_blank" fullWidth variant="plain">
@@ -406,24 +590,30 @@ export default function HelpPage() {
 
             <Card>
               <BlockStack gap="300">
-                <Text as="h2" variant="headingMd">Need a human?</Text>
+                <InlineStack gap="200" blockAlign="center">
+                  <Icon source={ChatIcon} tone="success" />
+                  <Text as="h2" variant="headingMd">Talk to a human</Text>
+                </InlineStack>
                 <Text as="p" tone="subdued">
-                  Reach our team and we'll get back within one business day.
+                  Stuck on something? Email our team and we will get back to you within one business day.
                 </Text>
-                <Button url={`mailto:${supportEmail}`} external fullWidth variant="primary">
-                  Email support
+                <Button url={`mailto:${supportEmail}`} external fullWidth variant="primary" icon={EmailIcon}>
+                  Email our team
                 </Button>
               </BlockStack>
             </Card>
 
             <Card>
               <BlockStack gap="300">
-                <Text as="h2" variant="headingMd">Privacy & data</Text>
+                <InlineStack gap="200" blockAlign="center">
+                  <Icon source={LockIcon} tone="subdued" />
+                  <Text as="h2" variant="headingMd">Privacy and your data</Text>
+                </InlineStack>
                 <Text as="p" tone="subdued">
-                  We only store the data you create through the app: rental products, bookings, settings, and email templates. Customer data is limited to the name, email, and phone attached to orders.
+                  Miko only stores the data you create through the app: rental products, bookings, settings, and email templates. Customer data is limited to the name, email, and phone attached to orders.
                 </Text>
                 <Text as="p" tone="subdued">
-                  When you uninstall, your sessions are deleted immediately and a 48-hour data retention window lets you reinstall without losing anything. After that, GDPR webhooks fully delete your shop's data.
+                  When you uninstall, your sessions are deleted right away and a 48 hour retention window lets you reinstall without losing anything. After that, your shop's data is fully deleted.
                 </Text>
               </BlockStack>
             </Card>

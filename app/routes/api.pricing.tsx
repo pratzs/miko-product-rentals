@@ -84,7 +84,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 
   if (units > product.totalUnits) {
     return json({
-      error: `Only ${product.totalUnits} unit${product.totalUnits === 1 ? "" : "s"} of this product exist${product.totalUnits === 1 ? "s" : ""} - please reduce the quantity.`,
+      error: `Only ${product.totalUnits} unit${product.totalUnits === 1 ? "" : "s"} of this product ${product.totalUnits === 1 ? "is" : "are"} available. Please reduce the quantity.`,
       maxUnits: product.totalUnits,
     }, { status: 400, headers: corsHeaders(request) });
   }

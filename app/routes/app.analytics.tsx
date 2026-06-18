@@ -276,7 +276,7 @@ export default function AnalyticsPage() {
           <Layout.Section>
             <Card>
               <BlockStack gap="400">
-                <Text as="h2" variant="headingMd">Monthly revenue - last 6 months</Text>
+                <Text as="h2" variant="headingMd">Monthly revenue (last 6 months)</Text>
                 <Divider />
                 <div style={{ width: "100%", height: 240 }}>
                   <ResponsiveContainer>
@@ -299,7 +299,7 @@ export default function AnalyticsPage() {
           <Layout.Section variant="oneThird">
             <Card>
               <BlockStack gap="400">
-                <Text as="h2" variant="headingMd">Booking volume - last 6 months</Text>
+                <Text as="h2" variant="headingMd">Booking volume (last 6 months)</Text>
                 <Divider />
                 <div style={{ width: "100%", height: 240 }}>
                   <ResponsiveContainer>

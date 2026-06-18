@@ -258,7 +258,7 @@ export default function ProductConfigPage() {
                       min={0}
                       step={0.01}
                       autoComplete="off"
-                      helpText="Optional - leave at 0 to not offer"
+                      helpText="Optional. Leave at 0 to skip this rate."
                     />
                   </Box>
                   <Box minWidth="180px">
@@ -271,7 +271,7 @@ export default function ProductConfigPage() {
                       min={0}
                       step={0.01}
                       autoComplete="off"
-                      helpText="Optional - leave at 0 to not offer"
+                      helpText="Optional. Leave at 0 to skip this rate."
                     />
                   </Box>
                 </InlineStack>

@@ -444,7 +444,7 @@ export default function Dashboard() {
         {reinstalledFromPaid && (
           <Banner
             tone="warning"
-            title="Welcome back - your previous paid plan has ended"
+            title="Welcome back. Your previous paid plan has ended."
             action={{ content: "Reactivate plan", onAction: () => navigate("/app/pricing") }}
           >
             <p>

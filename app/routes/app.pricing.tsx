@@ -76,7 +76,7 @@ export default function PricingPage() {
     try {
       const tokenPromise = shopify.idToken();
       const timeout = new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error("App Bridge token timeout - please refresh the page.")), 8000),
+        setTimeout(() => reject(new Error("This is taking longer than expected. Please refresh the page and try again.")), 8000),
       );
       const token = await Promise.race([tokenPromise, timeout]);
       const resp = await fetch(`/app/subscribe?plan=${plan}`, {
@@ -104,7 +104,7 @@ export default function PricingPage() {
     try {
       const tokenPromise = shopify.idToken();
       const timeout = new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error("App Bridge token timeout - please refresh the page.")), 8000),
+        setTimeout(() => reject(new Error("This is taking longer than expected. Please refresh the page and try again.")), 8000),
       );
       const token = await Promise.race([tokenPromise, timeout]);
       await fetch("/app/cancel", {
