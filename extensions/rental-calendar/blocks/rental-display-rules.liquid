@@ -221,19 +221,20 @@
         if (!handles.length) return;
         var handleSet = new Set(handles);
 
-        // Walk up from a product link to the closest ancestor that "looks
-        // like" a card. We pick the first ancestor matching common card
-        // semantics: a list-item, an <article>, or a div whose class hints
-        // at card / product / grid-item. Limit walk depth so we don't tag
-        // entire page sections by accident.
-        var CARD_HINT_RE = /(card|product-item|product__card|product-card|grid__item|grid-item|collection-item|featured-collection__item)/i;
+        // Walk up from a product link to the surrounding CARD ROOT - not an
+        // inner BEM sub-element like `card__heading` or `card__information`.
+        // Strategy: prefer the first LI / ARTICLE ancestor (every standard
+        // theme wraps each grid product in one of those). Falls back to a
+        // wrapper-class match (`card-wrapper`, `product-card`, `grid__item`)
+        // for themes that use plain DIVs.
+        var CARD_WRAPPER_RE = /(?:^|\s)(card-wrapper|product-card-wrapper|product-card|product-item|grid__item|grid-item|collection-item|featured-collection__item|productitem)(?:\s|$|--)/i;
         function findCard(anchor) {
           var node = anchor.parentElement;
-          for (var i = 0; i < 8 && node; i++) {
+          for (var i = 0; i < 10 && node && node.tagName !== 'BODY'; i++) {
             var tag = node.tagName;
             if (tag === 'LI' || tag === 'ARTICLE') return node;
-            var cls = node.className;
-            if (typeof cls === 'string' && CARD_HINT_RE.test(cls)) return node;
+            var cls = (typeof node.className === 'string') ? node.className : '';
+            if (CARD_WRAPPER_RE.test(cls)) return node;
             node = node.parentElement;
           }
           return null;
