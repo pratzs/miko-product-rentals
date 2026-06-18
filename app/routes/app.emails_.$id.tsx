@@ -4,8 +4,6 @@ import { useLoaderData, useFetcher } from "@remix-run/react";
 import {
   useState,
   useCallback,
-  useEffect,
-  useRef,
 } from "react";
 import {
   DndContext,
@@ -34,7 +32,6 @@ import {
   Banner,
   Box,
   Icon,
-  Tabs,
   Tag,
   Popover,
   ActionList,
@@ -43,7 +40,6 @@ import {
   Divider,
   FormLayout,
   Badge,
-  Spinner,
 } from "@shopify/polaris";
 import {
   DragHandleIcon,
@@ -60,6 +56,7 @@ import {
   defaultOverdueBlocks,
   getDefaultSubject,
   TEMPLATE_VARIABLES,
+  PREVIEW_SAMPLE_VARS,
   type EmailBlock,
   type HeaderBlock,
   type TextBlock,
@@ -85,14 +82,34 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
   const id = params.id as string;
 
   const config = await db.shopConfig.findUnique({ where: { shop } });
+  const { humanizeShopHandle } = await import("../utils/shop-info.server");
+  const resolvedName =
+    (config?.brandName && config.brandName.trim()) ||
+    (config?.shopName && config.shopName.trim()) ||
+    humanizeShopHandle(shop);
   const brand: BrandSettings = {
     logoUrl: config?.brandLogoUrl ?? undefined,
     primaryColor: config?.brandPrimaryColor ?? "#1a1a1a",
-    name: config?.brandName ?? shop,
+    name: resolvedName,
+  };
+
+  // Override generic preview sample values with the shop's real settings so the
+  // preview matches what customers will actually receive.
+  const currency = config?.currency || "USD";
+  function fmt(amount: number) {
+    try {
+      return new Intl.NumberFormat("en", { style: "currency", currency }).format(amount);
+    } catch {
+      return `${currency} ${amount.toFixed(2)}`;
+    }
+  }
+  const previewOverrides: Record<string, string> = {
+    shop_name: resolvedName,
+    late_fee_per_day: fmt(config?.lateFeePerDay ?? 0),
   };
 
   if (id === "new") {
-    return json({ template: null, brand, shop, merchantEmail: null });
+    return json({ template: null, brand, shop, merchantEmail: null, previewOverrides });
   }
 
   const template = await db.emailTemplate.findFirst({ where: { id, shop } });
@@ -111,6 +128,7 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
     brand,
     shop,
     merchantEmail: sessionRow?.email ?? null,
+    previewOverrides,
   });
 };
 
@@ -182,10 +200,15 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
     }
 
     const config = await db.shopConfig.findUnique({ where: { shop } });
+    const { humanizeShopHandle } = await import("../utils/shop-info.server");
+    const resolvedTestName =
+      (config?.brandName && config.brandName.trim()) ||
+      (config?.shopName && config.shopName.trim()) ||
+      humanizeShopHandle(shop);
     const brand: BrandSettings = {
       logoUrl: config?.brandLogoUrl ?? undefined,
       primaryColor: config?.brandPrimaryColor ?? "#1a1a1a",
-      name: config?.brandName ?? shop,
+      name: resolvedTestName,
     };
 
     let blocks: EmailBlock[];
@@ -206,7 +229,7 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
       rental_days: "5",
       rental_price: "$99.00",
       deposit_amount: "$50.00",
-      shop_name: config?.brandName ?? shop,
+      shop_name: resolvedTestName,
       days_overdue: "2",
       late_fee_per_day: "$10.00",
     };
@@ -257,10 +280,12 @@ function blockTypeLabel(type: EmailBlock["type"]): string {
   return labels[type] ?? type;
 }
 
-function blockPreview(block: EmailBlock): string {
+function blockPreview(block: EmailBlock, brand?: BrandSettings): string {
   switch (block.type) {
     case "header":
-      return block.logoUrl ? "With logo" : "Text logo";
+      if (block.logoUrl) return "Custom logo (overrides brand)";
+      if (brand?.logoUrl) return "Brand logo";
+      return "Brand name (no logo set)";
     case "text":
       return block.content.replace(/\*\*/g, "").slice(0, 60) + (block.content.length > 60 ? "…" : "");
     case "details":
@@ -318,6 +343,7 @@ interface SortableBlockRowProps {
   isSelected: boolean;
   onSelect: (id: string) => void;
   onDelete: (id: string) => void;
+  brand: BrandSettings;
 }
 
 function SortableBlockRow({
@@ -325,6 +351,7 @@ function SortableBlockRow({
   isSelected,
   onSelect,
   onDelete,
+  brand,
 }: SortableBlockRowProps) {
   const { attributes, listeners, setNodeRef, transform, transition } =
     useSortable({ id: block.id });
@@ -356,7 +383,7 @@ function SortableBlockRow({
                 {blockTypeLabel(block.type)}
               </Text>
               <Text as="p" variant="bodySm" tone="subdued">
-                {blockPreview(block)}
+                {blockPreview(block, brand)}
               </Text>
             </BlockStack>
           </InlineStack>
@@ -419,11 +446,11 @@ function BlockEditor({ block, onChange, onClose, onDelete }: BlockEditorProps) {
         {block.type === "header" && (
           <FormLayout>
             <TextField
-              label="Logo URL"
+              label="Logo URL (overrides brand logo)"
               value={block.logoUrl}
               onChange={(v) => update("logoUrl", v)}
               autoComplete="off"
-              helpText="Leave blank to show brand name text instead."
+              helpText="Leave blank to use the logo from Brand settings (recommended). Only set this if you want a different logo just for this template."
             />
             <TextField
               label="Background colour"
@@ -592,6 +619,111 @@ function BlockEditor({ block, onChange, onClose, onDelete }: BlockEditorProps) {
 }
 
 // ---------------------------------------------------------------------------
+// Live preview pane
+// ---------------------------------------------------------------------------
+
+interface EmailPreviewProps {
+  html: string;
+  subject: string;
+  fromName: string;
+  toEmail: string;
+  device: "desktop" | "mobile";
+  onDeviceChange: (d: "desktop" | "mobile") => void;
+  previewOverrides: Record<string, string>;
+}
+
+function EmailPreview({
+  html,
+  subject,
+  fromName,
+  toEmail,
+  device,
+  onDeviceChange,
+  previewOverrides,
+}: EmailPreviewProps) {
+  const sampleVars = { ...PREVIEW_SAMPLE_VARS, ...previewOverrides };
+  const renderedSubject = substituteVariables(subject, sampleVars);
+  const renderedHtml = substituteVariables(html, sampleVars);
+  const iframeWidth = device === "mobile" ? 380 : "100%";
+
+  return (
+    <Card padding="0">
+      <Box padding="300" borderBlockEndWidth="025" borderColor="border">
+        <InlineStack align="space-between" blockAlign="center" wrap={false}>
+          <InlineStack gap="200" blockAlign="center">
+            <Text as="p" variant="bodyMd" fontWeight="semibold">Live preview</Text>
+            <Badge tone="info">Sample data</Badge>
+          </InlineStack>
+          <InlineStack gap="100">
+            <Button
+              size="slim"
+              pressed={device === "desktop"}
+              onClick={() => onDeviceChange("desktop")}
+            >
+              Desktop
+            </Button>
+            <Button
+              size="slim"
+              pressed={device === "mobile"}
+              onClick={() => onDeviceChange("mobile")}
+            >
+              Mobile
+            </Button>
+          </InlineStack>
+        </InlineStack>
+      </Box>
+
+      {/* Mock inbox header showing what the customer's email client will display */}
+      <Box padding="300" borderBlockEndWidth="025" borderColor="border" background="bg-surface-secondary">
+        <BlockStack gap="050">
+          <InlineStack align="space-between" blockAlign="center">
+            <Text as="p" variant="bodySm" fontWeight="semibold">
+              {fromName}
+            </Text>
+            <Text as="p" variant="bodySm" tone="subdued">now</Text>
+          </InlineStack>
+          <Text as="p" variant="bodyMd" fontWeight="medium">
+            {renderedSubject || "(no subject)"}
+          </Text>
+          <Text as="p" variant="bodySm" tone="subdued">
+            to {toEmail || "customer@example.com"}
+          </Text>
+        </BlockStack>
+      </Box>
+
+      {/* The actual email rendered in an isolated iframe so its styles don't
+          collide with Polaris and so we get an accurate visual representation. */}
+      <Box padding="300" background="bg-fill-tertiary">
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "center",
+            background: "#f4f4f4",
+            borderRadius: 6,
+            padding: 8,
+          }}
+        >
+          <iframe
+            title="Email preview"
+            srcDoc={renderedHtml}
+            style={{
+              width: iframeWidth,
+              maxWidth: "100%",
+              height: 640,
+              border: "1px solid #e5e7eb",
+              borderRadius: 4,
+              background: "#ffffff",
+              transition: "width 0.2s ease",
+            }}
+            sandbox=""
+          />
+        </div>
+      </Box>
+    </Card>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Main editor component
 // ---------------------------------------------------------------------------
 
@@ -613,7 +745,7 @@ const ADD_BLOCK_TYPES: EmailBlock["type"][] = [
 ];
 
 export default function EmailEditorPage() {
-  const { template, brand, merchantEmail } = useLoaderData<typeof loader>();
+  const { template, brand, merchantEmail, previewOverrides } = useLoaderData<typeof loader>();
   const saveFetcher = useFetcher<typeof action>();
   const testFetcher = useFetcher<typeof action>();
 
@@ -625,7 +757,6 @@ export default function EmailEditorPage() {
 
   const [blocks, setBlocks] = useState<EmailBlock[]>(getInitialBlocks);
   const [selectedBlockId, setSelectedBlockId] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState(0);
   const [templateName, setTemplateName] = useState(template?.name ?? "New Template");
   const [subject, setSubject] = useState(
     template?.subject ?? getDefaultSubject("confirmation"),
@@ -635,6 +766,8 @@ export default function EmailEditorPage() {
   const [isDirty, setIsDirty] = useState(false);
   const [testEmail, setTestEmail] = useState(merchantEmail ?? "");
   const [showTestEmailField, setShowTestEmailField] = useState(false);
+  const [previewDevice, setPreviewDevice] = useState<"desktop" | "mobile">("desktop");
+  const [showHtmlSource, setShowHtmlSource] = useState(false);
 
   const sensors = useSensors(useSensor(PointerSensor));
 
@@ -716,11 +849,6 @@ export default function EmailEditorPage() {
   const saveActionData = saveFetcher.data;
   const testActionData = testFetcher.data;
 
-  const tabs = [
-    { id: "visual", content: "Visual editor" },
-    { id: "html", content: "HTML" },
-  ];
-
   return (
     <Page
       title={templateName || "New template"}
@@ -782,7 +910,7 @@ export default function EmailEditorPage() {
 
         <Layout>
           {/* Editor area */}
-          <Layout.Section>
+          <Layout.Section variant="oneHalf">
             <BlockStack gap="400">
               {/* Template details */}
               <Card>
@@ -834,116 +962,136 @@ export default function EmailEditorPage() {
                 </BlockStack>
               </Card>
 
-              {/* Block editor */}
+              {/* Block list */}
               <Card padding="0">
-                <Tabs
-                  tabs={tabs}
-                  selected={activeTab}
-                  onSelect={setActiveTab}
-                  fitted
-                />
+                <Box padding="400" borderBlockEndWidth="025" borderColor="border">
+                  <InlineStack align="space-between" blockAlign="center">
+                    <Text as="h2" variant="headingMd">Email content</Text>
+                    <Button
+                      variant="plain"
+                      onClick={() => setShowHtmlSource((v) => !v)}
+                    >
+                      {showHtmlSource ? "Hide HTML" : "View HTML source"}
+                    </Button>
+                  </InlineStack>
+                </Box>
 
-                {activeTab === 0 && (
-                  <Box padding="0">
-                    {blocks.length === 0 ? (
-                      <Box padding="600">
-                        <BlockStack gap="300" inlineAlign="center">
-                          <Text as="p" tone="subdued" alignment="center">
-                            No blocks yet. Add your first block below.
-                          </Text>
-                        </BlockStack>
-                      </Box>
-                    ) : (
-                      <DndContext
-                        sensors={sensors}
-                        collisionDetection={closestCenter}
-                        onDragEnd={handleDragEnd}
-                      >
-                        <SortableContext
-                          items={blocks.map((b) => b.id)}
-                          strategy={verticalListSortingStrategy}
-                        >
-                          {blocks.map((block) => (
-                            <SortableBlockRow
-                              key={block.id}
-                              block={block}
-                              isSelected={selectedBlockId === block.id}
-                              onSelect={setSelectedBlockId}
-                              onDelete={handleDeleteBlock}
-                            />
-                          ))}
-                        </SortableContext>
-                      </DndContext>
-                    )}
-
-                    <Box padding="400" borderBlockStartWidth="025" borderColor="border">
-                      <Popover
-                        active={addBlockOpen}
-                        onClose={() => setAddBlockOpen(false)}
-                        activator={
-                          <Button
-                            onClick={() => setAddBlockOpen(true)}
-                            fullWidth
-                          >
-                            + Add block
-                          </Button>
-                        }
-                      >
-                        <ActionList
-                          items={ADD_BLOCK_TYPES.map((type) => ({
-                            content: blockTypeLabel(type),
-                            onAction: () => handleAddBlock(type),
-                          }))}
-                        />
-                      </Popover>
+                <Box padding="0">
+                  {blocks.length === 0 ? (
+                    <Box padding="600">
+                      <BlockStack gap="300" inlineAlign="center">
+                        <Text as="p" tone="subdued" alignment="center">
+                          No blocks yet. Add your first block below.
+                        </Text>
+                      </BlockStack>
                     </Box>
-                  </Box>
-                )}
+                  ) : (
+                    <DndContext
+                      sensors={sensors}
+                      collisionDetection={closestCenter}
+                      onDragEnd={handleDragEnd}
+                    >
+                      <SortableContext
+                        items={blocks.map((b) => b.id)}
+                        strategy={verticalListSortingStrategy}
+                      >
+                        {blocks.map((block) => (
+                          <SortableBlockRow
+                            key={block.id}
+                            block={block}
+                            isSelected={selectedBlockId === block.id}
+                            onSelect={setSelectedBlockId}
+                            onDelete={handleDeleteBlock}
+                            brand={brand}
+                          />
+                        ))}
+                      </SortableContext>
+                    </DndContext>
+                  )}
 
-                {activeTab === 1 && (
-                  <Box padding="400">
-                    <BlockStack gap="300">
-                      <InlineStack align="end">
+                  <Box padding="400" borderBlockStartWidth="025" borderColor="border">
+                    <Popover
+                      active={addBlockOpen}
+                      onClose={() => setAddBlockOpen(false)}
+                      activator={
                         <Button
-                          onClick={() => {
-                            navigator.clipboard
-                              .writeText(compiledHtml())
-                              .catch(() => {});
-                          }}
+                          onClick={() => setAddBlockOpen(true)}
+                          fullWidth
                         >
-                          Copy HTML
+                          + Add block
                         </Button>
-                      </InlineStack>
-                      <TextField
-                        label="Compiled HTML"
-                        labelHidden
-                        value={compiledHtml()}
-                        multiline={20}
-                        autoComplete="off"
-                        readOnly
-                        monospaced
+                      }
+                    >
+                      <ActionList
+                        items={ADD_BLOCK_TYPES.map((type) => ({
+                          content: blockTypeLabel(type),
+                          onAction: () => handleAddBlock(type),
+                        }))}
                       />
-                    </BlockStack>
+                    </Popover>
                   </Box>
-                )}
+                </Box>
               </Card>
+
+              {/* Block settings - shown inline below the list when a block is selected */}
+              {selectedBlock && (
+                <BlockEditor
+                  block={selectedBlock}
+                  onChange={handleBlockChange}
+                  onClose={() => setSelectedBlockId(null)}
+                  onDelete={(id) => {
+                    handleDeleteBlock(id);
+                    setSelectedBlockId(null);
+                  }}
+                />
+              )}
+
+              {/* HTML source - shown on demand */}
+              {showHtmlSource && (
+                <Card>
+                  <BlockStack gap="300">
+                    <InlineStack align="space-between">
+                      <Text as="h3" variant="headingSm">Compiled HTML</Text>
+                      <Button
+                        size="slim"
+                        onClick={() => {
+                          navigator.clipboard
+                            .writeText(compiledHtml())
+                            .catch(() => {});
+                        }}
+                      >
+                        Copy
+                      </Button>
+                    </InlineStack>
+                    <TextField
+                      label="Compiled HTML"
+                      labelHidden
+                      value={compiledHtml()}
+                      multiline={12}
+                      autoComplete="off"
+                      readOnly
+                      monospaced
+                    />
+                  </BlockStack>
+                </Card>
+              )}
             </BlockStack>
           </Layout.Section>
 
-          {/* Block settings panel */}
-          {selectedBlock && (
-            <Layout.Section variant="oneThird">
-              <BlockEditor
-                block={selectedBlock}
-                onChange={handleBlockChange}
-                onClose={() => setSelectedBlockId(null)}
-                onDelete={(id) => {
-                  handleDeleteBlock(id);
-                  setSelectedBlockId(null);
-                }}
+          {/* Live preview pane - sits to the right, sticky on scroll */}
+          <Layout.Section variant="oneHalf">
+            <div style={{ position: "sticky", top: 16 }}>
+              <EmailPreview
+                html={compiledHtml()}
+                subject={subject}
+                fromName={brand.name || "Your Shop"}
+                toEmail={PREVIEW_SAMPLE_VARS.customer_email}
+                device={previewDevice}
+                onDeviceChange={setPreviewDevice}
+                previewOverrides={previewOverrides}
               />
-            </Layout.Section>
-          )}
+            </div>
+          </Layout.Section>
         </Layout>
       </BlockStack>
     </Page>

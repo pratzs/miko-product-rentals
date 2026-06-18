@@ -28,8 +28,10 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 
   const fromParam = url.searchParams.get("from");
   const toParam = url.searchParams.get("to");
+  const unitsParam = url.searchParams.get("units");
   const from = fromParam ? new Date(fromParam) : new Date();
   const to = toParam ? new Date(toParam) : addMonths(new Date(), 3);
+  const units = Math.max(1, Math.min(999, parseInt(unitsParam || "1", 10) || 1));
 
   // Verify the shop exists in our database
   const config = await db.shopConfig.findUnique({ where: { shop } });
@@ -46,8 +48,23 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   }
 
   try {
-    const unavailableDates = await getUnavailableDates(shop, productId, from, to);
-    return json({ unavailableDates }, { headers: corsHeaders(request) });
+    const [unavailableDates, productRow] = await Promise.all([
+      getUnavailableDates(shop, productId, from, to, units),
+      db.rentalProduct.findUnique({
+        where: { shop_shopifyProductId: { shop, shopifyProductId: productId } },
+        select: { totalUnits: true },
+      }),
+    ]);
+    const isFree = (config.planName ?? "free") === "free";
+    const showBadge = isFree || config.showPoweredBy === true;
+    return json(
+      {
+        unavailableDates,
+        totalUnits: productRow?.totalUnits ?? 1,
+        showBadge,
+      },
+      { headers: corsHeaders(request) },
+    );
   } catch {
     return json({ error: "Failed to load availability." }, {
       status: 500,

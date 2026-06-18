@@ -12,6 +12,23 @@ import {
   type EmailBlock,
   type BrandSettings,
 } from "./email-templates";
+import { humanizeShopHandle } from "./shop-info.server";
+
+/**
+ * Resolves the display name shown in the email header / brand name slot.
+ * Priority: explicit brandName → cached real shop name from Shopify →
+ * humanized myshopify handle. The .myshopify.com URL is NEVER shown to
+ * customers.
+ */
+function resolveDisplayName(
+  brandName: string | null | undefined,
+  shopName: string | null | undefined,
+  shop: string,
+): string {
+  if (brandName && brandName.trim().length > 0) return brandName.trim();
+  if (shopName && shopName.trim().length > 0) return shopName.trim();
+  return humanizeShopHandle(shop);
+}
 
 export interface BookingEmailData {
   shop: string;
@@ -80,7 +97,7 @@ async function getTemplateAndBrand(shop: string, type: string) {
   const brand: BrandSettings = {
     logoUrl: config?.brandLogoUrl ?? undefined,
     primaryColor: config?.brandPrimaryColor ?? "#1a1a1a",
-    name: config?.brandName ?? shop,
+    name: resolveDisplayName(config?.brandName, config?.shopName, shop),
   };
   return { template, brand, config };
 }
@@ -204,7 +221,7 @@ export async function sendReturnReminder(
     rental_days: "",
     rental_price: "",
     deposit_amount: "",
-    shop_name: config?.brandName ?? shop,
+    shop_name: brand.name,
     days_overdue: "0",
     late_fee_per_day: "0",
   };
@@ -250,7 +267,7 @@ export async function sendOverdueNotice(
     rental_days: "",
     rental_price: "",
     deposit_amount: "",
-    shop_name: config?.brandName ?? shop,
+    shop_name: brand.name,
     days_overdue: String(daysOverdue),
     late_fee_per_day: formatMoney(lateFeePerDay, currency),
   };

@@ -15,23 +15,28 @@ export type Scalars = {
   Decimal: { input: any; output: any; }
 };
 
+export type Attribute = {
+  __typename?: 'Attribute';
+  key: Scalars['String']['output'];
+  value?: Maybe<Scalars['String']['output']>;
+};
+
 export type Cart = {
   __typename?: 'Cart';
   lines: Array<CartLine>;
 };
 
-export type CartAttribute = {
-  __typename?: 'CartAttribute';
-  key: Scalars['String']['output'];
-  value?: Maybe<Scalars['String']['output']>;
-};
-
 export type CartLine = {
   __typename?: 'CartLine';
-  attributes: Array<CartAttribute>;
+  attribute?: Maybe<Attribute>;
   id: Scalars['ID']['output'];
   merchandise: Merchandise;
   quantity: Scalars['Int']['output'];
+};
+
+
+export type CartLineAttributeArgs = {
+  key: Scalars['String']['input'];
 };
 
 export type Merchandise = ProductVariant;
@@ -49,4 +54,4 @@ export type Query = {
 export type RunInputQueryVariables = Exact<{ [key: string]: never; }>;
 
 
-export type RunInputQuery = { __typename?: 'Query', cart: { __typename?: 'Cart', lines: Array<{ __typename?: 'CartLine', id: string, quantity: number, merchandise: { __typename?: 'ProductVariant', id: string }, attributes: Array<{ __typename?: 'CartAttribute', key: string, value?: string | null }> }> } };
+export type RunInputQuery = { __typename?: 'Query', cart: { __typename?: 'Cart', lines: Array<{ __typename?: 'CartLine', id: string, quantity: number, merchandise: { __typename?: 'ProductVariant', id: string }, mikoData?: { __typename?: 'Attribute', value?: string | null } | null }> } };

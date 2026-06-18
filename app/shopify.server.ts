@@ -7,6 +7,9 @@ import {
 } from "@shopify/shopify-app-remix/server";
 import { PrismaSessionStorage } from "@shopify/shopify-app-session-storage-prisma";
 import { db } from "./db.server";
+import { ensureCartTransformActivated } from "./utils/cart-transform.server";
+import { ensureRentalMetafieldDefinition } from "./utils/product-metafields.server";
+import { ensureShopName } from "./utils/shop-info.server";
 
 const shopify = shopifyApp({
   apiKey: process.env.SHOPIFY_API_KEY,
@@ -43,6 +46,10 @@ const shopify = shopifyApp({
   hooks: {
     afterAuth: async ({ session }) => {
       shopify.registerWebhooks({ session });
+      const { admin } = await shopify.unauthenticated.admin(session.shop);
+      await ensureCartTransformActivated(admin, session.shop);
+      await ensureRentalMetafieldDefinition(admin);
+      await ensureShopName(admin, session.shop);
     },
   },
   ...(process.env.SHOP_CUSTOM_DOMAIN

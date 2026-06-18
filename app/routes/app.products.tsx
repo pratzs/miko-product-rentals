@@ -19,6 +19,7 @@ import {
 import { authenticate } from "../shopify.server";
 import { db } from "../db.server";
 import { formatCurrency } from "../utils/pricing";
+import { setRentalMetafield, ensureRentalVariantsCanOversell } from "../utils/product-metafields.server";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const { session } = await authenticate.admin(request);
@@ -109,7 +110,33 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       data: { isActive },
     });
 
+    // Sync the storefront-visible metafield so the App Embed Block can
+    // detect rental products and hide their regular price / Add to cart.
+    await setRentalMetafield(admin, product.shopifyProductId, isActive);
+
+    // When activating, ensure customers can always book regardless of stock.
+    if (isActive) {
+      await ensureRentalVariantsCanOversell(admin, product.shopifyProductId);
+    }
+
     return json({ success: true });
+  }
+
+  if (intent === "backfill_metafields") {
+    // One-shot fix: re-sync the miko.is_rental metafield for every product so
+    // the new App Embed Block can detect rentals immediately, without needing
+    // the merchant to toggle each one off and on.
+    const allProducts = await db.rentalProduct.findMany({ where: { shop } });
+    for (const p of allProducts) {
+      await setRentalMetafield(admin, p.shopifyProductId, p.isActive);
+      if (p.isActive) {
+        await ensureRentalVariantsCanOversell(admin, p.shopifyProductId);
+      }
+    }
+    return json({
+      success: true,
+      message: `Synced ${allProducts.length} product${allProducts.length === 1 ? "" : "s"} with the storefront.`,
+    });
   }
 
   return json({ error: "Unknown action" }, { status: 400 });
@@ -128,6 +155,12 @@ export default function ProductsPage() {
     submit(fd, { method: "POST" });
   }
 
+  function syncStorefront() {
+    const fd = new FormData();
+    fd.set("intent", "backfill_metafields");
+    submit(fd, { method: "POST" });
+  }
+
   return (
     <Page
       title="Rental Products"
@@ -136,6 +169,13 @@ export default function ProductsPage() {
         content: "Add rental product",
         onAction: () => navigate("/app/products/new"),
       }}
+      secondaryActions={[
+        {
+          content: "Sync with storefront",
+          onAction: syncStorefront,
+          helpText: "Re-sync the rental flag on every product so the storefront embed knows which products are rentals.",
+        },
+      ]}
     >
       <BlockStack gap="600">
         {"error" in (actionData || {}) && (

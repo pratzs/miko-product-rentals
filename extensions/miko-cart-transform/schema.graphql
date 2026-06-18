@@ -16,7 +16,7 @@ type CartLine {
   id: ID!
   quantity: Int!
   merchandise: Merchandise!
-  attributes: [CartAttribute!]!
+  attribute(key: String!): Attribute
 }
 
 union Merchandise = ProductVariant
@@ -25,7 +25,7 @@ type ProductVariant {
   id: ID!
 }
 
-type CartAttribute {
+type Attribute {
   key: String!
   value: String
 }

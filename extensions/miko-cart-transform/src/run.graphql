@@ -8,8 +8,7 @@ query RunInput {
           id
         }
       }
-      attributes {
-        key
+      mikoData: attribute(key: "_miko_data") {
         value
       }
     }

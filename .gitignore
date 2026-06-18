@@ -10,3 +10,9 @@ prisma/migrations/*.sql
 # Railway
 .railway/
 .claude/
+
+# Cart Transform Function build artifacts
+extensions/miko-cart-transform/dist/
+extensions/miko-cart-transform/generated/
+extensions/miko-cart-transform/node_modules/
+extensions/miko-cart-transform/package-lock.json

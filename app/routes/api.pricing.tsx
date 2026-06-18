@@ -31,6 +31,8 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 
   const startDate = new Date(startParam);
   const endDate = new Date(endParam);
+  const unitsParam = url.searchParams.get("units");
+  const units = Math.max(1, Math.min(999, parseInt(unitsParam || "1", 10) || 1));
 
   if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
     return json({ error: "Invalid date format." }, { status: 400, headers: corsHeaders(request) });
@@ -80,13 +82,28 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     }, { status: 400, headers: corsHeaders(request) });
   }
 
-  const available = await isRangeAvailable(shop, productId, startDate, endDate, 1);
+  if (units > product.totalUnits) {
+    return json({
+      error: `Only ${product.totalUnits} unit${product.totalUnits === 1 ? "" : "s"} of this product exist${product.totalUnits === 1 ? "s" : ""} - please reduce the quantity.`,
+      maxUnits: product.totalUnits,
+    }, { status: 400, headers: corsHeaders(request) });
+  }
+
+  const { available, unitsAvailable } = await isRangeAvailable(
+    shop,
+    productId,
+    startDate,
+    endDate,
+    units,
+  );
 
   if (!available) {
-    return json({ error: "These dates are not available. Please choose different dates." }, {
-      status: 409,
-      headers: corsHeaders(request),
-    });
+    return json({
+      error: unitsAvailable === 0
+        ? "These dates are fully booked. Please choose different dates."
+        : `Only ${unitsAvailable} unit${unitsAvailable === 1 ? "" : "s"} available for these dates. Reduce quantity or pick different dates.`,
+      unitsAvailable,
+    }, { status: 409, headers: corsHeaders(request) });
   }
 
   const pricing = calculateRentalPrice({
@@ -96,19 +113,25 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     pricePerWeek: product.pricePerWeek,
     pricePerMonth: product.pricePerMonth,
     depositAmount: product.depositAmount,
+    units,
   });
 
   return json({
     available: true,
     rentalDays: pricing.rentalDays,
+    units: pricing.units,
+    unitsAvailable,
+    totalUnits: product.totalUnits,
     rentalPrice: pricing.rentalPrice,
     depositAmount: pricing.depositAmount,
     totalDue: pricing.totalDue,
+    perUnitPrice: pricing.perUnitPrice,
     breakdown: pricing.breakdown,
     currency: shopConfig?.currency || "USD",
     rentalNotes: product.rentalNotes || null,
     minRentalDays: product.minRentalDays,
     maxRentalDays: product.maxRentalDays,
+    showBadge: (shopConfig?.planName ?? "free") === "free" || shopConfig?.showPoweredBy === true,
   }, { headers: corsHeaders(request) });
 };
 

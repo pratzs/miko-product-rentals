@@ -129,10 +129,15 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     const subject = getDefaultSubject(type);
 
     const config = await db.shopConfig.findUnique({ where: { shop } });
+    const { humanizeShopHandle } = await import("../utils/shop-info.server");
+    const resolvedName =
+      (config?.brandName && config.brandName.trim()) ||
+      (config?.shopName && config.shopName.trim()) ||
+      humanizeShopHandle(shop);
     const brand: BrandSettings = {
       logoUrl: config?.brandLogoUrl ?? undefined,
       primaryColor: config?.brandPrimaryColor ?? "#1a1a1a",
-      name: config?.brandName ?? shop,
+      name: resolvedName,
     };
     const html = compileBlocksToHtml(blocks, brand, subject);
 

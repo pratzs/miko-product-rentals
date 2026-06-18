@@ -5,6 +5,18 @@
   to check availability and show the price before adding to cart.
 {% endcomment %}
 
+{%- comment -%}
+  Only render this widget when the product has been enabled as a rental.
+  The merchant adds this block once to the product template; we conditionally
+  show it per product based on the `miko.is_rental` metafield set by the app.
+{%- endcomment -%}
+{%- unless product.metafields.miko.is_rental -%}
+  {%- comment -%}
+    Render nothing for non-rental products. The theme keeps its regular price
+    and Add to cart button, unaffected.
+  {%- endcomment -%}
+{%- else -%}
+
 {{ 'rental-calendar.css' | asset_url | stylesheet_tag }}
 
 {% if block.settings.rental_only %}
@@ -59,6 +71,16 @@
       </div>
     </div>
 
+    <div id="miko-unit-row" class="miko-unit-row miko-msg--hidden">
+      <label for="miko-units" class="miko-unit-label">Units to rent</label>
+      <div class="miko-unit-control">
+        <button type="button" id="miko-unit-minus" class="miko-unit-btn" aria-label="Decrease units">−</button>
+        <input type="number" id="miko-units" class="miko-unit-input" value="1" min="1" step="1" />
+        <button type="button" id="miko-unit-plus" class="miko-unit-btn" aria-label="Increase units">+</button>
+      </div>
+      <span id="miko-unit-available" class="miko-unit-available"></span>
+    </div>
+
     <div id="miko-availability-msg" class="miko-msg miko-msg--hidden"></div>
 
     <div id="miko-pricing-panel" class="miko-pricing-panel miko-msg--hidden">
@@ -74,6 +96,7 @@
         <span>Total at checkout</span>
         <span id="miko-total-price"></span>
       </div>
+      <p class="miko-cart-note">Your cart may show the product's regular price. The rental amount above is what you'll actually be charged at checkout.</p>
     </div>
 
     <div id="miko-notes" class="miko-notes miko-msg--hidden"></div>
@@ -95,24 +118,30 @@
   {%- endcomment -%}
   <form id="miko-cart-form" style="display:none;" action="/cart/add" method="post" enctype="multipart/form-data">
     <input type="hidden" name="id" id="miko-variant-id" value="{{ product.selected_or_first_available_variant.id }}" />
-    <input type="hidden" name="quantity" value="1" />
+    {%- comment -%}
+      Cart quantity mirrors the number of units. The Cart Transform Function
+      computes per-unit price so Shopify multiplies it correctly across the
+      cart line.
+    {%- endcomment -%}
+    <input type="hidden" name="quantity" id="miko-cart-quantity" value="1" />
     {%- comment -%}Visible in cart and order emails{%- endcomment -%}
     <input type="hidden" name="properties[Rental start]" id="miko-prop-start-display" value="" />
     <input type="hidden" name="properties[Return by]" id="miko-prop-end-display" value="" />
     <input type="hidden" name="properties[Rental duration]" id="miko-prop-duration" value="" />
     <input type="hidden" name="properties[Rental price]" id="miko-prop-price" value="" />
     <input type="hidden" name="properties[Deposit]" id="miko-prop-deposit" value="" />
-    {%- comment -%}Private - read by Cart Transform Function and webhook handlers{%- endcomment -%}
-    <input type="hidden" name="properties[_miko_total_price]" id="miko-prop-total-price" value="" />
-    <input type="hidden" name="properties[_miko_rental_price]" id="miko-prop-rental-price" value="" />
-    <input type="hidden" name="properties[_miko_deposit_amount]" id="miko-prop-deposit-amount" value="" />
-    <input type="hidden" name="properties[_miko_rental_product_id]" id="miko-prop-product-id" value="" />
-    <input type="hidden" name="properties[_miko_start_date]" id="miko-prop-start" value="" />
-    <input type="hidden" name="properties[_miko_end_date]" id="miko-prop-end" value="" />
+    {%- comment -%}
+      Single consolidated private property read by the Cart Transform Function
+      and the orders/paid webhook. Keeps the admin order page tidy - only one
+      cryptic row instead of six.
+    {%- endcomment -%}
+    <input type="hidden" name="properties[_miko_data]" id="miko-prop-data" value="" />
   </form>
 </div>
 
 <script src="{{ 'rental-calendar.js' | asset_url }}" defer></script>
+
+{%- endunless -%}
 
 {% schema %}
 {

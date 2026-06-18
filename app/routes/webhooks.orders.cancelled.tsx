@@ -18,7 +18,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     where: {
       shop,
       shopifyOrderId,
-      status: { in: ["pending", "confirmed"] },
+      status: { in: ["pending", "confirmed", "needs_review"] },
     },
     data: {
       status: "cancelled",

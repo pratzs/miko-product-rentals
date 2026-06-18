@@ -23,6 +23,7 @@ import {
 import { QuestionCircleIcon } from "@shopify/polaris-icons";
 import { authenticate } from "../shopify.server";
 import { db } from "../db.server";
+import { setRentalMetafield, ensureRentalVariantsCanOversell } from "../utils/product-metafields.server";
 import { useState } from "react";
 
 export const loader = async ({ request, params }: LoaderFunctionArgs) => {
@@ -70,7 +71,7 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 };
 
 export const action = async ({ request, params }: ActionFunctionArgs) => {
-  const { session } = await authenticate.admin(request);
+  const { admin, session } = await authenticate.admin(request);
   const shop = session.shop;
   const { id } = params;
   const formData = await request.formData();
@@ -119,10 +120,15 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
     if (!product.isActive && product.pricePerDay === 0) {
       return json({ error: "Set a daily price before activating this product." }, { status: 400 });
     }
+    const newActive = !product.isActive;
     await db.rentalProduct.update({
       where: { id },
-      data: { isActive: !product.isActive },
+      data: { isActive: newActive },
     });
+    await setRentalMetafield(admin, product.shopifyProductId, newActive);
+    if (newActive) {
+      await ensureRentalVariantsCanOversell(admin, product.shopifyProductId);
+    }
     return json({ success: true, message: product.isActive ? "Product deactivated." : "Product is now live for rentals." });
   }
 

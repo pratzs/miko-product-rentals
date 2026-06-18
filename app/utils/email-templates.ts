@@ -325,8 +325,12 @@ function renderBlock(block: EmailBlock, brand: BrandSettings): string {
   switch (block.type) {
     case "header": {
       const bg = block.backgroundColor || "#ffffff";
-      const content = block.logoUrl
-        ? `<img src="${escapeHtml(block.logoUrl)}" alt="${escapeHtml(brand.name)}" style="max-height:60px;max-width:200px;display:block;" />`
+      // Fall back to the brand-level logo from Brand settings when the block
+      // doesn't override it. This means uploading a logo once in Brand settings
+      // applies it to every template automatically.
+      const effectiveLogoUrl = block.logoUrl || brand.logoUrl || "";
+      const content = effectiveLogoUrl
+        ? `<img src="${escapeHtml(effectiveLogoUrl)}" alt="${escapeHtml(brand.name)}" style="max-height:60px;max-width:200px;display:block;" />`
         : `<span style="font-size:22px;font-weight:700;color:${escapeHtml(brand.primaryColor)};">${escapeHtml(brand.name)}</span>`;
       return `<tr><td style="background:${escapeHtml(bg)};padding:24px 32px;">${content}</td></tr>`;
     }
@@ -448,3 +452,20 @@ export function getDefaultSubject(type: string): string {
       return "Message from {{shop_name}}";
   }
 }
+
+// Sample data used by the live preview pane in the editor so merchants can see
+// what their email actually looks like with real-looking content.
+export const PREVIEW_SAMPLE_VARS: Record<string, string> = {
+  customer_name: "Jane Smith",
+  customer_email: "jane@example.com",
+  product_title: "Acoustic Bloc Screens",
+  order_name: "#1042",
+  start_date: "20 June 2026",
+  end_date: "25 June 2026",
+  rental_days: "5",
+  rental_price: "$99.00",
+  deposit_amount: "$50.00",
+  shop_name: "Your Shop",
+  days_overdue: "2",
+  late_fee_per_day: "$10.00",
+};

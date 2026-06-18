@@ -39,9 +39,10 @@ const CURRENCIES = [
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const { session } = await authenticate.admin(request);
   const shop = session.shop;
+  const shopHandle = shop.replace(".myshopify.com", "");
   const config = await db.shopConfig.findUnique({ where: { shop } });
-  if (!config) return json({ config: null, planName: "free" as string });
-  return json({ config, planName: config.planName ?? "free" });
+  if (!config) return json({ config: null, planName: "free" as string, shopHandle });
+  return json({ config, planName: config.planName ?? "free", shopHandle });
 };
 
 export const action = async ({ request }: ActionFunctionArgs) => {
@@ -49,6 +50,15 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   const shop = session.shop;
   const formData = await request.formData();
   const intent = formData.get("intent") as string;
+
+  if (intent === "save_branding") {
+    const showPoweredBy = formData.get("showPoweredBy") === "true";
+    await db.shopConfig.updateMany({
+      where: { shop },
+      data: { showPoweredBy },
+    });
+    return json({ success: true, message: "Branding preference saved." });
+  }
 
   if (intent === "save_late_fees") {
     const gracePeriodDays = parseInt(formData.get("gracePeriodDays") as string) || 0;
@@ -101,7 +111,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 };
 
 export default function SettingsPage() {
-  const { config, planName } = useLoaderData<typeof loader>();
+  const { config, planName, shopHandle } = useLoaderData<typeof loader>();
   const actionData = useActionData<typeof action>();
   const navigation = useNavigation();
   const saving = navigation.state === "submitting";
@@ -121,6 +131,7 @@ export default function SettingsPage() {
   const [smtpFromEmail, setSmtpFromEmail] = useState(config?.smtpFromEmail || "");
   const [smtpFromName, setSmtpFromName] = useState(config?.smtpFromName || "");
   const [smtpSecure, setSmtpSecure] = useState(config?.smtpSecure ?? false);
+  const [showPoweredBy, setShowPoweredBy] = useState(config?.showPoweredBy ?? false);
 
   if (!config) {
     return (
@@ -208,6 +219,24 @@ export default function SettingsPage() {
                     </Box>
                   </InlineStack>
 
+                  <Box background="bg-surface-secondary" borderRadius="200" padding="300">
+                    <BlockStack gap="100">
+                      <Text as="p" variant="bodySm" fontWeight="semibold">How late fees flow through Miko</Text>
+                      <Text as="p" variant="bodySm" tone="subdued">
+                        1. A rental's status flips to <strong>overdue</strong> automatically the day after its return date passes.
+                      </Text>
+                      <Text as="p" variant="bodySm" tone="subdued">
+                        2. The customer receives the <strong>Overdue Notice</strong> email - it shows your "Late fee per day" rate.
+                      </Text>
+                      <Text as="p" variant="bodySm" tone="subdued">
+                        3. When the item is returned, you can open the booking and click <strong>Record late fee</strong>. We calculate <em>(days overdue - grace) × late fee</em> and store it on the booking.
+                      </Text>
+                      <Text as="p" variant="bodySm" tone="subdued">
+                        4. The actual charge happens through Shopify - create a draft order for that customer, add the late fee as a custom line item, and send the invoice. We don't auto-charge cards so you stay in control of the customer relationship.
+                      </Text>
+                    </BlockStack>
+                  </Box>
+
                   <InlineStack>
                     <Form method="POST">
                       <input type="hidden" name="intent" value="save_late_fees" />
@@ -218,6 +247,90 @@ export default function SettingsPage() {
                       <Button variant="primary" submit loading={saving}>Save rental settings</Button>
                     </Form>
                   </InlineStack>
+                </BlockStack>
+              </Card>
+
+              {/* Storefront display rules */}
+              <Card>
+                <BlockStack gap="400">
+                  <BlockStack gap="100">
+                    <Text as="h2" variant="headingMd">Storefront display</Text>
+                    <Text as="p" tone="subdued">
+                      Control how rental products appear to customers across your storefront -
+                      hiding the regular price and Add to cart button so customers can only check
+                      out through the rental flow.
+                    </Text>
+                  </BlockStack>
+                  <Divider />
+                  <BlockStack gap="300">
+                    <Text as="p" variant="bodyMd">
+                      These rules are managed through a sitewide app embed. Enable it once in your
+                      theme editor and it applies to every rental product automatically - no need to
+                      tag products one by one.
+                    </Text>
+                    <Text as="p" variant="bodySm" tone="subdued">
+                      <strong>What you can hide:</strong> regular product price on the product page,
+                      Add to cart button on the product page, and the price shown on rental cards
+                      across collection or search results.
+                    </Text>
+                    <InlineStack gap="200">
+                      <Button
+                        url={`https://admin.shopify.com/store/${shopHandle}/themes/current/editor?context=apps&activateAppId=2306fcd511592e435b9b26ac07304811%2Frental-display-rules`}
+                        target="_blank"
+                        variant="primary"
+                      >
+                        Open theme editor to enable
+                      </Button>
+                      <Button
+                        url={`https://admin.shopify.com/store/${shopHandle}/themes/current/editor?context=apps`}
+                        target="_blank"
+                      >
+                        See all app embeds
+                      </Button>
+                    </InlineStack>
+                    <Text as="p" variant="bodySm" tone="subdued">
+                      Tip: once the embed is on, each of the three rules (PDP price, PDP button,
+                      collection price) has its own checkbox you can toggle independently.
+                    </Text>
+                  </BlockStack>
+
+                  <Divider />
+
+                  <BlockStack gap="300">
+                    <Text as="h3" variant="headingSm">Widget branding</Text>
+                    {planName === "free" ? (
+                      <BlockStack gap="300">
+                        <Checkbox
+                          label='Hide "Powered by Miko Rentals" credit on the storefront widget'
+                          checked={false}
+                          disabled
+                          helpText="Available on the Starter plan and above. Free plan keeps the credit visible."
+                          onChange={() => {}}
+                        />
+                        <Box>
+                          <Button url="/app/pricing" variant="primary">
+                            Upgrade to remove the credit
+                          </Button>
+                        </Box>
+                      </BlockStack>
+                    ) : (
+                      <Form method="POST">
+                        <input type="hidden" name="intent" value="save_branding" />
+                        <input type="hidden" name="showPoweredBy" value={String(showPoweredBy)} />
+                        <BlockStack gap="200">
+                          <Checkbox
+                            label='Hide "Powered by Miko Rentals" credit on the storefront widget'
+                            checked={!showPoweredBy}
+                            onChange={(checked) => setShowPoweredBy(!checked)}
+                            helpText="Hidden by default on paid plans. Uncheck if you'd like to keep the credit visible."
+                          />
+                          <InlineStack>
+                            <Button submit loading={saving}>Save branding</Button>
+                          </InlineStack>
+                        </BlockStack>
+                      </Form>
+                    )}
+                  </BlockStack>
                 </BlockStack>
               </Card>
 

@@ -14,7 +14,6 @@ import {
   Divider,
   Box,
   TextField,
-  Select,
 } from "@shopify/polaris";
 import { authenticate } from "../shopify.server";
 import { db } from "../db.server";
@@ -74,7 +73,7 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 };
 
 export const action = async ({ request, params }: ActionFunctionArgs) => {
-  const { session } = await authenticate.admin(request);
+  const { admin, session } = await authenticate.admin(request);
   const shop = session.shop;
   const formData = await request.formData();
   const intent = formData.get("intent") as string;
@@ -132,6 +131,131 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
     return json({ success: true, message: "Deposit status updated." });
   }
 
+  if (intent === "refund_deposit") {
+    if (!booking.shopifyOrderId) {
+      return json({ error: "No Shopify order linked to this booking - cannot refund." }, { status: 400 });
+    }
+    if (booking.depositAmount <= 0) {
+      return json({ error: "No deposit on this booking to refund." }, { status: 400 });
+    }
+    if (booking.depositStatus === "released") {
+      return json({ error: "Deposit has already been released." }, { status: 400 });
+    }
+
+    const orderGid = `gid://shopify/Order/${booking.shopifyOrderId}`;
+    // Look up the order to find its currency and primary transaction (we'll
+    // refund against the original payment transaction).
+    const orderRes = await admin.graphql(
+      `#graphql
+        query OrderForRefund($id: ID!) {
+          order(id: $id) {
+            id
+            currencyCode
+            transactions(first: 10) {
+              id
+              kind
+              status
+              gateway
+              parentTransaction { id }
+            }
+          }
+        }`,
+      { variables: { id: orderGid } },
+    );
+    const orderData = (await orderRes.json()) as {
+      data?: {
+        order?: {
+          currencyCode: string;
+          transactions: Array<{ id: string; kind: string; status: string; gateway: string }>;
+        };
+      };
+    };
+    const order = orderData.data?.order;
+    if (!order) {
+      return json({ error: "Could not find the Shopify order." }, { status: 400 });
+    }
+    const captureTxn = order.transactions.find(
+      (t) => (t.kind === "SALE" || t.kind === "CAPTURE") && t.status === "SUCCESS",
+    );
+    if (!captureTxn) {
+      return json(
+        {
+          error:
+            "No successful payment found on this order. If payment was taken outside Shopify, mark the deposit released manually.",
+        },
+        { status: 400 },
+      );
+    }
+
+    // 2026-04 API requires @idempotent on refundCreate. We derive the key
+    // deterministically from the booking id so retrying the same click never
+    // creates duplicate refunds - the second call is a no-op on Shopify's side.
+    const idempotencyKey = `miko-deposit-refund-${booking.id}`;
+    try {
+      const refundRes = await admin.graphql(
+        `#graphql
+          mutation RefundDeposit($input: RefundInput!, $key: String!) {
+            refundCreate(input: $input) @idempotent(key: $key) {
+              refund { id }
+              userErrors { field message }
+            }
+          }`,
+        {
+          variables: {
+            key: idempotencyKey,
+            input: {
+              orderId: orderGid,
+              note: `Deposit refund for rental ${booking.shopifyOrderName} (booking ${booking.id.slice(-8).toUpperCase()})`,
+              notify: true,
+              transactions: [
+                {
+                  amount: booking.depositAmount.toFixed(2),
+                  gateway: captureTxn.gateway,
+                  kind: "REFUND",
+                  orderId: orderGid,
+                  parentId: captureTxn.id,
+                },
+              ],
+            },
+          },
+        },
+      );
+      const refundData = (await refundRes.json()) as {
+        data?: {
+          refundCreate?: {
+            refund: { id: string } | null;
+            userErrors: Array<{ field: string[]; message: string }>;
+          };
+        };
+      };
+      const errors = refundData.data?.refundCreate?.userErrors ?? [];
+      if (errors.length > 0) {
+        return json(
+          { error: `Refund failed: ${errors.map((e) => e.message).join(", ")}` },
+          { status: 400 },
+        );
+      }
+    } catch (err) {
+      // Any GraphQL or network error surfaces as a banner instead of crashing
+      // the route.
+      const msg = err instanceof Error ? err.message : "Refund request failed.";
+      console.error(`[deposit-refund] booking ${booking.id} failed:`, err);
+      return json(
+        { error: `Refund request failed: ${msg}` },
+        { status: 500 },
+      );
+    }
+
+    await db.rentalBooking.update({
+      where: { id: booking.id },
+      data: { depositStatus: "released" },
+    });
+    return json({
+      success: true,
+      message: `Deposit of ${formatCurrency(booking.depositAmount, config?.currency || "USD")} refunded to the customer.`,
+    });
+  }
+
   if (intent === "charge_late_fee") {
     const daysOverdue = differenceInDays(new Date(), booking.endDate);
     const lateFeeTotal = (config?.lateFeePerDay || 0) * Math.max(0, daysOverdue - (config?.gracePeriodDays || 0));
@@ -155,12 +279,13 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
 };
 
 const STATUS_BADGE: Record<string, { tone: any; label: string }> = {
-  pending:   { tone: "attention", label: "Pending payment" },
-  confirmed: { tone: "info",      label: "Confirmed - not started yet" },
-  active:    { tone: "success",   label: "Out on rental" },
-  returned:  { tone: "success",   label: "Returned" },
-  overdue:   { tone: "critical",  label: "Overdue - not returned" },
-  cancelled: { tone: "subdued",   label: "Cancelled" },
+  pending:      { tone: "attention", label: "Pending payment" },
+  confirmed:    { tone: "info",      label: "Confirmed - not started yet" },
+  active:       { tone: "success",   label: "Out on rental" },
+  returned:     { tone: "success",   label: "Returned" },
+  overdue:      { tone: "critical",  label: "Overdue - not returned" },
+  cancelled:    { tone: "subdued",   label: "Cancelled" },
+  needs_review: { tone: "warning",   label: "Needs review - overbooked" },
 };
 
 const DEPOSIT_BADGE: Record<string, { tone: any; label: string }> = {
@@ -178,12 +303,11 @@ export default function BookingDetailPage() {
   const submitting = navigation.state === "submitting";
 
   const [notes, setNotes] = useState(booking.merchantNotes);
-  const [depositStatus, setDepositStatus] = useState(booking.depositStatus);
 
   const canMarkReturned = ["active", "overdue", "confirmed"].includes(booking.status);
   const canMarkActive = booking.status === "confirmed";
   const canMarkOverdue = booking.status === "active";
-  const canCancel = ["pending", "confirmed"].includes(booking.status);
+  const canCancel = ["pending", "confirmed", "needs_review"].includes(booking.status);
 
   return (
     <Page
@@ -207,6 +331,15 @@ export default function BookingDetailPage() {
                   {lateFeePerDay > 0
                     ? `A late fee of ${formatCurrency(lateFeePerDay, currency)} per day applies.`
                     : "Contact the customer to arrange return."}
+                </p>
+              </Banner>
+            )}
+
+            {booking.status === "needs_review" && (
+              <Banner tone="warning" title="This booking needs your review">
+                <p>
+                  {booking.merchantNotes ||
+                    "Capacity conflict at the time the order came in. Resolve by contacting the customer or adjusting another booking."}
                 </p>
               </Banner>
             )}
@@ -293,26 +426,38 @@ export default function BookingDetailPage() {
                   <>
                     <Divider />
                     <BlockStack gap="300">
-                      <Text as="h3" variant="headingSm">Update deposit status</Text>
-                      <InlineStack gap="300" blockAlign="end">
-                        <Box minWidth="200px">
-                          <Select
-                            label="Deposit status"
-                            options={[
-                              { label: "Held (awaiting return)", value: "held" },
-                              { label: "Released (refunded to customer)", value: "released" },
-                              { label: "Forfeited (damage or loss)", value: "forfeited" },
-                            ]}
-                            value={depositStatus}
-                            onChange={setDepositStatus}
-                          />
-                        </Box>
-                        <Form method="POST">
-                          <input type="hidden" name="intent" value="update_deposit" />
-                          <input type="hidden" name="depositStatus" value={depositStatus} />
-                          <Button submit loading={submitting}>Update</Button>
-                        </Form>
-                      </InlineStack>
+                      <Text as="h3" variant="headingSm">Deposit management</Text>
+                      {booking.depositStatus === "released" ? (
+                        <Banner tone="success" title={`Deposit of ${formatCurrency(booking.depositAmount, currency)} has been released to the customer.`} />
+                      ) : booking.depositStatus === "forfeited" ? (
+                        <Banner tone="critical" title="Deposit forfeited">
+                          <p>The deposit has been kept and not refunded to the customer.</p>
+                        </Banner>
+                      ) : (
+                        <BlockStack gap="300">
+                          <Text as="p" tone="subdued">
+                            The {formatCurrency(booking.depositAmount, currency)} deposit is currently held. Refund it directly to the customer's original payment method, or mark it forfeited if the item was damaged or lost.
+                          </Text>
+                          <InlineStack gap="200" wrap>
+                            <Form method="POST">
+                              <input type="hidden" name="intent" value="refund_deposit" />
+                              <Button submit loading={submitting} variant="primary">
+                                Refund {formatCurrency(booking.depositAmount, currency)} to customer
+                              </Button>
+                            </Form>
+                            <Form method="POST">
+                              <input type="hidden" name="intent" value="update_deposit" />
+                              <input type="hidden" name="depositStatus" value="forfeited" />
+                              <Button submit loading={submitting} tone="critical" variant="plain">
+                                Mark forfeited (keep deposit)
+                              </Button>
+                            </Form>
+                          </InlineStack>
+                          <Text as="p" variant="bodySm" tone="subdued">
+                            Refunds use the customer's original payment method through Shopify. The customer will be notified by email.
+                          </Text>
+                        </BlockStack>
+                      )}
                     </BlockStack>
                   </>
                 )}
@@ -385,9 +530,38 @@ export default function BookingDetailPage() {
                   )}
                 </BlockStack>
                 <Button
-                  url={`mailto:${booking.customerEmail}`}
-                  external
                   size="slim"
+                  disabled={!booking.customerEmail}
+                  onClick={() => {
+                    if (!booking.customerEmail) return;
+                    // Pre-fill the booking context so the merchant doesn't
+                    // have to re-type any of it.
+                    const subject = `Regarding your rental ${booking.orderName || ""}`.trim();
+                    const startStr = format(new Date(booking.startDate), "d MMM yyyy");
+                    const endStr = format(new Date(booking.endDate), "d MMM yyyy");
+                    const body = [
+                      `Hi ${booking.customerName.split(" ")[0] || "there"},`,
+                      "",
+                      `Reaching out about your booking for ${booking.productTitle} (${startStr} to ${endStr}).`,
+                      "",
+                      "",
+                    ].join("\n");
+                    const href =
+                      `mailto:${booking.customerEmail}` +
+                      `?subject=${encodeURIComponent(subject)}` +
+                      `&body=${encodeURIComponent(body)}`;
+                    // Embedded apps run in an iframe — target the top window
+                    // so the OS-level mail client actually opens.
+                    try {
+                      if (window.top) {
+                        window.top.location.href = href;
+                      } else {
+                        window.location.href = href;
+                      }
+                    } catch {
+                      window.location.href = href;
+                    }
+                  }}
                 >
                   Email customer
                 </Button>
@@ -395,48 +569,62 @@ export default function BookingDetailPage() {
             </Card>
 
             {/* Booking actions */}
-            <Card>
-              <BlockStack gap="300">
-                <Text as="h2" variant="headingMd">Actions</Text>
+            {(canMarkActive || canMarkReturned || canMarkOverdue || canCancel) ? (
+              <Card>
+                <BlockStack gap="300">
+                  <Text as="h2" variant="headingMd">Actions</Text>
 
-                {canMarkActive && (
-                  <Form method="POST">
-                    <input type="hidden" name="intent" value="mark_active" />
-                    <Button fullWidth submit loading={submitting} variant="primary">
-                      Mark as started (item handed over)
-                    </Button>
-                  </Form>
-                )}
+                  {canMarkActive && (
+                    <Form method="POST">
+                      <input type="hidden" name="intent" value="mark_active" />
+                      <Button fullWidth submit loading={submitting} variant="primary">
+                        Mark as started (item handed over)
+                      </Button>
+                    </Form>
+                  )}
 
-                {canMarkReturned && (
-                  <Form method="POST">
-                    <input type="hidden" name="intent" value="mark_returned" />
-                    <Button fullWidth submit loading={submitting} variant="primary">
-                      Mark as returned
-                    </Button>
-                  </Form>
-                )}
+                  {canMarkReturned && (
+                    <Form method="POST">
+                      <input type="hidden" name="intent" value="mark_returned" />
+                      <Button fullWidth submit loading={submitting} variant="primary">
+                        Mark as returned
+                      </Button>
+                    </Form>
+                  )}
 
-                {canMarkOverdue && (
-                  <Form method="POST">
-                    <input type="hidden" name="intent" value="mark_overdue" />
-                    <Button fullWidth submit loading={submitting} tone="critical">
-                      Mark as overdue
-                    </Button>
-                  </Form>
-                )}
+                  {canMarkOverdue && (
+                    <Form method="POST">
+                      <input type="hidden" name="intent" value="mark_overdue" />
+                      <Button fullWidth submit loading={submitting} tone="critical">
+                        Mark as overdue
+                      </Button>
+                    </Form>
+                  )}
 
-                {canCancel && (
-                  <Form method="POST">
-                    <input type="hidden" name="intent" value="cancel" />
-                    <Button fullWidth submit loading={submitting} variant="plain" tone="critical">
-                      Cancel booking
-                    </Button>
-                  </Form>
-                )}
-
-              </BlockStack>
-            </Card>
+                  {canCancel && (
+                    <Form method="POST">
+                      <input type="hidden" name="intent" value="cancel" />
+                      <Button fullWidth submit loading={submitting} variant="plain" tone="critical">
+                        Cancel booking
+                      </Button>
+                    </Form>
+                  )}
+                </BlockStack>
+              </Card>
+            ) : (
+              <Card>
+                <BlockStack gap="200">
+                  <Text as="h2" variant="headingMd">Actions</Text>
+                  <Text as="p" tone="subdued">
+                    {booking.status === "returned"
+                      ? "This rental has been returned and the booking is complete. No further actions are needed."
+                      : booking.status === "cancelled"
+                      ? "This booking was cancelled. No further actions are available."
+                      : "No actions are available for this booking right now."}
+                  </Text>
+                </BlockStack>
+              </Card>
+            )}
 
             {/* Booking metadata */}
             <Card>

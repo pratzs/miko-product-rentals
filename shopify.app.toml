@@ -6,7 +6,7 @@ application_url = "https://miko-product-rentals-production.up.railway.app"
 embedded = true
 
 [access_scopes]
-scopes = "read_products,write_products,read_orders,write_orders,read_draft_orders,write_draft_orders"
+scopes = "read_products,write_products,read_orders,write_orders,read_cart_transforms,write_cart_transforms"
 
 [auth]
 redirect_urls = [
@@ -22,8 +22,16 @@ api_version = "2026-04"
   topics = ["app/uninstalled"]
 
   [[webhooks.subscriptions]]
+  uri = "/webhooks/app/scopes_update"
+  topics = ["app/scopes_update"]
+
+  [[webhooks.subscriptions]]
   uri = "/webhooks/app_subscriptions/update"
   topics = ["app_subscriptions/update"]
+
+  [[webhooks.subscriptions]]
+  uri = "/webhooks/orders/create"
+  topics = ["orders/create"]
 
   [[webhooks.subscriptions]]
   uri = "/webhooks/orders/paid"

@@ -1,6 +1,6 @@
 import type { LoaderFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
-import { useLoaderData, useNavigate, useSearchParams } from "@remix-run/react";
+import { useLoaderData, useNavigate, useSearchParams, Form } from "@remix-run/react";
 import {
   Page,
   Layout,
@@ -22,14 +22,16 @@ import { db } from "../db.server";
 import { format } from "date-fns";
 import { formatCurrency } from "../utils/pricing";
 import { useState, useCallback } from "react";
+import { Banner } from "@shopify/polaris";
 
 const STATUS_BADGE: Record<string, { tone: any; label: string }> = {
-  pending:   { tone: "attention", label: "Pending payment" },
-  confirmed: { tone: "info",      label: "Confirmed" },
-  active:    { tone: "success",   label: "Out on rental" },
-  returned:  { tone: "success",   label: "Returned" },
-  overdue:   { tone: "critical",  label: "Overdue" },
-  cancelled: { tone: "subdued",   label: "Cancelled" },
+  pending:      { tone: "attention", label: "Pending payment" },
+  confirmed:    { tone: "info",      label: "Confirmed" },
+  active:       { tone: "success",   label: "Out on rental" },
+  returned:     { tone: "success",   label: "Returned" },
+  overdue:      { tone: "critical",  label: "Overdue" },
+  cancelled:    { tone: "subdued",   label: "Cancelled" },
+  needs_review: { tone: "warning",   label: "Needs review" },
 };
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
@@ -85,6 +87,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       active: bookings.filter((b) => b.status === "active").length,
       overdue: bookings.filter((b) => b.status === "overdue").length,
       confirmed: bookings.filter((b) => b.status === "confirmed").length,
+      needs_review: bookings.filter((b) => b.status === "needs_review").length,
     },
   });
 };
@@ -129,17 +132,56 @@ export default function BookingsPage() {
 
   const statusTabs = [
     { label: "All", value: "", count: counts.all },
+    { label: "Needs review", value: "needs_review", count: counts.needs_review },
     { label: "Active", value: "active", count: counts.active },
     { label: "Overdue", value: "overdue", count: counts.overdue },
     { label: "Confirmed", value: "confirmed", count: counts.confirmed },
   ];
 
+  const syncedCount = parseInt(searchParams.get("synced") || "0");
+  const upgradedCount = parseInt(searchParams.get("upgraded") || "0");
+  const flaggedCount = parseInt(searchParams.get("flagged") || "0");
+  const showSyncBanner = syncedCount > 0 || upgradedCount > 0 || flaggedCount > 0;
+
   return (
     <Page
       title="Bookings"
       subtitle="Every rental booking across all your products"
+      secondaryActions={[
+        {
+          content: "Sync from Shopify",
+          helpText: "Recover bookings from recent Shopify orders that may have been missed",
+        },
+      ]}
     >
       <BlockStack gap="500">
+        {showSyncBanner && (
+          <Banner
+            tone={flaggedCount > 0 ? "warning" : "success"}
+            title="Sync complete"
+            onDismiss={() => {
+              const p = new URLSearchParams(searchParams);
+              p.delete("synced");
+              p.delete("upgraded");
+              p.delete("flagged");
+              setSearchParams(p);
+            }}
+          >
+            <p>
+              {syncedCount > 0 && `Created ${syncedCount} new booking${syncedCount > 1 ? "s" : ""}. `}
+              {upgradedCount > 0 && `Upgraded ${upgradedCount} pending booking${upgradedCount > 1 ? "s" : ""} to confirmed. `}
+              {flaggedCount > 0 && `${flaggedCount} booking${flaggedCount > 1 ? "s were" : " was"} flagged for review (overbooking risk).`}
+            </p>
+          </Banner>
+        )}
+
+        <Form method="POST" action="/app/sync-orders">
+          <input type="hidden" name="returnTo" value="/app/bookings" />
+          <Button submit variant="plain">
+            Sync from Shopify (recover missing bookings)
+          </Button>
+        </Form>
+
         {/* Tab-style status pills */}
         <InlineStack gap="200">
           {statusTabs.map((tab) => (

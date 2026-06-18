@@ -2,7 +2,7 @@ import type { ActionFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
 import { authenticate } from "../shopify.server";
 import { db } from "../db.server";
-import { calculateRentalPrice } from "../utils/pricing";
+import { syncBookingsFromOrder } from "../utils/booking-from-order.server";
 import { sendBookingConfirmation } from "../utils/email";
 
 export const action = async ({ request }: ActionFunctionArgs) => {
@@ -12,100 +12,50 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     return json({ ok: true });
   }
 
+  const result = await syncBookingsFromOrder(shop, payload as any, {
+    upgradeToConfirmed: true,
+  });
+
+  if (result.bookingsCreated === 0 && result.bookingsUpgraded === 0) {
+    return json({ ok: true, ...result });
+  }
+
+  // Send confirmation emails for any bookings that were just created OR upgraded
+  // to confirmed by this webhook. A failed email must never fail the webhook,
+  // otherwise Shopify retries forever against an already-created booking.
   const order = payload as any;
-  const shopifyOrderId = String(order.id);
-  const shopifyOrderName = order.name as string;
-  const customerName = `${order.customer?.first_name || ""} ${order.customer?.last_name || ""}`.trim() || "Customer";
-  const customerEmail = order.customer?.email || order.email || "";
-  const customerPhone =
-    order.customer?.phone || order.phone || order.shipping_address?.phone || order.billing_address?.phone || "";
+  const config = await db.shopConfig.findUnique({ where: { shop } });
+  const bookings = await db.rentalBooking.findMany({
+    where: { shop, shopifyOrderId: String(order.id), status: "confirmed" },
+    include: { rentalProduct: true },
+  });
 
-  // Look for rental line items - they carry rental metadata in note_attributes or properties
-  // We use line item properties: start_date, end_date, rental_product_id
-  for (const item of order.line_items || []) {
-    const properties: { name: string; value: string }[] = item.properties || [];
-    const prop = (key: string) => properties.find((p) => p.name === key)?.value || "";
-
-    const rentalProductDbId = prop("_miko_rental_product_id");
-    const startDateStr = prop("_miko_start_date");
-    const endDateStr = prop("_miko_end_date");
-
-    if (!rentalProductDbId || !startDateStr || !endDateStr) continue;
-
-    const rentalProduct = await db.rentalProduct.findFirst({
-      where: { id: rentalProductDbId, shop },
+  for (const booking of bookings) {
+    if (!booking.customerEmail) continue;
+    const alreadySent = await db.emailLog.findFirst({
+      where: { shop, bookingId: booking.id, type: "confirmation" },
     });
-
-    if (!rentalProduct) continue;
-
-    // Check if a booking already exists for this order+product (idempotency)
-    const existing = await db.rentalBooking.findFirst({
-      where: { shop, shopifyOrderId, rentalProductId: rentalProductDbId },
-    });
-    if (existing) continue;
-
-    const startDate = new Date(startDateStr);
-    const endDate = new Date(endDateStr);
-
-    const config = await db.shopConfig.findUnique({ where: { shop } });
-
-    const pricing = calculateRentalPrice({
-      startDate,
-      endDate,
-      pricePerDay: rentalProduct.pricePerDay,
-      pricePerWeek: rentalProduct.pricePerWeek,
-      pricePerMonth: rentalProduct.pricePerMonth,
-      depositAmount: rentalProduct.depositAmount,
-    });
-
-    const booking = await db.rentalBooking.create({
-      data: {
+    if (alreadySent) continue;
+    try {
+      await sendBookingConfirmation({
         shop,
-        rentalProductId: rentalProduct.id,
-        shopifyOrderId,
-        shopifyOrderName,
-        customerName,
-        customerEmail,
-        customerPhone,
-        startDate,
-        endDate,
-        unitsRented: 1,
-        rentalDays: pricing.rentalDays,
-        rentalPrice: pricing.rentalPrice,
-        depositAmount: pricing.depositAmount,
-        depositStatus: pricing.depositAmount > 0 ? "held" : "released",
-        totalCharged: pricing.totalDue,
-        status: "confirmed",
-        lateFeeCharged: 0,
-        merchantNotes: "",
-      },
-    });
-
-    // Send confirmation email (config is fetched internally). A failed email
-    // must never fail the webhook, otherwise Shopify retries it forever against
-    // an already-created booking. Log and move on.
-    if (customerEmail) {
-      try {
-        await sendBookingConfirmation({
-          shop,
-          bookingId: booking.id,
-          customerEmail,
-          customerName,
-          productTitle: rentalProduct.shopifyProductTitle,
-          orderName: shopifyOrderName,
-          startDate,
-          endDate,
-          rentalDays: pricing.rentalDays,
-          rentalPrice: pricing.rentalPrice,
-          depositAmount: pricing.depositAmount,
-          totalCharged: pricing.totalDue,
-          currency: config?.currency || "USD",
-        });
-      } catch (err) {
-        console.error(`[orders/paid] confirmation email failed for booking ${booking.id}:`, err);
-      }
+        bookingId: booking.id,
+        customerEmail: booking.customerEmail,
+        customerName: booking.customerName,
+        productTitle: booking.rentalProduct.shopifyProductTitle,
+        orderName: booking.shopifyOrderName,
+        startDate: booking.startDate,
+        endDate: booking.endDate,
+        rentalDays: booking.rentalDays,
+        rentalPrice: booking.rentalPrice,
+        depositAmount: booking.depositAmount,
+        totalCharged: booking.totalCharged,
+        currency: config?.currency || "USD",
+      });
+    } catch (err) {
+      console.error(`[orders/paid] confirmation email failed for booking ${booking.id}:`, err);
     }
   }
 
-  return json({ ok: true });
+  return json({ ok: true, ...result });
 };

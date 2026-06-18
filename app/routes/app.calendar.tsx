@@ -20,10 +20,11 @@ import { useState } from "react";
 import { useNavigate as useNav } from "@remix-run/react";
 
 const STATUS_COLORS: Record<string, string> = {
-  confirmed: "#b3d4ff",
-  active:    "#b5f5c8",
-  overdue:   "#ffb3b3",
-  returned:  "#d4d4d4",
+  confirmed:    "#b3d4ff",
+  active:       "#b5f5c8",
+  overdue:      "#ffb3b3",
+  returned:     "#d4d4d4",
+  needs_review: "#fde68a",
 };
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
@@ -43,7 +44,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       where: {
         shop,
         ...(productFilter ? { rentalProductId: productFilter } : {}),
-        status: { in: ["confirmed", "active", "overdue", "returned"] },
+        status: { in: ["confirmed", "active", "overdue", "returned", "needs_review"] },
         startDate: { lte: to },
         endDate: { gte: from },
       },

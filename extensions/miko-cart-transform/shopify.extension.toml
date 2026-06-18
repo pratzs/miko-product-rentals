@@ -10,3 +10,4 @@ api_type = "cart_transform"
 [[extensions.targeting]]
 module = "./src/index.js"
 target = "purchase.cart-transform.run"
+input_query = "./src/run.graphql"

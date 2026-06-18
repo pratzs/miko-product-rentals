@@ -37,25 +37,30 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     allBookings,
     thisMonthBookings,
     lastMonthBookings,
-    activeCount,
-    overdueCount,
     productStats,
+    depositSummary,
   ] = await Promise.all([
     db.rentalBooking.findMany({
       where: { shop, status: { in: ["confirmed", "active", "returned", "overdue"] } },
       orderBy: { createdAt: "asc" },
-      select: { createdAt: true, totalCharged: true, status: true, rentalDays: true, startDate: true },
+      select: {
+        createdAt: true,
+        rentalPrice: true,
+        depositAmount: true,
+        status: true,
+        rentalDays: true,
+        startDate: true,
+        endDate: true,
+      },
     }),
     db.rentalBooking.findMany({
       where: { shop, status: { notIn: ["cancelled", "pending"] }, createdAt: { gte: thisMonthStart, lte: thisMonthEnd } },
-      select: { totalCharged: true, depositAmount: true },
+      select: { rentalPrice: true, depositAmount: true },
     }),
     db.rentalBooking.findMany({
       where: { shop, status: { notIn: ["cancelled", "pending"] }, createdAt: { gte: lastMonthStart, lte: lastMonthEnd } },
-      select: { totalCharged: true },
+      select: { rentalPrice: true },
     }),
-    db.rentalBooking.count({ where: { shop, status: "active" } }),
-    db.rentalBooking.count({ where: { shop, status: "overdue" } }),
     db.rentalProduct.findMany({
       where: { shop },
       select: {
@@ -65,29 +70,53 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
         _count: { select: { bookings: true } },
         bookings: {
           where: { status: { notIn: ["cancelled", "pending"] } },
-          select: { totalCharged: true, rentalDays: true },
+          select: { rentalPrice: true, rentalDays: true },
         },
       },
     }),
+    db.rentalBooking.findMany({
+      where: { shop, depositStatus: "held", status: { notIn: ["cancelled"] } },
+      select: { depositAmount: true },
+    }),
   ]);
 
-  const thisMonthRevenue = thisMonthBookings.reduce((s, b) => s + b.totalCharged, 0);
-  const lastMonthRevenue = lastMonthBookings.reduce((s, b) => s + b.totalCharged, 0);
-  const totalRevenue = allBookings.reduce((s, b) => s + b.totalCharged, 0);
+  // Revenue = rental fees only (deposit is a liability we owe back, not revenue).
+  const thisMonthRevenue = thisMonthBookings.reduce((s, b) => s + b.rentalPrice, 0);
+  const lastMonthRevenue = lastMonthBookings.reduce((s, b) => s + b.rentalPrice, 0);
+  const totalRevenue = allBookings.reduce((s, b) => s + b.rentalPrice, 0);
   const totalBookings = allBookings.length;
   const avgOrderValue = totalBookings > 0 ? totalRevenue / totalBookings : 0;
   const avgRentalDays = totalBookings > 0
     ? allBookings.reduce((s, b) => s + b.rentalDays, 0) / totalBookings
     : 0;
 
-  // Monthly revenue for the last 6 months
+  // Auto-classify by date so the picture is accurate even when the daily cron
+  // hasn't run yet. A confirmed booking whose start date has arrived is really
+  // active right now; an active booking past its end date is really overdue.
+  const realActive = allBookings.filter(
+    (b) =>
+      (b.status === "active" || b.status === "confirmed") &&
+      b.startDate <= now &&
+      b.endDate >= now,
+  ).length;
+  const realOverdue = allBookings.filter(
+    (b) =>
+      b.status !== "returned" &&
+      b.status !== "cancelled" &&
+      b.endDate < now,
+  ).length;
+
+  const depositsHeld = depositSummary.reduce((s, b) => s + b.depositAmount, 0);
+  const depositsHeldCount = depositSummary.length;
+
+  // Monthly revenue for the last 6 months (rental fees only)
   const monthlyRevenue = Array.from({ length: 6 }, (_, i) => {
     const d = subMonths(now, 5 - i);
     const mStart = startOfMonth(d);
     const mEnd = endOfMonth(d);
     const rev = allBookings
       .filter((b) => b.createdAt >= mStart && b.createdAt <= mEnd)
-      .reduce((s, b) => s + b.totalCharged, 0);
+      .reduce((s, b) => s + b.rentalPrice, 0);
     return { month: format(d, "MMM"), revenue: Math.round(rev * 100) / 100 };
   });
 
@@ -100,14 +129,14 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     return { month: format(d, "MMM"), bookings: count };
   });
 
-  // Top products by revenue
+  // Top products by revenue (rental fees only)
   const topProducts = productStats
     .map((p) => ({
       id: p.id,
       title: p.shopifyProductTitle,
       isActive: p.isActive,
       bookings: p._count.bookings,
-      revenue: p.bookings.reduce((s, b) => s + b.totalCharged, 0),
+      revenue: p.bookings.reduce((s, b) => s + b.rentalPrice, 0),
       avgDays: p.bookings.length > 0
         ? Math.round(p.bookings.reduce((s, b) => s + b.rentalDays, 0) / p.bookings.length)
         : 0,
@@ -124,8 +153,10 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       totalBookings,
       avgOrderValue,
       avgRentalDays: Math.round(avgRentalDays * 10) / 10,
-      activeCount,
-      overdueCount,
+      activeCount: realActive,
+      overdueCount: realOverdue,
+      depositsHeld,
+      depositsHeldCount,
     },
     monthlyRevenue,
     monthlyBookings,
@@ -225,12 +256,18 @@ export default function AnalyticsPage() {
             tone={stats.overdueCount > 0 ? "critical" : "success"}
           />
           <StatCard
-            label="Last month revenue"
-            value={formatCurrency(stats.lastMonthRevenue, currency)}
+            label="Deposits held"
+            value={formatCurrency(stats.depositsHeld, currency)}
+            subtext={
+              stats.depositsHeldCount > 0
+                ? `Owed back across ${stats.depositsHeldCount} booking${stats.depositsHeldCount > 1 ? "s" : ""}`
+                : "No outstanding deposits"
+            }
           />
           <StatCard
             label="Total bookings (all time)"
             value={String(stats.totalBookings)}
+            subtext={`${formatCurrency(stats.lastMonthRevenue, currency)} last month`}
           />
         </div>
 

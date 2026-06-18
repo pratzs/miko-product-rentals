@@ -46,6 +46,13 @@ model ShopConfig {
   // First time the storefront booking calendar called our API for this shop.
   // Used to auto-detect that the theme block is live during onboarding.
   widgetSeenAt        DateTime?
+  // First time the sitewide display-rules App Embed pinged our API for this
+  // shop. Used to auto-detect that the merchant has enabled the embed during
+  // onboarding so they get the hide-price/buy-button behaviour.
+  displayRulesSeenAt  DateTime?
+  // On paid plans, merchants can choose to show the "Powered by Miko Rentals"
+  // credit on their storefront widget. Forced on for the Free plan.
+  showPoweredBy       Boolean   @default(false)
   // Email identity — shown to customers on every email sent.
   senderName          String   @default("")   // From: display name, e.g. "Kiwi Surf Gear"
   replyToEmail        String   @default("")   // Reply-To address, e.g. owner@kiwisurfgear.co.nz
@@ -61,7 +68,20 @@ model ShopConfig {
   brandLogoUrl        String?
   brandPrimaryColor   String?  @default("#1a1a1a")
   brandName           String?
+  // Shopify's real shop name (e.g. "Kiwi Surf Gear") fetched on install.
+  // Used as the email header fallback when brandLogoUrl is empty and
+  // brandName hasn't been set by the merchant.
+  shopName            String?
   installedAt         DateTime @default(now())
+  // First time the merchant ever activated a paid plan. Anchored to first
+  // subscription start so reinstalls don't get a fresh trial. Null = never.
+  trialStartedAt      DateTime?
+  // Set when Shopify confirms the subscription was cancelled or the app was
+  // uninstalled. Used to show a "reactivate your plan" banner on reinstall.
+  subscriptionCancelledAt DateTime?
+  // Tracks the Cart Transform Function record so we can clean it up on
+  // uninstall and avoid orphaned records.
+  cartTransformId     String?
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
 

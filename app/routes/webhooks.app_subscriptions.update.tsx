@@ -28,10 +28,26 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   const validPlans = ["starter", "growth", "pro"];
 
   if (status === "ACTIVE" && validPlans.includes(name)) {
-    await db.shopConfig.updateMany({ where: { shop }, data: { planName: name } });
+    // Stamp trialStartedAt on the very first subscription so reinstalls don't
+    // get a fresh 14-day trial. We only set it if it's still null.
+    const existing = await db.shopConfig.findUnique({
+      where: { shop },
+      select: { trialStartedAt: true },
+    });
+    await db.shopConfig.updateMany({
+      where: { shop },
+      data: {
+        planName: name,
+        subscriptionCancelledAt: null,
+        ...(existing?.trialStartedAt ? {} : { trialStartedAt: new Date() }),
+      },
+    });
     console.info(`[billing] ${shop}: plan activated → ${name}`);
   } else if (["CANCELLED", "DECLINED", "EXPIRED"].includes(status)) {
-    await db.shopConfig.updateMany({ where: { shop }, data: { planName: "free" } });
+    await db.shopConfig.updateMany({
+      where: { shop },
+      data: { planName: "free", subscriptionCancelledAt: new Date() },
+    });
     console.info(`[billing] ${shop}: subscription ${status.toLowerCase()} → reverted to free`);
   }
 

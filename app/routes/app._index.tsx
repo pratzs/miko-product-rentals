@@ -49,10 +49,14 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     // The storefront block is "live" once it has called our API, or once any
     // real booking has come through (which proves the whole flow works).
     calendarLive: Boolean(config?.widgetSeenAt) || totalBookingsCount > 0,
+    // The sitewide App Embed is "live" once it has pinged our embed-ping API
+    // from a storefront page (which it does once per browser session).
+    displayRulesLive: Boolean(config?.displayRulesSeenAt),
     emailReady: Boolean(config?.senderName && config.senderName.trim().length > 0),
   };
   const stepsDone = Object.values(steps).filter(Boolean).length;
-  const allStepsDone = stepsDone === 4;
+  const totalSteps = Object.keys(steps).length;
+  const allStepsDone = stepsDone === totalSteps;
 
   // Auto-complete onboarding once every step is detected, so the checklist
   // disappears on its own without the merchant clicking anything.
@@ -63,8 +67,28 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   }
 
   const now = new Date();
-  const activeBookings = bookings.filter((b) => b.status === "active");
-  const overdueBookings = bookings.filter((b) => b.status === "overdue");
+  // Auto-classify by date so counts are accurate even if the daily cron hasn't
+  // run yet. Confirmed bookings whose start has arrived are "really" active.
+  // Anything past its end date that hasn't been returned is "really" overdue.
+  const activeBookings = bookings.filter(
+    (b) =>
+      (b.status === "active" || b.status === "confirmed") &&
+      b.startDate <= now &&
+      b.endDate >= now,
+  );
+  const overdueBookings = bookings.filter(
+    (b) =>
+      b.status !== "returned" &&
+      b.status !== "cancelled" &&
+      b.status !== "pending" &&
+      b.status !== "needs_review" &&
+      b.endDate < now,
+  );
+  const needsReviewBookings = bookings.filter((b) => b.status === "needs_review");
+  const confirmedBookings = bookings.filter(
+    (b) => b.status === "confirmed" && b.startDate > now,
+  );
+  const pendingPaymentBookings = bookings.filter((b) => b.status === "pending");
   const upcomingBookings = bookings
     .filter((b) => b.status === "confirmed" && b.startDate > now)
     .slice(0, 5);
@@ -75,20 +99,29 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   );
   const recentBookings = bookings.slice(0, 8);
 
-  const totalRevenue = bookings
-    .filter((b) => b.status !== "cancelled")
-    .reduce((sum, b) => sum + b.rentalPrice, 0);
-
-  const thisMonthRevenue = bookings
+  // Revenue counts only bookings tied to a captured payment - confirmed onwards.
+  const earnedBookings = bookings.filter((b) =>
+    ["confirmed", "active", "returned", "overdue"].includes(b.status),
+  );
+  const totalRevenue = earnedBookings.reduce((sum, b) => sum + b.rentalPrice, 0);
+  const thisMonthRevenue = earnedBookings
     .filter((b) => {
       const d = new Date(b.createdAt);
-      return (
-        b.status !== "cancelled" &&
-        d.getMonth() === now.getMonth() &&
-        d.getFullYear() === now.getFullYear()
-      );
+      return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
     })
     .reduce((sum, b) => sum + b.rentalPrice, 0);
+
+  // Deposit liability: money customers have paid that we still owe back to them.
+  const depositsHeld = bookings
+    .filter((b) => b.depositStatus === "held" && b.status !== "cancelled")
+    .reduce((sum, b) => sum + b.depositAmount, 0);
+  const depositsHeldCount = bookings.filter(
+    (b) => b.depositStatus === "held" && b.status !== "cancelled",
+  ).length;
+  const pendingPaymentValue = pendingPaymentBookings.reduce(
+    (sum, b) => sum + b.totalCharged,
+    0,
+  );
 
   const shopHandle = shop.replace(".myshopify.com", "");
 
@@ -97,12 +130,22 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   const limit = await checkRentalLimit(shop, planName, db);
   const planLabel = getPlan(planName).name;
 
+  // Surface reinstall scenarios: merchant was previously on a paid plan that
+  // got cancelled (either by uninstall or billing event) and they're now back
+  // on free. Show a banner so they can reactivate.
+  const reinstalledFromPaid =
+    config?.subscriptionCancelledAt &&
+    config?.planName === "free" &&
+    config?.installedAt &&
+    config.subscriptionCancelledAt > config.installedAt;
+
   return json({
     shop,
     shopHandle,
     currency: config?.currency || "USD",
     onboardingCompleted: config?.onboardingCompleted || false,
-    onboarding: { steps, stepsDone, allStepsDone },
+    onboarding: { steps, stepsDone, totalSteps, allStepsDone },
+    reinstalledFromPaid: Boolean(reinstalledFromPaid),
     usage: {
       planName,
       planLabel,
@@ -116,8 +159,13 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       totalProducts,
       liveProducts,
       activeBookings: activeBookings.length,
+      confirmedBookings: confirmedBookings.length,
+      pendingPaymentBookings: pendingPaymentBookings.length,
+      pendingPaymentValue,
       overdueBookings: overdueBookings.length,
       returningTomorrow: returningTomorrow.length,
+      depositsHeld,
+      depositsHeldCount,
       totalRevenue,
       thisMonthRevenue,
       totalBookings: bookings.length,
@@ -141,6 +189,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       orderName: b.shopifyOrderName,
     })),
     overdueCount: overdueBookings.length,
+    needsReviewCount: needsReviewBookings.length,
   });
 };
 
@@ -164,12 +213,18 @@ export default function Dashboard() {
     usage,
     shopHandle,
     overdueCount,
+    needsReviewCount,
+    reinstalledFromPaid,
   } = useLoaderData<typeof loader>();
   const navigate = useNavigate();
 
-  // Deep-links directly to the product template with the "add block" prompt open
-  // for the Miko Rental Calendar extension (client ID + handle).
+  // Deep-links to the product template with the "add block" prompt open for
+  // the Miko Rental Calendar block (client ID + handle).
   const themeEditorUrl = `https://admin.shopify.com/store/${shopHandle}/themes/current/editor?template=product&addAppBlockId=2306fcd511592e435b9b26ac07304811%2Fmiko-rental-calendar&target=newAppsSection`;
+
+  // Deep-links to the theme's app embeds panel with the Miko Rental Display
+  // Rules embed pre-selected and ready to activate.
+  const displayRulesUrl = `https://admin.shopify.com/store/${shopHandle}/themes/current/editor?context=apps&activateAppId=2306fcd511592e435b9b26ac07304811%2Frental-display-rules`;
 
   const setupSteps: {
     title: string;
@@ -200,6 +255,13 @@ export default function Dashboard() {
       onAction: () => window.open(themeEditorUrl, "_blank"),
     },
     {
+      title: "Turn on the storefront display rules",
+      description: "Enable the Miko Rental Display Rules app embed. It hides the regular price and Add to cart button on rental products so customers only check out through the rental flow. Auto-detected once the embed loads on a storefront page.",
+      done: onboarding.steps.displayRulesLive,
+      actionLabel: "Open app embeds",
+      onAction: () => window.open(displayRulesUrl, "_blank"),
+    },
+    {
       title: "Set how your emails are signed",
       description: "Choose the sender name customers see on their booking confirmation and reminder emails.",
       done: onboarding.steps.emailReady,
@@ -210,21 +272,42 @@ export default function Dashboard() {
 
   const statCards = [
     {
-      label: "Active rentals",
+      label: "Out on rental now",
       value: stats.activeBookings.toString(),
-      sublabel: "Items currently out with customers",
+      sublabel:
+        stats.confirmedBookings > 0
+          ? `${stats.confirmedBookings} more confirmed, not yet started`
+          : "Items currently with customers",
       tone: "success" as const,
+    },
+    {
+      label: "Awaiting payment",
+      value: stats.pendingPaymentBookings.toString(),
+      sublabel:
+        stats.pendingPaymentBookings > 0
+          ? `${formatCurrency(stats.pendingPaymentValue, currency)} unpaid - mark orders paid in Shopify`
+          : "All recent orders are paid",
+      tone: stats.pendingPaymentBookings > 0 ? ("attention" as const) : ("subdued" as const),
     },
     {
       label: "Overdue returns",
       value: stats.overdueBookings.toString(),
-      sublabel: "Past the return date",
+      sublabel: stats.overdueBookings > 0 ? "Past the return date" : "Everything on track",
       tone: stats.overdueBookings > 0 ? ("critical" as const) : ("subdued" as const),
+    },
+    {
+      label: "Deposits held",
+      value: formatCurrency(stats.depositsHeld, currency),
+      sublabel:
+        stats.depositsHeldCount > 0
+          ? `Owed back across ${stats.depositsHeldCount} booking${stats.depositsHeldCount > 1 ? "s" : ""}`
+          : "No deposits outstanding",
+      tone: "info" as const,
     },
     {
       label: "Revenue this month",
       value: formatCurrency(stats.thisMonthRevenue, currency),
-      sublabel: `${formatCurrency(stats.totalRevenue, currency)} all time`,
+      sublabel: `${formatCurrency(stats.totalRevenue, currency)} all time (rental fees only)`,
       tone: "info" as const,
     },
     {
@@ -265,7 +348,7 @@ export default function Dashboard() {
                 <InlineStack align="space-between" blockAlign="center">
                   <Text as="h2" variant="headingMd">Get your rentals up and running</Text>
                   <Badge tone={onboarding.allStepsDone ? "success" : "attention"}>
-                    {`${onboarding.stepsDone} of 4 done`}
+                    {`${onboarding.stepsDone} of ${onboarding.totalSteps} done`}
                   </Badge>
                 </InlineStack>
                 <Text as="p" tone="subdued">
@@ -273,7 +356,7 @@ export default function Dashboard() {
                 </Text>
               </BlockStack>
 
-              <ProgressBar progress={(onboarding.stepsDone / 4) * 100} tone="success" size="small" />
+              <ProgressBar progress={(onboarding.stepsDone / onboarding.totalSteps) * 100} tone="success" size="small" />
 
               <BlockStack gap="0">
                 {setupSteps.map((step, i) => (
@@ -325,6 +408,12 @@ export default function Dashboard() {
                   <p>This checklist will disappear on its own now that every step is complete.</p>
                 </Banner>
               )}
+
+              <InlineStack>
+                <Button variant="plain" onClick={() => navigate("/app/help")}>
+                  Full setup guide and FAQ →
+                </Button>
+              </InlineStack>
             </BlockStack>
           </Card>
         )}
@@ -352,6 +441,30 @@ export default function Dashboard() {
           </Banner>
         )}
 
+        {reinstalledFromPaid && (
+          <Banner
+            tone="warning"
+            title="Welcome back - your previous paid plan has ended"
+            action={{ content: "Reactivate plan", onAction: () => navigate("/app/pricing") }}
+          >
+            <p>
+              Your previous Miko subscription was cancelled when you uninstalled the app. You're back on the Free plan. Reactivate any paid plan to lift the rental limits.
+            </p>
+          </Banner>
+        )}
+
+        {needsReviewCount > 0 && (
+          <Banner
+            title={`${needsReviewCount} booking${needsReviewCount > 1 ? "s need" : " needs"} review`}
+            tone="warning"
+            action={{ content: "Review now", onAction: () => navigate("/app/bookings?status=needs_review") }}
+          >
+            <p>
+              Orders came in for dates that would exceed your available units. Reach out to those customers to adjust dates or refund, otherwise you may end up overbooked.
+            </p>
+          </Banner>
+        )}
+
         {overdueCount > 0 && (
           <Banner
             title={`${overdueCount} rental${overdueCount > 1 ? "s are" : " is"} overdue`}
@@ -363,7 +476,7 @@ export default function Dashboard() {
         )}
 
         {/* Stats row */}
-        <InlineGrid columns={{ xs: 1, sm: 2, md: 4 }} gap="400">
+        <InlineGrid columns={{ xs: 1, sm: 2, md: 3 }} gap="400">
           {statCards.map((card) => (
             <Card key={card.label}>
               <BlockStack gap="200">
