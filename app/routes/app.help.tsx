@@ -215,10 +215,13 @@ export default function HelpPage() {
   // so the merchant's actual mail client opens. We fall back to window.open
   // for non-iframe contexts (local dev, standalone).
   function openMailto(subject: string, body?: string) {
-    const params = new URLSearchParams();
-    params.set("subject", subject);
-    if (body) params.set("body", body);
-    const href = `mailto:${supportEmail}?${params.toString()}`;
+    // mailto URIs expect RFC 3986 percent-encoding. URLSearchParams uses
+    // application/x-www-form-urlencoded which turns spaces into "+" and
+    // some mail clients show the "+" literally instead of decoding it.
+    // encodeURIComponent gives us proper %20 for spaces.
+    const parts = [`subject=${encodeURIComponent(subject)}`];
+    if (body) parts.push(`body=${encodeURIComponent(body)}`);
+    const href = `mailto:${supportEmail}?${parts.join("&")}`;
     try {
       const top = window.top || window;
       top.location.href = href;
