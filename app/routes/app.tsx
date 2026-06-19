@@ -39,7 +39,9 @@ export default function App() {
         <Link to="/app/settings">Settings</Link>
         <Link to="/app/help">Help</Link>
       </NavMenu>
-      <Outlet />
+      <div style={{ paddingBottom: "3rem" }}>
+        <Outlet />
+      </div>
     </AppProvider>
   );
 }
