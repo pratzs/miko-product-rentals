@@ -72,6 +72,104 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
   });
 };
 
+// Pushes a Shopify refund for the booking's deposit amount against the
+// original payment transaction. The caller is responsible for updating the
+// booking's depositStatus on success - we return ok/error instead of throwing
+// so both the "Refund deposit" button and the auto-refund-on-return path can
+// share this and degrade gracefully when there is no captured payment to
+// refund (e.g. Cash on Delivery orders).
+type RefundResult = { ok: true } | { ok: false; error: string };
+async function refundBookingDeposit(
+  admin: { graphql: (q: string, opts?: { variables?: Record<string, unknown> }) => Promise<Response> },
+  booking: { id: string; shopifyOrderId: string | null; shopifyOrderName: string | null; depositAmount: number },
+): Promise<RefundResult> {
+  if (!booking.shopifyOrderId) {
+    return { ok: false, error: "no Shopify order linked" };
+  }
+  const orderGid = `gid://shopify/Order/${booking.shopifyOrderId}`;
+  const orderRes = await admin.graphql(
+    `#graphql
+      query OrderForRefund($id: ID!) {
+        order(id: $id) {
+          id
+          currencyCode
+          transactions(first: 10) {
+            id
+            kind
+            status
+            gateway
+            parentTransaction { id }
+          }
+        }
+      }`,
+    { variables: { id: orderGid } },
+  );
+  const orderData = (await orderRes.json()) as {
+    data?: {
+      order?: {
+        currencyCode: string;
+        transactions: Array<{ id: string; kind: string; status: string; gateway: string }>;
+      };
+    };
+  };
+  const order = orderData.data?.order;
+  if (!order) return { ok: false, error: "could not find the Shopify order" };
+  const captureTxn = order.transactions.find(
+    (t) => (t.kind === "SALE" || t.kind === "CAPTURE") && t.status === "SUCCESS",
+  );
+  if (!captureTxn) {
+    return { ok: false, error: "no captured payment to refund against" };
+  }
+  const idempotencyKey = `miko-deposit-refund-${booking.id}`;
+  try {
+    const refundRes = await admin.graphql(
+      `#graphql
+        mutation RefundDeposit($input: RefundInput!, $key: String!) {
+          refundCreate(input: $input) @idempotent(key: $key) {
+            refund { id }
+            userErrors { field message }
+          }
+        }`,
+      {
+        variables: {
+          key: idempotencyKey,
+          input: {
+            orderId: orderGid,
+            note: `Deposit refund for rental ${booking.shopifyOrderName || ""} (booking ${booking.id.slice(-8).toUpperCase()})`.trim(),
+            notify: true,
+            transactions: [
+              {
+                amount: booking.depositAmount.toFixed(2),
+                gateway: captureTxn.gateway,
+                kind: "REFUND",
+                orderId: orderGid,
+                parentId: captureTxn.id,
+              },
+            ],
+          },
+        },
+      },
+    );
+    const refundData = (await refundRes.json()) as {
+      data?: {
+        refundCreate?: {
+          refund: { id: string } | null;
+          userErrors: Array<{ field: string[]; message: string }>;
+        };
+      };
+    };
+    const errors = refundData.data?.refundCreate?.userErrors ?? [];
+    if (errors.length > 0) {
+      return { ok: false, error: errors.map((e) => e.message).join(", ") };
+    }
+    return { ok: true };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : "request failed";
+    console.error(`[deposit-refund] booking ${booking.id} failed:`, err);
+    return { ok: false, error: msg };
+  }
+}
+
 export const action = async ({ request, params }: ActionFunctionArgs) => {
   const { admin, session } = await authenticate.admin(request);
   const shop = session.shop;
@@ -87,15 +185,51 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
   const config = await db.shopConfig.findUnique({ where: { shop } });
 
   if (intent === "mark_returned") {
+    const shouldAutoRefund =
+      booking.rentalProduct.autoReleaseDeposit &&
+      booking.depositAmount > 0 &&
+      booking.depositStatus !== "released" &&
+      booking.shopifyOrderId;
+
+    // Flip status first so the booking shows as returned even if the refund
+    // call hits a transient error. The merchant can always retry the refund
+    // manually from the Deposit management section.
     await db.rentalBooking.update({
       where: { id: booking.id },
       data: {
         status: "returned",
         returnedAt: new Date(),
-        depositStatus: booking.rentalProduct.autoReleaseDeposit ? "released" : booking.depositStatus,
       },
     });
-    return json({ success: true, message: `Booking marked as returned.${booking.rentalProduct.autoReleaseDeposit && booking.depositAmount > 0 ? " Deposit marked as released. You can now process the refund in Shopify." : ""}` });
+
+    let extraMessage = "";
+    if (shouldAutoRefund) {
+      const result = await refundBookingDeposit(admin, booking);
+      if (result.ok) {
+        await db.rentalBooking.update({
+          where: { id: booking.id },
+          data: { depositStatus: "released" },
+        });
+        extraMessage = ` Deposit of ${formatCurrency(booking.depositAmount, config?.currency || "USD")} was refunded to the customer.`;
+      } else {
+        extraMessage = ` Auto refund did not go through (${result.error}). Open Deposit management to retry or refund manually.`;
+      }
+    } else if (
+      booking.rentalProduct.autoReleaseDeposit &&
+      booking.depositAmount > 0 &&
+      booking.depositStatus !== "released"
+    ) {
+      // Auto-release is on but no Shopify order is linked (e.g. legacy
+      // booking). Mark released internally so the merchant knows the deposit
+      // is no longer outstanding, and let them know to refund manually.
+      await db.rentalBooking.update({
+        where: { id: booking.id },
+        data: { depositStatus: "released" },
+      });
+      extraMessage = " Deposit marked as released. Refund the customer manually in Shopify if needed.";
+    }
+
+    return json({ success: true, message: `Booking marked as returned.${extraMessage}` });
   }
 
   if (intent === "mark_active") {
@@ -142,110 +276,10 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
       return json({ error: "Deposit has already been released." }, { status: 400 });
     }
 
-    const orderGid = `gid://shopify/Order/${booking.shopifyOrderId}`;
-    // Look up the order to find its currency and primary transaction (we'll
-    // refund against the original payment transaction).
-    const orderRes = await admin.graphql(
-      `#graphql
-        query OrderForRefund($id: ID!) {
-          order(id: $id) {
-            id
-            currencyCode
-            transactions(first: 10) {
-              id
-              kind
-              status
-              gateway
-              parentTransaction { id }
-            }
-          }
-        }`,
-      { variables: { id: orderGid } },
-    );
-    const orderData = (await orderRes.json()) as {
-      data?: {
-        order?: {
-          currencyCode: string;
-          transactions: Array<{ id: string; kind: string; status: string; gateway: string }>;
-        };
-      };
-    };
-    const order = orderData.data?.order;
-    if (!order) {
-      return json({ error: "Could not find the Shopify order." }, { status: 400 });
+    const result = await refundBookingDeposit(admin, booking);
+    if (!result.ok) {
+      return json({ error: `Refund failed: ${result.error}.` }, { status: 400 });
     }
-    const captureTxn = order.transactions.find(
-      (t) => (t.kind === "SALE" || t.kind === "CAPTURE") && t.status === "SUCCESS",
-    );
-    if (!captureTxn) {
-      return json(
-        {
-          error:
-            "No successful payment found on this order. If payment was taken outside Shopify, mark the deposit released manually.",
-        },
-        { status: 400 },
-      );
-    }
-
-    // 2026-04 API requires @idempotent on refundCreate. We derive the key
-    // deterministically from the booking id so retrying the same click never
-    // creates duplicate refunds - the second call is a no-op on Shopify's side.
-    const idempotencyKey = `miko-deposit-refund-${booking.id}`;
-    try {
-      const refundRes = await admin.graphql(
-        `#graphql
-          mutation RefundDeposit($input: RefundInput!, $key: String!) {
-            refundCreate(input: $input) @idempotent(key: $key) {
-              refund { id }
-              userErrors { field message }
-            }
-          }`,
-        {
-          variables: {
-            key: idempotencyKey,
-            input: {
-              orderId: orderGid,
-              note: `Deposit refund for rental ${booking.shopifyOrderName} (booking ${booking.id.slice(-8).toUpperCase()})`,
-              notify: true,
-              transactions: [
-                {
-                  amount: booking.depositAmount.toFixed(2),
-                  gateway: captureTxn.gateway,
-                  kind: "REFUND",
-                  orderId: orderGid,
-                  parentId: captureTxn.id,
-                },
-              ],
-            },
-          },
-        },
-      );
-      const refundData = (await refundRes.json()) as {
-        data?: {
-          refundCreate?: {
-            refund: { id: string } | null;
-            userErrors: Array<{ field: string[]; message: string }>;
-          };
-        };
-      };
-      const errors = refundData.data?.refundCreate?.userErrors ?? [];
-      if (errors.length > 0) {
-        return json(
-          { error: `Refund failed: ${errors.map((e) => e.message).join(", ")}` },
-          { status: 400 },
-        );
-      }
-    } catch (err) {
-      // Any GraphQL or network error surfaces as a banner instead of crashing
-      // the route.
-      const msg = err instanceof Error ? err.message : "Refund request failed.";
-      console.error(`[deposit-refund] booking ${booking.id} failed:`, err);
-      return json(
-        { error: `Refund request failed: ${msg}` },
-        { status: 500 },
-      );
-    }
-
     await db.rentalBooking.update({
       where: { id: booking.id },
       data: { depositStatus: "released" },

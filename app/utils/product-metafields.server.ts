@@ -101,17 +101,36 @@ export async function ensureRentalVariantsCanOversell(
     const toFlip = variants.filter((v) => v.inventoryPolicy !== "CONTINUE");
     if (toFlip.length === 0) return;
 
-    for (const v of toFlip) {
-      await admin.graphql(
-        `#graphql
-          mutation FlipVariantPolicy($input: ProductVariantInput!) {
-            productVariantUpdate(input: $input) {
-              productVariant { id }
-              userErrors { field message }
-            }
-          }`,
-        { variables: { input: { id: v.id, inventoryPolicy: "CONTINUE" } } },
-      );
+    // productVariantUpdate was deprecated in 2024-10 in favor of the bulk
+    // variant. Using the deprecated mutation against the 2026-04 API returned
+    // success: false silently for some shops, leaving variants stuck on DENY
+    // and the storefront showing "Sold out" on rentals. Using the bulk
+    // mutation is the supported path going forward.
+    const bulkRes = await admin.graphql(
+      `#graphql
+        mutation FlipVariantPoliciesBulk($productId: ID!, $variants: [ProductVariantsBulkInput!]!) {
+          productVariantsBulkUpdate(productId: $productId, variants: $variants) {
+            productVariants { id inventoryPolicy }
+            userErrors { field message code }
+          }
+        }`,
+      {
+        variables: {
+          productId: productGid,
+          variants: toFlip.map((v) => ({ id: v.id, inventoryPolicy: "CONTINUE" })),
+        },
+      },
+    );
+    const bulkData = (await bulkRes.json()) as {
+      data?: {
+        productVariantsBulkUpdate?: {
+          userErrors: Array<{ field: string[]; message: string; code: string }>;
+        };
+      };
+    };
+    const errors = bulkData.data?.productVariantsBulkUpdate?.userErrors ?? [];
+    if (errors.length > 0) {
+      console.error(`[inventory-policy] productVariantsBulkUpdate errors on ${productGid}:`, errors);
     }
   } catch (err) {
     console.error(`[inventory-policy] Failed to flip variants on ${productGid}:`, err);
