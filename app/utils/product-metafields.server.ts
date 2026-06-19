@@ -83,41 +83,59 @@ export async function ensureRentalVariantsCanOversell(
   productGid: string,
 ): Promise<void> {
   try {
+    // Fetch variants including their inventory item ID (needed for the
+    // tracked=false fallback below).
     const res = await admin.graphql(
       `#graphql
-        query ProductVariants($id: ID!) {
+        query ProductVariantsForOversell($id: ID!) {
           product(id: $id) {
             variants(first: 100) {
-              nodes { id inventoryPolicy }
+              nodes {
+                id
+                inventoryPolicy
+                inventoryManagement
+                inventoryItem { id }
+              }
             }
           }
         }`,
       { variables: { id: productGid } },
     );
     const data = (await res.json()) as {
-      data?: { product?: { variants: { nodes: Array<{ id: string; inventoryPolicy: string }> } } };
+      data?: {
+        product?: {
+          variants: {
+            nodes: Array<{ id: string; inventoryPolicy: string; inventoryManagement: string; inventoryItem: { id: string } }>;
+          };
+        };
+      };
     };
     const variants = data.data?.product?.variants?.nodes ?? [];
-    const toFlip = variants.filter((v) => v.inventoryPolicy !== "CONTINUE");
-    if (toFlip.length === 0) return;
+    if (variants.length === 0) return;
 
-    // productVariantUpdate was deprecated in 2024-10 in favor of the bulk
-    // variant. Using the deprecated mutation against the 2026-04 API returned
-    // success: false silently for some shops, leaving variants stuck on DENY
-    // and the storefront showing "Sold out" on rentals. Using the bulk
-    // mutation is the supported path going forward.
+    // Step 1: set inventoryPolicy → CONTINUE and, for 3rd-party fulfilled
+    // variants, also switch inventoryManagement → SHOPIFY. Third-party
+    // fulfillment services control their own availability and ignore
+    // inventoryPolicy; taking over inventory management lets our CONTINUE
+    // policy actually take effect. Fulfillment routing (who ships the order)
+    // is driven by fulfillmentServiceId, not inventoryManagement, so orders
+    // still go to the right place.
     const bulkRes = await admin.graphql(
       `#graphql
         mutation FlipVariantPoliciesBulk($productId: ID!, $variants: [ProductVariantsBulkInput!]!) {
           productVariantsBulkUpdate(productId: $productId, variants: $variants) {
-            productVariants { id inventoryPolicy }
+            productVariants { id inventoryPolicy inventoryManagement }
             userErrors { field message code }
           }
         }`,
       {
         variables: {
           productId: productGid,
-          variants: toFlip.map((v) => ({ id: v.id, inventoryPolicy: "CONTINUE" })),
+          variants: variants.map((v) => ({
+            id: v.id,
+            inventoryPolicy: "CONTINUE",
+            ...(v.inventoryManagement !== "SHOPIFY" ? { inventoryManagement: "SHOPIFY" } : {}),
+          })),
         },
       },
     );
@@ -131,6 +149,38 @@ export async function ensureRentalVariantsCanOversell(
     const errors = bulkData.data?.productVariantsBulkUpdate?.userErrors ?? [];
     if (errors.length > 0) {
       console.error(`[inventory-policy] productVariantsBulkUpdate errors on ${productGid}:`, errors);
+    }
+
+    // Step 2: set inventoryItem.tracked = false so Shopify never blocks the
+    // cart add with "sold out" regardless of inventory management type.
+    // inventoryPolicy: CONTINUE works for SHOPIFY-managed variants; for
+    // third-party fulfilled variants the policy is ignored and the fulfillment
+    // service controls availability — setting tracked=false overrides that and
+    // makes the variant always purchasable. Rental availability is managed by
+    // the Miko calendar, not by Shopify stock counts.
+    for (const v of variants) {
+      if (!v.inventoryItem?.id) continue;
+      const itemRes = await admin.graphql(
+        `#graphql
+          mutation SetInventoryUntracked($id: ID!, $input: InventoryItemInput!) {
+            inventoryItemUpdate(id: $id, input: $input) {
+              inventoryItem { id tracked }
+              userErrors { field message }
+            }
+          }`,
+        { variables: { id: v.inventoryItem.id, input: { tracked: false } } },
+      );
+      const itemData = (await itemRes.json()) as {
+        data?: {
+          inventoryItemUpdate?: {
+            userErrors: Array<{ field: string[]; message: string }>;
+          };
+        };
+      };
+      const itemErrors = itemData.data?.inventoryItemUpdate?.userErrors ?? [];
+      if (itemErrors.length > 0) {
+        console.error(`[inventory-policy] inventoryItemUpdate errors on ${v.inventoryItem.id}:`, itemErrors);
+      }
     }
   } catch (err) {
     console.error(`[inventory-policy] Failed to flip variants on ${productGid}:`, err);

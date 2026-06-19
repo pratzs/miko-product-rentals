@@ -29,6 +29,12 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   const fromParam = url.searchParams.get("from");
   const toParam = url.searchParams.get("to");
   const unitsParam = url.searchParams.get("units");
+  const variantParam = url.searchParams.get("variantId");
+  const variantId = variantParam
+    ? variantParam.startsWith("gid://")
+      ? variantParam
+      : `gid://shopify/ProductVariant/${variantParam}`
+    : undefined;
   const from = fromParam ? new Date(fromParam) : new Date();
   const to = toParam ? new Date(toParam) : addMonths(new Date(), 3);
   const units = Math.max(1, Math.min(999, parseInt(unitsParam || "1", 10) || 1));
@@ -49,18 +55,29 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 
   try {
     const [unavailableDates, productRow] = await Promise.all([
-      getUnavailableDates(shop, productId, from, to, units),
+      getUnavailableDates(shop, productId, from, to, units, variantId),
       db.rentalProduct.findUnique({
         where: { shop_shopifyProductId: { shop, shopifyProductId: productId } },
-        select: { totalUnits: true },
+        select: { totalUnits: true, hasVariants: true, id: true },
       }),
     ]);
+    // For variant-specific lookups, surface the variant's own unit count so
+    // the widget's quantity selector caps correctly.
+    let totalUnits = productRow?.totalUnits ?? 1;
+    if (productRow?.hasVariants && variantId) {
+      const v = await db.rentalVariant.findFirst({
+        where: { rentalProductId: productRow.id, shopifyVariantId: variantId },
+        select: { totalUnits: true },
+      });
+      if (v) totalUnits = v.totalUnits;
+    }
     const isFree = (config.planName ?? "free") === "free";
     const showBadge = isFree || config.showPoweredBy === true;
     return json(
       {
         unavailableDates,
-        totalUnits: productRow?.totalUnits ?? 1,
+        totalUnits,
+        hasVariants: productRow?.hasVariants ?? false,
         showBadge,
       },
       { headers: corsHeaders(request) },

@@ -20,6 +20,7 @@ interface OrderPayload {
   line_items?: Array<{
     id?: string | number;
     quantity?: number;
+    variant_id?: string | number | null;
     properties?: Array<{ name: string; value: string }>;
   }>;
 }
@@ -42,6 +43,7 @@ export interface SyncResult {
  */
 async function peakBookedUnits(opts: {
   rentalProductId: string;
+  rentalVariantId?: string | null;
   startDate: Date;
   endDate: Date;
   excludeBookingId?: string;
@@ -52,6 +54,7 @@ async function peakBookedUnits(opts: {
       status: { in: ["pending", "confirmed", "active", "needs_review"] },
       startDate: { lt: opts.endDate },
       endDate: { gt: opts.startDate },
+      ...(opts.rentalVariantId ? { rentalVariantId: opts.rentalVariantId } : {}),
       ...(opts.excludeBookingId ? { id: { not: opts.excludeBookingId } } : {}),
     },
     select: { startDate: true, endDate: true, unitsRented: true },
@@ -159,8 +162,33 @@ export async function syncBookingsFromOrder(
       continue;
     }
 
+    // Resolve the variant if this is a multi-variant rental. Shopify includes
+    // variant_id on every order line item, so we don't need it in _miko_data.
+    // For single-variant rentals (hasVariants=false) the linkage is simply
+    // null and capacity is checked against the product as a whole.
+    let rentalVariantId: string | null = null;
+    let variantTotalUnits = rentalProduct.totalUnits;
+    if (rentalProduct.hasVariants && item.variant_id) {
+      const variantGid = `gid://shopify/ProductVariant/${item.variant_id}`;
+      const variant = await db.rentalVariant.findFirst({
+        where: { rentalProductId: rentalProduct.id, shopifyVariantId: variantGid },
+        select: { id: true, totalUnits: true, isActive: true },
+      });
+      if (variant && variant.isActive) {
+        rentalVariantId = variant.id;
+        variantTotalUnits = variant.totalUnits;
+      }
+    }
+
+    // Existing booking lookup includes variant so two bookings on the same
+    // order for different variants of the same product don't collide.
     const existing = await db.rentalBooking.findFirst({
-      where: { shop, shopifyOrderId, rentalProductId: rentalProduct.id },
+      where: {
+        shop,
+        shopifyOrderId,
+        rentalProductId: rentalProduct.id,
+        ...(rentalVariantId ? { rentalVariantId } : {}),
+      },
     });
 
     // If a booking already exists for this order, only the pending -> confirmed
@@ -173,11 +201,12 @@ export async function syncBookingsFromOrder(
         // flag for merchant review instead of silently overbooking.
         const peakNow = await peakBookedUnits({
           rentalProductId: existing.rentalProductId,
+          rentalVariantId: existing.rentalVariantId,
           startDate: existing.startDate,
           endDate: existing.endDate,
           excludeBookingId: existing.id,
         });
-        const stillFits = peakNow + existing.unitsRented <= rentalProduct.totalUnits;
+        const stillFits = peakNow + existing.unitsRented <= variantTotalUnits;
         await db.rentalBooking.update({
           where: { id: existing.id },
           data: stillFits
@@ -221,13 +250,24 @@ export async function syncBookingsFromOrder(
       ? lineQuantity - recordedUnits
       : 0;
 
+    // For variant rentals, fall back to the variant's pricing when the cart
+    // properties don't carry numeric amounts. The widget always writes the
+    // r/d/pu keys for fresh orders so this path is mostly a safety net for
+    // legacy orders.
+    let fallbackVariant: { pricePerDay: number; pricePerWeek: number; pricePerMonth: number; depositAmount: number } | null = null;
+    if (rentalVariantId) {
+      fallbackVariant = await db.rentalVariant.findUnique({
+        where: { id: rentalVariantId },
+        select: { pricePerDay: true, pricePerWeek: true, pricePerMonth: true, depositAmount: true },
+      });
+    }
     const calculated = calculateRentalPrice({
       startDate,
       endDate,
-      pricePerDay: rentalProduct.pricePerDay,
-      pricePerWeek: rentalProduct.pricePerWeek,
-      pricePerMonth: rentalProduct.pricePerMonth,
-      depositAmount: rentalProduct.depositAmount,
+      pricePerDay: fallbackVariant?.pricePerDay ?? rentalProduct.pricePerDay,
+      pricePerWeek: fallbackVariant?.pricePerWeek ?? rentalProduct.pricePerWeek,
+      pricePerMonth: fallbackVariant?.pricePerMonth ?? rentalProduct.pricePerMonth,
+      depositAmount: fallbackVariant?.depositAmount ?? rentalProduct.depositAmount,
       units,
     });
 
@@ -250,18 +290,25 @@ export async function syncBookingsFromOrder(
     // Atomic overbooking check - count peak booked units across the range,
     // excluding any pending booking that's about to be upgraded for this order.
     const existingPending = await db.rentalBooking.findFirst({
-      where: { shop, shopifyOrderId, rentalProductId: rentalProduct.id, status: "pending" },
+      where: {
+        shop,
+        shopifyOrderId,
+        rentalProductId: rentalProduct.id,
+        ...(rentalVariantId ? { rentalVariantId } : {}),
+        status: "pending",
+      },
       select: { id: true },
     });
     const peak = await peakBookedUnits({
       rentalProductId: rentalProduct.id,
+      rentalVariantId,
       startDate,
       endDate,
       excludeBookingId: existingPending?.id,
     });
-    const wouldOverbook = peak + units > rentalProduct.totalUnits;
+    const wouldOverbook = peak + units > variantTotalUnits;
     const overbookNote = wouldOverbook
-      ? `[Auto-flagged] Order requested ${units} unit(s) but ${peak} unit(s) were already booked across ${rentalProduct.totalUnits} total. Resolve by contacting the customer or adjusting another booking.`
+      ? `[Auto-flagged] Order requested ${units} unit(s) but ${peak} unit(s) were already booked across ${variantTotalUnits} total. Resolve by contacting the customer or adjusting another booking.`
       : "";
 
     // Build a combined note if the order quantity didn't match the booking
@@ -278,6 +325,7 @@ export async function syncBookingsFromOrder(
       data: {
         shop,
         rentalProductId: rentalProduct.id,
+        rentalVariantId,
         shopifyOrderId,
         shopifyOrderName,
         shopifyLineItemId: item.id ? String(item.id) : "",

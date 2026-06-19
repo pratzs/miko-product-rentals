@@ -107,8 +107,10 @@ model EmailTemplate {
 }
 
 // Each Shopify product that the merchant has enabled for rental.
-// A product can have multiple variants; the rental config applies to all
-// variants unless the merchant later wants per-variant pricing.
+// For single-variant products, the pricing/units fields on this row are the
+// source of truth. For multi-variant products, the per-variant RentalVariant
+// rows take precedence and the product-level fields act as defaults that
+// new variants inherit.
 model RentalProduct {
   id                String   @id @default(cuid())
   shop              String
@@ -132,14 +134,55 @@ model RentalProduct {
   // Extra notes shown to the customer on the product page.
   rentalNotes       String   @default("")
   isActive          Boolean  @default(true)
+  // When true (default), the app overrides Shopify's sold-out status so
+  // customers can still add a rental to cart even when Shopify inventory is
+  // zero. Miko's own calendar is the source of truth for rental availability.
+  // When false, Shopify inventory gates rentals — the variant must show as
+  // in-stock in Shopify for a rental cart-add to succeed.
+  allowRentalWhenSoldOut Boolean @default(true)
+  // True when the Shopify product has multiple meaningful variants (more than
+  // one variant, or one variant whose title is not "Default Title"). When
+  // true, the storefront widget shows a variant picker and our pricing and
+  // availability APIs require a variantId.
+  hasVariants       Boolean  @default(false)
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
   shopConfig ShopConfig      @relation(fields: [shop], references: [shop])
   bookings   RentalBooking[]
+  variants   RentalVariant[]
 
   @@unique([shop, shopifyProductId])
   @@index([shop])
+}
+
+// Per-variant rental configuration. Created when a merchant configures a
+// rental for a product that has multiple Shopify variants. Each variant gets
+// its own pricing, units, and availability calendar.
+model RentalVariant {
+  id                  String   @id @default(cuid())
+  shop                String
+  rentalProductId     String
+  shopifyVariantId    String   // gid://shopify/ProductVariant/123
+  shopifyVariantTitle String   @default("")
+  // Per-variant overrides. Defaults inherit from the parent RentalProduct
+  // when first synced from Shopify so merchants can leave them alone if they
+  // want all variants priced the same.
+  totalUnits          Int      @default(1)
+  pricePerDay         Float    @default(0)
+  pricePerWeek        Float    @default(0)
+  pricePerMonth       Float    @default(0)
+  depositAmount       Float    @default(0)
+  isActive            Boolean  @default(true)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  rentalProduct RentalProduct   @relation(fields: [rentalProductId], references: [id], onDelete: Cascade)
+  bookings      RentalBooking[]
+
+  @@unique([rentalProductId, shopifyVariantId])
+  @@index([shop])
+  @@index([rentalProductId])
 }
 
 // One row per rental booking made by a customer.
@@ -151,6 +194,11 @@ model RentalBooking {
   shopifyOrderId      String   @default("")
   shopifyOrderName    String   @default("")  // e.g. "#1042"
   shopifyLineItemId   String   @default("")
+  // Set when the booked product had multiple Shopify variants. Tells the
+  // merchant which variant the customer rented so they can pull the right
+  // physical unit off the shelf, and lets us scope availability per-variant.
+  shopifyVariantId    String   @default("")
+  rentalVariantId     String?
   // Customer info — copied from the Shopify order so we keep it even if
   // the Shopify customer record is later deleted.
   customerName        String   @default("")
@@ -185,13 +233,15 @@ model RentalBooking {
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
 
-  shopConfig     ShopConfig    @relation(fields: [shop], references: [shop])
-  rentalProduct  RentalProduct @relation(fields: [rentalProductId], references: [id])
+  shopConfig     ShopConfig     @relation(fields: [shop], references: [shop])
+  rentalProduct  RentalProduct  @relation(fields: [rentalProductId], references: [id])
+  rentalVariant  RentalVariant? @relation(fields: [rentalVariantId], references: [id])
 
   @@index([shop, status])
   @@index([shop, startDate, endDate])
   @@index([shop, customerEmail])
   @@index([rentalProductId, startDate, endDate])
+  @@index([rentalVariantId, startDate, endDate])
 }
 
 // Dates the merchant has manually blocked for a product (e.g. maintenance,

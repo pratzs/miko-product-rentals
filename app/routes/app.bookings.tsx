@@ -59,7 +59,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
             }
           : {}),
       },
-      include: { rentalProduct: true },
+      include: { rentalProduct: true, rentalVariant: true },
       orderBy: { createdAt: "desc" },
     }),
     db.rentalProduct.findMany({ where: { shop }, select: { id: true, shopifyProductTitle: true } }),
@@ -73,6 +73,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       customerEmail: b.customerEmail,
       productTitle: b.rentalProduct.shopifyProductTitle,
       productId: b.rentalProductId,
+      variantTitle: b.rentalVariant?.shopifyVariantTitle ?? null,
       orderName: b.shopifyOrderName,
       startDate: b.startDate.toISOString(),
       endDate: b.endDate.toISOString(),
@@ -122,7 +123,12 @@ export default function BookingsPage() {
       <Text as="p" variant="bodyMd">{b.customerName}</Text>
       <Text as="p" variant="bodySm" tone="subdued">{b.customerEmail}</Text>
     </BlockStack>,
-    b.productTitle,
+    <BlockStack gap="050">
+      <Text as="p" variant="bodyMd">{b.productTitle}</Text>
+      {b.variantTitle && (
+        <Text as="p" variant="bodySm" tone="subdued">{b.variantTitle}</Text>
+      )}
+    </BlockStack>,
     format(new Date(b.startDate), "d MMM yyyy"),
     format(new Date(b.endDate), "d MMM yyyy"),
     `${b.rentalDays}d`,

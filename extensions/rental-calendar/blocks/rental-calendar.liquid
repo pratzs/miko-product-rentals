@@ -19,6 +19,24 @@
 
 {{ 'rental-calendar.css' | asset_url | stylesheet_tag }}
 
+<style>
+  /*
+   * Always hide the theme's "Sold out" button/badge on rental product pages.
+   * Availability is managed by Miko's calendar — the theme's stock-based
+   * sold-out state is irrelevant and confuses customers.
+   * We target disabled submit buttons that contain "Sold out" text via the
+   * [disabled] + content approach used by Dawn and most popular themes.
+   */
+  form[action*="/cart/add"] button[type="submit"][disabled]:not(#miko-add-to-cart),
+  form[action*="/cart/add"] button.product-form__submit[disabled],
+  .product-form__submit[disabled],
+  button.btn--sold-out,
+  button[name="add"][disabled],
+  .sold-out-btn,
+  .product__availability .sold-out,
+  .product-availability--sold-out { display: none !important; }
+</style>
+
 {% if block.settings.rental_only %}
 <style>
   /* Hide the theme's default price and buy button for rental-only products */

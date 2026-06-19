@@ -42,6 +42,15 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     return json({ error: "End date must be after start date." }, { status: 400, headers: corsHeaders(request) });
   }
 
+  const variantParam = url.searchParams.get("variantId");
+  // Storefront sends Shopify's numeric variant id (e.g. 12345). We accept
+  // either that or a full gid:// form. Normalize to gid form for lookup.
+  const variantId = variantParam
+    ? variantParam.startsWith("gid://")
+      ? variantParam
+      : `gid://shopify/ProductVariant/${variantParam}`
+    : null;
+
   const product = await db.rentalProduct.findFirst({
     where: { shop, shopifyProductId: productId, isActive: true },
   });
@@ -52,6 +61,51 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       headers: corsHeaders(request),
     });
   }
+
+  // For multi-variant rentals, the storefront must tell us which variant the
+  // customer picked so we can quote the right price and capacity.
+  let variantConfig: {
+    pricePerDay: number;
+    pricePerWeek: number;
+    pricePerMonth: number;
+    depositAmount: number;
+    totalUnits: number;
+  } | null = null;
+  if (product.hasVariants) {
+    if (!variantId) {
+      return json(
+        { error: "Please choose a variant before booking." },
+        { status: 400, headers: corsHeaders(request) },
+      );
+    }
+    const variant = await db.rentalVariant.findFirst({
+      where: { rentalProductId: product.id, shopifyVariantId: variantId },
+    });
+    if (!variant || !variant.isActive) {
+      return json(
+        { error: "This variant is not available for rental." },
+        { status: 404, headers: corsHeaders(request) },
+      );
+    }
+    if (variant.pricePerDay <= 0) {
+      return json(
+        { error: "This variant does not have a rental price set yet." },
+        { status: 400, headers: corsHeaders(request) },
+      );
+    }
+    variantConfig = {
+      pricePerDay: variant.pricePerDay,
+      pricePerWeek: variant.pricePerWeek,
+      pricePerMonth: variant.pricePerMonth,
+      depositAmount: variant.depositAmount,
+      totalUnits: variant.totalUnits,
+    };
+  }
+  const pricing_pricePerDay = variantConfig?.pricePerDay ?? product.pricePerDay;
+  const pricing_pricePerWeek = variantConfig?.pricePerWeek ?? product.pricePerWeek;
+  const pricing_pricePerMonth = variantConfig?.pricePerMonth ?? product.pricePerMonth;
+  const pricing_deposit = variantConfig?.depositAmount ?? product.depositAmount;
+  const pricing_totalUnits = variantConfig?.totalUnits ?? product.totalUnits;
 
   // Respect the merchant's plan limit. When they are at their cap we stop
   // quoting new bookings so the storefront never takes an order the app cannot
@@ -82,10 +136,10 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     }, { status: 400, headers: corsHeaders(request) });
   }
 
-  if (units > product.totalUnits) {
+  if (units > pricing_totalUnits) {
     return json({
-      error: `Only ${product.totalUnits} unit${product.totalUnits === 1 ? "" : "s"} of this product ${product.totalUnits === 1 ? "is" : "are"} available. Please reduce the quantity.`,
-      maxUnits: product.totalUnits,
+      error: `Only ${pricing_totalUnits} unit${pricing_totalUnits === 1 ? "" : "s"} ${pricing_totalUnits === 1 ? "is" : "are"} available. Please reduce the quantity.`,
+      maxUnits: pricing_totalUnits,
     }, { status: 400, headers: corsHeaders(request) });
   }
 
@@ -95,6 +149,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     startDate,
     endDate,
     units,
+    variantId || undefined,
   );
 
   if (!available) {
@@ -109,10 +164,10 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   const pricing = calculateRentalPrice({
     startDate,
     endDate,
-    pricePerDay: product.pricePerDay,
-    pricePerWeek: product.pricePerWeek,
-    pricePerMonth: product.pricePerMonth,
-    depositAmount: product.depositAmount,
+    pricePerDay: pricing_pricePerDay,
+    pricePerWeek: pricing_pricePerWeek,
+    pricePerMonth: pricing_pricePerMonth,
+    depositAmount: pricing_deposit,
     units,
   });
 
@@ -121,7 +176,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     rentalDays: pricing.rentalDays,
     units: pricing.units,
     unitsAvailable,
-    totalUnits: product.totalUnits,
+    totalUnits: pricing_totalUnits,
     rentalPrice: pricing.rentalPrice,
     depositAmount: pricing.depositAmount,
     totalDue: pricing.totalDue,
@@ -131,6 +186,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     rentalNotes: product.rentalNotes || null,
     minRentalDays: product.minRentalDays,
     maxRentalDays: product.maxRentalDays,
+    hasVariants: product.hasVariants,
     showBadge: (shopConfig?.planName ?? "free") === "free" || shopConfig?.showPoweredBy === true,
   }, { headers: corsHeaders(request) });
 };

@@ -42,6 +42,21 @@
   const unitMinus = document.getElementById("miko-unit-minus");
   const unitPlus = document.getElementById("miko-unit-plus");
   const unitAvailableEl = document.getElementById("miko-unit-available");
+  const variantInput = document.getElementById("miko-variant-id");
+
+  // Read the currently selected Shopify variant id. Shopify themes put it in
+  // the URL as ?variant=ID when the customer picks a different variant via
+  // the native variant selector. We also fall back to the hidden form input
+  // (seeded from product.selected_or_first_available_variant in Liquid).
+  function getCurrentVariantId() {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const fromUrl = params.get("variant");
+      if (fromUrl) return fromUrl;
+    } catch {}
+    return variantInput ? variantInput.value : null;
+  }
+  let currentVariantId = getCurrentVariantId();
 
   const today = new Date().toISOString().split("T")[0];
   startInput.min = today;
@@ -62,6 +77,32 @@
   unitPlus.addEventListener("click", () => changeUnits(+1));
   unitInput.addEventListener("input", onUnitInput);
   unitInput.addEventListener("blur", onUnitInput);
+
+  // Watch for the customer switching variants. Themes update ?variant= via
+  // history.pushState/replaceState, which doesn't fire popstate, so we patch
+  // both and poll as a belt-and-braces fallback.
+  function onVariantMaybeChanged() {
+    const next = getCurrentVariantId();
+    if (next && next !== currentVariantId) {
+      currentVariantId = next;
+      if (variantInput) variantInput.value = next;
+      // Refresh availability + pricing for the new variant.
+      fetchUnavailableDates();
+      if (startInput.value && endInput.value) {
+        checkPricing(startInput.value, endInput.value);
+      } else {
+        resetPricing();
+      }
+    }
+  }
+  window.addEventListener("popstate", onVariantMaybeChanged);
+  document.addEventListener("variant:change", onVariantMaybeChanged);
+  // Dawn and many third-party themes dispatch a "variant:changed" custom event
+  // when their picker updates. Listening to all of these covers the cases the
+  // URL-poll misses if the theme doesn't update the URL.
+  document.addEventListener("variantChange", onVariantMaybeChanged);
+  document.addEventListener("variant_change", onVariantMaybeChanged);
+  setInterval(onVariantMaybeChanged, 1500);
 
   function getUnits() {
     const raw = parseInt(unitInput.value, 10);
@@ -122,8 +163,9 @@
       const to = new Date(new Date().setMonth(new Date().getMonth() + 4))
         .toISOString()
         .split("T")[0];
+      const variantQs = currentVariantId ? `&variantId=${encodeURIComponent(currentVariantId)}` : "";
       const res = await fetch(
-        `${appUrl}/api/availability?shop=${encodeURIComponent(shop)}&productId=${encodeURIComponent(productId)}&from=${today}&to=${to}`
+        `${appUrl}/api/availability?shop=${encodeURIComponent(shop)}&productId=${encodeURIComponent(productId)}&from=${today}&to=${to}${variantQs}`
       );
       const data = await res.json();
       unavailableDates = data.unavailableDates || [];
@@ -154,8 +196,9 @@
     const units = getUnits();
 
     try {
+      const variantQs = currentVariantId ? `&variantId=${encodeURIComponent(currentVariantId)}` : "";
       const res = await fetch(
-        `${appUrl}/api/pricing?shop=${encodeURIComponent(shop)}&productId=${encodeURIComponent(productId)}&startDate=${startDate}&endDate=${endDate}&units=${units}`
+        `${appUrl}/api/pricing?shop=${encodeURIComponent(shop)}&productId=${encodeURIComponent(productId)}&startDate=${startDate}&endDate=${endDate}&units=${units}${variantQs}`
       );
       const data = await res.json();
 
@@ -277,7 +320,14 @@
     addBtn.classList.add("miko-btn--loading");
     addBtn.disabled = true;
 
+    const bookLabel = `Book now - ${formatCurrency(currentPricing.totalDue, currentPricing.currency || currency)}`;
+
     try {
+      // Force the freshest variant id into the cart form right before submit so
+      // a customer who switched variants between picking dates and clicking
+      // Book now still adds the right item to the cart.
+      const liveVariantId = getCurrentVariantId();
+      if (liveVariantId && variantInput) variantInput.value = liveVariantId;
       const formData = new FormData(cartForm);
       const res = await fetch("/cart/add.js", {
         method: "POST",
@@ -287,14 +337,76 @@
       if (res.ok) {
         document.dispatchEvent(new CustomEvent("cart:refresh", { bubbles: true }));
         window.location.href = "/cart";
+        return;
+      }
+
+      const err = await res.json().catch(() => ({}));
+
+      // Shopify rejects the cart add with "sold out" when the product uses a
+      // 3rd-party fulfillment service that performs its own inventory check and
+      // overrides our inventoryPolicy: CONTINUE setting. Fall back to a
+      // server-side Draft Order which bypasses all inventory restrictions.
+      const isSoldOut =
+        typeof err.description === "string" &&
+        err.description.toLowerCase().includes("sold out");
+
+      if (isSoldOut) {
+        await tryDraftOrderCheckout(bookLabel);
       } else {
-        const err = await res.json().catch(() => ({}));
         showMsg(err.description || "Could not add to cart. Please try again.", "error");
-        enableBtn(`Book now - ${formatCurrency(currentPricing.totalDue, currentPricing.currency || currency)}`);
+        enableBtn(bookLabel);
       }
     } catch {
       showMsg("Something went wrong. Please try again.", "error");
-      enableBtn(`Book now - ${formatCurrency(currentPricing.totalDue, currentPricing.currency || currency)}`);
+      enableBtn(bookLabel);
+    }
+  }
+
+  async function tryDraftOrderCheckout(bookLabel) {
+    addBtn.textContent = "Redirecting to checkout...";
+    addBtn.classList.add("miko-btn--loading");
+    addBtn.disabled = true;
+
+    const liveVariantId = getCurrentVariantId();
+    const startDate = startInput.value;
+    const endDate = endInput.value;
+
+    try {
+      const res = await fetch(`${appUrl}/api/checkout`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          shop,
+          variantId: liveVariantId || productId,
+          productId,
+          startDate,
+          endDate,
+          units: currentPricing.units || getUnits(),
+          perUnitPrice: currentPricing.perUnitPrice,
+          rentalPrice: currentPricing.rentalPrice,
+          depositAmount: currentPricing.depositAmount,
+          totalDue: currentPricing.totalDue,
+          currency: currentPricing.currency || currency,
+          startDisplay: formatDateDisplay(startDate),
+          endDisplay: formatDateDisplay(endDate),
+          durationDisplay: `${currentPricing.rentalDays} day${currentPricing.rentalDays !== 1 ? "s" : ""}`,
+          rentalPriceDisplay: formatCurrency(currentPricing.rentalPrice, currentPricing.currency || currency),
+          depositDisplay: currentPricing.depositAmount > 0
+            ? formatCurrency(currentPricing.depositAmount, currentPricing.currency || currency)
+            : "None",
+        }),
+      });
+
+      const data = await res.json().catch(() => ({}));
+      if (data.checkoutUrl) {
+        window.location.href = data.checkoutUrl;
+      } else {
+        showMsg(data.error || "Could not complete checkout. Please try again.", "error");
+        enableBtn(bookLabel);
+      }
+    } catch {
+      showMsg("Something went wrong. Please try again.", "error");
+      enableBtn(bookLabel);
     }
   }
 

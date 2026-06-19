@@ -31,6 +31,7 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
       where: { id: params.id, shop },
       include: {
         rentalProduct: true,
+        rentalVariant: true,
       },
     }),
   ]);
@@ -54,6 +55,7 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
       customerPhone: booking.customerPhone,
       productTitle: booking.rentalProduct.shopifyProductTitle,
       productId: booking.rentalProductId,
+      variantTitle: booking.rentalVariant?.shopifyVariantTitle ?? null,
       startDate: booking.startDate.toISOString(),
       endDate: booking.endDate.toISOString(),
       rentalDays: booking.rentalDays,
@@ -63,6 +65,9 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
       totalCharged: booking.totalCharged,
       status: booking.status,
       lateFeeCharged: booking.lateFeeCharged,
+      lateFeeInvoiceUrl: booking.lateFeeInvoiceId
+        ? `https://${shop}/admin/draft_orders/${booking.lateFeeInvoiceId.split("/").pop()}`
+        : null,
       merchantNotes: booking.merchantNotes,
       returnedAt: booking.returnedAt?.toISOString() || null,
       cancelledAt: booking.cancelledAt?.toISOString() || null,
@@ -185,25 +190,26 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
   const config = await db.shopConfig.findUnique({ where: { shop } });
 
   if (intent === "mark_returned") {
-    const shouldAutoRefund =
-      booking.rentalProduct.autoReleaseDeposit &&
-      booking.depositAmount > 0 &&
-      booking.depositStatus !== "released" &&
-      booking.shopifyOrderId;
+    // A deposit is "settled" when the merchant has already made a deliberate
+    // decision: either forfeited (customer damaged/lost item) or released
+    // (already refunded). In both cases, mark_returned must not touch the
+    // deposit — we never override an explicit merchant decision.
+    // For any other held deposit we always try to refund automatically so
+    // the merchant doesn't need a separate step.
+    const depositSettled = ["released", "forfeited"].includes(booking.depositStatus);
+    const hasDeposit = booking.depositAmount > 0 && !depositSettled;
 
     // Flip status first so the booking shows as returned even if the refund
-    // call hits a transient error. The merchant can always retry the refund
-    // manually from the Deposit management section.
+    // call hits a transient error. The merchant can always retry from the
+    // Deposit management section.
     await db.rentalBooking.update({
       where: { id: booking.id },
-      data: {
-        status: "returned",
-        returnedAt: new Date(),
-      },
+      data: { status: "returned", returnedAt: new Date() },
     });
 
     let extraMessage = "";
-    if (shouldAutoRefund) {
+    if (hasDeposit && booking.shopifyOrderId) {
+      // Always auto-refund the deposit unless the merchant explicitly forfeited it.
       const result = await refundBookingDeposit(admin, booking);
       if (result.ok) {
         await db.rentalBooking.update({
@@ -212,16 +218,11 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
         });
         extraMessage = ` Deposit of ${formatCurrency(booking.depositAmount, config?.currency || "USD")} was refunded to the customer.`;
       } else {
-        extraMessage = ` Auto refund did not go through (${result.error}). Open Deposit management to retry or refund manually.`;
+        extraMessage = ` Could not auto-refund the deposit (${result.error}). Open Deposit management to refund manually.`;
       }
-    } else if (
-      booking.rentalProduct.autoReleaseDeposit &&
-      booking.depositAmount > 0 &&
-      booking.depositStatus !== "released"
-    ) {
-      // Auto-release is on but no Shopify order is linked (e.g. legacy
-      // booking). Mark released internally so the merchant knows the deposit
-      // is no longer outstanding, and let them know to refund manually.
+    } else if (hasDeposit) {
+      // No Shopify order linked (e.g. legacy / manually created booking).
+      // Mark released so the status is not left as "held" indefinitely.
       await db.rentalBooking.update({
         where: { id: booking.id },
         data: { depositStatus: "released" },
@@ -293,11 +294,82 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
   if (intent === "charge_late_fee") {
     const daysOverdue = differenceInDays(new Date(), booking.endDate);
     const lateFeeTotal = (config?.lateFeePerDay || 0) * Math.max(0, daysOverdue - (config?.gracePeriodDays || 0));
-    await db.rentalBooking.update({
-      where: { id: booking.id },
-      data: { lateFeeCharged: lateFeeTotal },
+
+    if (lateFeeTotal <= 0) {
+      return json({ error: "No late fee to charge yet (within grace period)." }, { status: 400 });
+    }
+
+    // Create a Shopify draft order for the late fee so the merchant can
+    // review and send the payment link directly to the customer from Shopify admin.
+    let draftOrderAdminUrl: string | null = null;
+    try {
+      const draftRes = await admin.graphql(
+        `#graphql
+          mutation CreateLatFeeDraftOrder($input: DraftOrderInput!) {
+            draftOrderCreate(input: $input) {
+              draftOrder { id legacyResourceId }
+              userErrors { field message }
+            }
+          }`,
+        {
+          variables: {
+            input: {
+              lineItems: [
+                {
+                  title: `Late fee - ${booking.shopifyOrderName || booking.id.slice(-8).toUpperCase()} (${daysOverdue} day${daysOverdue !== 1 ? "s" : ""} overdue)`,
+                  quantity: 1,
+                  originalUnitPrice: lateFeeTotal.toFixed(2),
+                  requiresShipping: false,
+                  taxable: false,
+                },
+              ],
+              ...(booking.customerEmail ? { email: booking.customerEmail } : {}),
+              note: `Late return fee for booking ${booking.shopifyOrderName || booking.id}. Originally due ${new Date(booking.endDate).toLocaleDateString()}.`,
+              tags: ["miko-late-fee", `booking-${booking.id.slice(-8).toLowerCase()}`],
+            },
+          },
+        },
+      );
+      const draftData = (await draftRes.json()) as {
+        data?: {
+          draftOrderCreate?: {
+            draftOrder?: { id: string; legacyResourceId: string };
+            userErrors: Array<{ field: string[]; message: string }>;
+          };
+        };
+      };
+      const draft = draftData.data?.draftOrderCreate?.draftOrder;
+      if (draft?.legacyResourceId) {
+        draftOrderAdminUrl = `https://${shop}/admin/draft_orders/${draft.legacyResourceId}`;
+        await db.rentalBooking.update({
+          where: { id: booking.id },
+          data: { lateFeeCharged: lateFeeTotal, lateFeeInvoiceId: draft.id },
+        });
+      } else {
+        const errors = draftData.data?.draftOrderCreate?.userErrors ?? [];
+        console.error("[late-fee] draftOrderCreate errors:", errors);
+        // Fall back: record locally even if draft order creation failed.
+        await db.rentalBooking.update({
+          where: { id: booking.id },
+          data: { lateFeeCharged: lateFeeTotal },
+        });
+      }
+    } catch (err) {
+      console.error("[late-fee] failed to create draft order:", err);
+      await db.rentalBooking.update({
+        where: { id: booking.id },
+        data: { lateFeeCharged: lateFeeTotal },
+      });
+    }
+
+    const currency = config?.currency || "USD";
+    return json({
+      success: true,
+      message: draftOrderAdminUrl
+        ? `Late fee of ${formatCurrency(lateFeeTotal, currency)} recorded. A draft order has been created — open it in Shopify to send the payment link to the customer.`
+        : `Late fee of ${formatCurrency(lateFeeTotal, currency)} recorded. Create a manual invoice in Shopify to charge the customer.`,
+      draftOrderUrl: draftOrderAdminUrl,
     });
-    return json({ success: true, message: `Late fee of ${formatCurrency(lateFeeTotal, config?.currency || "USD")} recorded. Create a manual invoice in Shopify to charge the customer.` });
   }
 
   if (intent === "save_notes") {
@@ -356,7 +428,17 @@ export default function BookingDetailPage() {
               <Banner tone="critical" title={actionData.error} />
             )}
             {actionData && "message" in actionData && (
-              <Banner tone="success" title={(actionData as any).message} />
+              <Banner tone="success" title={(actionData as any).message}>
+                {(actionData as any).draftOrderUrl && (
+                  <Button
+                    url={(actionData as any).draftOrderUrl}
+                    target="_blank"
+                    variant="plain"
+                  >
+                    Open draft order in Shopify to send payment link
+                  </Button>
+                )}
+              </Banner>
             )}
 
             {booking.status === "overdue" && (
@@ -384,6 +466,9 @@ export default function BookingDetailPage() {
                 <InlineStack align="space-between" blockAlign="start">
                   <BlockStack gap="100">
                     <Text as="h2" variant="headingLg">{booking.productTitle}</Text>
+                    {booking.variantTitle && (
+                      <Text as="p" tone="subdued">Variant: {booking.variantTitle}</Text>
+                    )}
                     <Text as="p" tone="subdued">{booking.orderName}</Text>
                   </BlockStack>
                   <Badge tone={STATUS_BADGE[booking.status]?.tone}>
@@ -510,7 +595,16 @@ export default function BookingDetailPage() {
                   </Text>
                   {booking.lateFeeCharged > 0 ? (
                     <Banner tone="success" title={`Late fee of ${formatCurrency(booking.lateFeeCharged, currency)} has been recorded.`}>
-                      <p>Create a draft order or invoice in Shopify to charge this to the customer.</p>
+                      {booking.lateFeeInvoiceUrl ? (
+                        <BlockStack gap="200">
+                          <p>A draft order was created in Shopify. Open it to review and send the payment link to the customer.</p>
+                          <Button url={booking.lateFeeInvoiceUrl} target="_blank" variant="plain">
+                            Open draft order in Shopify →
+                          </Button>
+                        </BlockStack>
+                      ) : (
+                        <p>Create a draft order or invoice in Shopify to charge this to the customer.</p>
+                      )}
                     </Banner>
                   ) : (
                     <Form method="POST">

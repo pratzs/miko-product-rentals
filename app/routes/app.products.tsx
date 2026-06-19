@@ -20,6 +20,7 @@ import { authenticate } from "../shopify.server";
 import { db } from "../db.server";
 import { formatCurrency } from "../utils/pricing";
 import { setRentalMetafield, ensureRentalVariantsCanOversell } from "../utils/product-metafields.server";
+import { syncRentalProductVariants } from "../utils/variant-sync.server";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const { session } = await authenticate.admin(request);
@@ -131,6 +132,9 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       await setRentalMetafield(admin, p.shopifyProductId, p.isActive);
       if (p.isActive) {
         await ensureRentalVariantsCanOversell(admin, p.shopifyProductId);
+        // Pull variants too so multi-variant products that were activated
+        // before the variant feature existed get their RentalVariant rows.
+        await syncRentalProductVariants(admin, p.id);
       }
     }
     return json({

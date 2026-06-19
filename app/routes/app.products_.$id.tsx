@@ -24,6 +24,7 @@ import { QuestionCircleIcon } from "@shopify/polaris-icons";
 import { authenticate } from "../shopify.server";
 import { db } from "../db.server";
 import { setRentalMetafield, ensureRentalVariantsCanOversell } from "../utils/product-metafields.server";
+import { syncRentalProductVariants } from "../utils/variant-sync.server";
 import { useState } from "react";
 
 export const loader = async ({ request, params }: LoaderFunctionArgs) => {
@@ -40,6 +41,9 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
         bookings: {
           where: { status: { in: ["confirmed", "active"] } },
           select: { id: true },
+        },
+        variants: {
+          orderBy: { shopifyVariantTitle: "asc" },
         },
       },
     }),
@@ -60,12 +64,25 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
       pricePerMonth: product.pricePerMonth,
       depositAmount: product.depositAmount,
       autoReleaseDeposit: product.autoReleaseDeposit,
+      allowRentalWhenSoldOut: product.allowRentalWhenSoldOut,
       minRentalDays: product.minRentalDays,
       maxRentalDays: product.maxRentalDays,
       rentalNotes: product.rentalNotes,
       isActive: product.isActive,
+      hasVariants: product.hasVariants,
       totalBookings: product._count.bookings,
       activeBookings: product.bookings.length,
+      variants: product.variants.map((v) => ({
+        id: v.id,
+        shopifyVariantId: v.shopifyVariantId,
+        title: v.shopifyVariantTitle,
+        totalUnits: v.totalUnits,
+        pricePerDay: v.pricePerDay,
+        pricePerWeek: v.pricePerWeek,
+        pricePerMonth: v.pricePerMonth,
+        depositAmount: v.depositAmount,
+        isActive: v.isActive,
+      })),
     },
   });
 };
@@ -89,6 +106,7 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
     const minRentalDays = parseInt(formData.get("minRentalDays") as string) || 1;
     const maxRentalDays = parseInt(formData.get("maxRentalDays") as string) || 0;
     const autoReleaseDeposit = formData.get("autoReleaseDeposit") === "true";
+    const allowRentalWhenSoldOut = formData.get("allowRentalWhenSoldOut") !== "false";
     const rentalNotes = (formData.get("rentalNotes") as string) || "";
 
     if (pricePerDay <= 0) {
@@ -109,9 +127,19 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
         minRentalDays,
         maxRentalDays,
         autoReleaseDeposit,
+        allowRentalWhenSoldOut,
         rentalNotes,
       },
     });
+
+    // When the merchant disables the override, we don't need to do anything
+    // special — the product stays purchasable until Shopify's own inventory
+    // enforcement kicks in on the next cart add.
+    // When re-enabling, run the override immediately so the merchant doesn't
+    // have to also click "Sync with storefront".
+    if (allowRentalWhenSoldOut) {
+      await ensureRentalVariantsCanOversell(admin, product.shopifyProductId);
+    }
 
     return json({ success: true, message: "Settings saved successfully." });
   }
@@ -128,8 +156,48 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
     await setRentalMetafield(admin, product.shopifyProductId, newActive);
     if (newActive) {
       await ensureRentalVariantsCanOversell(admin, product.shopifyProductId);
+      // Pull the latest variant list whenever a rental goes live so multi
+      // variant products get their per-variant rows created automatically.
+      await syncRentalProductVariants(admin, product.id);
     }
     return json({ success: true, message: product.isActive ? "Product deactivated." : "Product is now live for rentals." });
+  }
+
+  if (intent === "sync_variants") {
+    const result = await syncRentalProductVariants(admin, product.id);
+    // Also re-flip inventory policy on every variant so any newly added
+    // variants in Shopify can be added to cart even when their stock is 0.
+    await ensureRentalVariantsCanOversell(admin, product.shopifyProductId);
+    return json({
+      success: true,
+      message: result.hasVariants
+        ? `Synced ${result.variants.length} variant${result.variants.length === 1 ? "" : "s"} from Shopify.`
+        : "This product has no variants in Shopify. It will be treated as a single rental.",
+    });
+  }
+
+  if (intent === "save_variant") {
+    const variantId = formData.get("variantId") as string;
+    const variant = await db.rentalVariant.findFirst({
+      where: { id: variantId, rentalProductId: product.id },
+    });
+    if (!variant) {
+      return json({ error: "Variant not found." }, { status: 404 });
+    }
+    const pricePerDay = parseFloat(formData.get("pricePerDay") as string) || 0;
+    const pricePerWeek = parseFloat(formData.get("pricePerWeek") as string) || 0;
+    const pricePerMonth = parseFloat(formData.get("pricePerMonth") as string) || 0;
+    const depositAmount = parseFloat(formData.get("depositAmount") as string) || 0;
+    const totalUnits = parseInt(formData.get("totalUnits") as string) || 1;
+    const isActive = formData.get("isActive") === "true";
+    if (isActive && pricePerDay <= 0) {
+      return json({ error: "Set a daily price before activating this variant." }, { status: 400 });
+    }
+    await db.rentalVariant.update({
+      where: { id: variant.id },
+      data: { pricePerDay, pricePerWeek, pricePerMonth, depositAmount, totalUnits, isActive },
+    });
+    return json({ success: true, message: `Variant "${variant.shopifyVariantTitle}" saved.` });
   }
 
   if (intent === "delete") {
@@ -159,6 +227,7 @@ export default function ProductConfigPage() {
   const [minRentalDays, setMinRentalDays] = useState(product.minRentalDays.toString());
   const [maxRentalDays, setMaxRentalDays] = useState(product.maxRentalDays.toString());
   const [autoReleaseDeposit, setAutoReleaseDeposit] = useState(product.autoReleaseDeposit);
+  const [allowRentalWhenSoldOut, setAllowRentalWhenSoldOut] = useState(product.allowRentalWhenSoldOut);
   const [rentalNotes, setRentalNotes] = useState(product.rentalNotes);
 
   return (
@@ -177,6 +246,7 @@ export default function ProductConfigPage() {
           <input type="hidden" name="minRentalDays" value={minRentalDays} />
           <input type="hidden" name="maxRentalDays" value={maxRentalDays} />
           <input type="hidden" name="autoReleaseDeposit" value={autoReleaseDeposit.toString()} />
+          <input type="hidden" name="allowRentalWhenSoldOut" value={allowRentalWhenSoldOut.toString()} />
           <input type="hidden" name="rentalNotes" value={rentalNotes} />
           <Button variant="primary" submit loading={saving}>Save settings</Button>
         </Form>
@@ -309,6 +379,13 @@ export default function ProductConfigPage() {
                   onChange={setAutoReleaseDeposit}
                   helpText="You will still need to process the actual refund through Shopify separately."
                 />
+                <Divider />
+                <Checkbox
+                  label="Allow rental even when Shopify shows product as sold out"
+                  checked={allowRentalWhenSoldOut}
+                  onChange={setAllowRentalWhenSoldOut}
+                  helpText="When on (recommended), the app overrides Shopify's inventory so customers can always add a rental to cart. Miko's calendar is the availability source of truth. Turn off only if you also want Shopify stock to gate rentals."
+                />
               </BlockStack>
             </Card>
 
@@ -383,6 +460,14 @@ export default function ProductConfigPage() {
               </BlockStack>
             </Card>
 
+            {/* Variants */}
+            <VariantsCard
+              productId={product.id}
+              hasVariants={product.hasVariants}
+              variants={product.variants}
+              currency={currency}
+            />
+
             {/* Danger zone */}
             {!product.isActive && (
               <Card>
@@ -451,5 +536,200 @@ export default function ProductConfigPage() {
         </Layout.Section>
       </Layout>
     </Page>
+  );
+}
+
+interface VariantRow {
+  id: string;
+  shopifyVariantId: string;
+  title: string;
+  totalUnits: number;
+  pricePerDay: number;
+  pricePerWeek: number;
+  pricePerMonth: number;
+  depositAmount: number;
+  isActive: boolean;
+}
+
+function VariantsCard({
+  productId,
+  hasVariants,
+  variants,
+  currency,
+}: {
+  productId: string;
+  hasVariants: boolean;
+  variants: VariantRow[];
+  currency: string;
+}) {
+  const submit = useSubmit();
+  const navigation = useNavigation();
+  const syncing = navigation.formData?.get("intent") === "sync_variants";
+
+  function onSync() {
+    const fd = new FormData();
+    fd.set("intent", "sync_variants");
+    submit(fd, { method: "POST" });
+  }
+
+  return (
+    <Card>
+      <BlockStack gap="400">
+        <InlineStack align="space-between" blockAlign="center" wrap={false}>
+          <BlockStack gap="100">
+            <Text as="h2" variant="headingMd">Variants</Text>
+            <Text as="p" tone="subdued">
+              {hasVariants
+                ? "This product has multiple variants. Configure rental pricing and units for each one."
+                : "If this product has variants in Shopify, click Sync variants to pull them in and price each one individually."}
+            </Text>
+          </BlockStack>
+          <Button onClick={onSync} loading={syncing}>Sync variants</Button>
+        </InlineStack>
+        {hasVariants && variants.length > 0 && (
+          <>
+            <Divider />
+            <BlockStack gap="400">
+              {variants.map((v) => (
+                <VariantRowEditor
+                  key={v.id}
+                  productId={productId}
+                  variant={v}
+                  currency={currency}
+                />
+              ))}
+            </BlockStack>
+          </>
+        )}
+      </BlockStack>
+    </Card>
+  );
+}
+
+function VariantRowEditor({
+  productId: _productId,
+  variant,
+  currency,
+}: {
+  productId: string;
+  variant: VariantRow;
+  currency: string;
+}) {
+  const submit = useSubmit();
+  const navigation = useNavigation();
+  const saving =
+    navigation.formData?.get("intent") === "save_variant" &&
+    navigation.formData?.get("variantId") === variant.id;
+
+  const [pricePerDay, setPricePerDay] = useState(variant.pricePerDay.toString());
+  const [pricePerWeek, setPricePerWeek] = useState(variant.pricePerWeek.toString());
+  const [pricePerMonth, setPricePerMonth] = useState(variant.pricePerMonth.toString());
+  const [depositAmount, setDepositAmount] = useState(variant.depositAmount.toString());
+  const [totalUnits, setTotalUnits] = useState(variant.totalUnits.toString());
+  const [isActive, setIsActive] = useState(variant.isActive);
+
+  function onSave() {
+    const fd = new FormData();
+    fd.set("intent", "save_variant");
+    fd.set("variantId", variant.id);
+    fd.set("pricePerDay", pricePerDay);
+    fd.set("pricePerWeek", pricePerWeek);
+    fd.set("pricePerMonth", pricePerMonth);
+    fd.set("depositAmount", depositAmount);
+    fd.set("totalUnits", totalUnits);
+    fd.set("isActive", isActive.toString());
+    submit(fd, { method: "POST" });
+  }
+
+  return (
+    <Box
+      padding="400"
+      borderRadius="200"
+      background="bg-surface-secondary"
+      borderColor="border"
+      borderWidth="025"
+    >
+      <BlockStack gap="300">
+        <InlineStack align="space-between" blockAlign="center">
+          <InlineStack gap="200" blockAlign="center">
+            <Text as="h3" variant="headingSm">{variant.title}</Text>
+            <Badge tone={isActive ? "success" : undefined}>
+              {isActive ? "Active" : "Inactive"}
+            </Badge>
+          </InlineStack>
+          <Checkbox
+            label="Available for rental"
+            labelHidden
+            checked={isActive}
+            onChange={setIsActive}
+          />
+        </InlineStack>
+        <InlineStack gap="300" wrap>
+          <Box minWidth="140px">
+            <TextField
+              label="Price per day"
+              type="number"
+              value={pricePerDay}
+              onChange={setPricePerDay}
+              prefix={currency}
+              min={0}
+              step={0.01}
+              autoComplete="off"
+            />
+          </Box>
+          <Box minWidth="140px">
+            <TextField
+              label="Per week"
+              type="number"
+              value={pricePerWeek}
+              onChange={setPricePerWeek}
+              prefix={currency}
+              min={0}
+              step={0.01}
+              autoComplete="off"
+            />
+          </Box>
+          <Box minWidth="140px">
+            <TextField
+              label="Per month"
+              type="number"
+              value={pricePerMonth}
+              onChange={setPricePerMonth}
+              prefix={currency}
+              min={0}
+              step={0.01}
+              autoComplete="off"
+            />
+          </Box>
+          <Box minWidth="140px">
+            <TextField
+              label="Deposit"
+              type="number"
+              value={depositAmount}
+              onChange={setDepositAmount}
+              prefix={currency}
+              min={0}
+              step={0.01}
+              autoComplete="off"
+            />
+          </Box>
+          <Box minWidth="120px">
+            <TextField
+              label="Units available"
+              type="number"
+              value={totalUnits}
+              onChange={setTotalUnits}
+              min={1}
+              autoComplete="off"
+            />
+          </Box>
+        </InlineStack>
+        <InlineStack>
+          <Button onClick={onSave} loading={saving} variant="primary">
+            Save variant
+          </Button>
+        </InlineStack>
+      </BlockStack>
+    </Box>
   );
 }
