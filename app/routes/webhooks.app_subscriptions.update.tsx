@@ -43,7 +43,9 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       },
     });
     console.info(`[billing] ${shop}: plan activated → ${name}`);
-  } else if (["CANCELLED", "DECLINED", "EXPIRED"].includes(status)) {
+  } else if (["CANCELLED", "EXPIRED"].includes(status)) {
+    // DECLINED means the merchant dismissed the billing confirmation page — their
+    // previous active subscription is untouched, so we must not downgrade them.
     await db.shopConfig.updateMany({
       where: { shop },
       data: { planName: "free", subscriptionCancelledAt: new Date() },

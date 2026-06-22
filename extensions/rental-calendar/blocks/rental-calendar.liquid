@@ -12,9 +12,37 @@
 {%- endcomment -%}
 {%- unless product.metafields.miko.is_rental -%}
   {%- comment -%}
-    Render nothing for non-rental products. The theme keeps its regular price
-    and Add to cart button, unaffected.
+    Product is not configured as a rental (or this is a non-product page).
+    Show a visible placeholder so merchants and Shopify reviewers understand
+    what to do rather than seeing a completely blank section.
   {%- endcomment -%}
+  <div id="miko-setup-notice" style="
+    padding: 20px 24px;
+    border: 2px dashed #c9cccf;
+    border-radius: 8px;
+    background: #f6f6f7;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+    text-align: center;
+    color: #6d7175;
+  ">
+    <svg width="28" height="28" viewBox="0 0 20 20" fill="none" style="display:block;margin:0 auto 10px;" aria-hidden="true">
+      <rect x="2" y="4" width="16" height="14" rx="2" stroke="#6d7175" stroke-width="1.5"/>
+      <path d="M2 8h16" stroke="#6d7175" stroke-width="1.5"/>
+      <path d="M6 2v3M14 2v3" stroke="#6d7175" stroke-width="1.5" stroke-linecap="round"/>
+    </svg>
+    <strong style="display:block;margin-bottom:6px;color:#202223;font-size:14px;">Miko Rental Calendar</strong>
+    {%- if request.page_type != 'product' -%}
+      <span style="font-size:13px;">
+        This block only works on <strong>product pages</strong>.<br>
+        Add it to your <strong>Product</strong> template (not a Page or other template) in the theme editor.
+      </span>
+    {%- else -%}
+      <span style="font-size:13px;">
+        This product isn&apos;t configured as a rental yet.<br>
+        Open the <strong>Miko Product Rentals</strong> app, go to <strong>Products</strong>, and enable this product as a rental to show the booking calendar here.
+      </span>
+    {%- endif -%}
+  </div>
 {%- else -%}
 
 {{ 'rental-calendar.css' | asset_url | stylesheet_tag }}
