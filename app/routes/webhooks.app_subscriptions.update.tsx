@@ -43,14 +43,28 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       },
     });
     console.info(`[billing] ${shop}: plan activated → ${name}`);
-  } else if (["CANCELLED", "EXPIRED"].includes(status)) {
-    // DECLINED means the merchant dismissed the billing confirmation page — their
-    // previous active subscription is untouched, so we must not downgrade them.
+  } else if (status === "CANCELLED" && validPlans.includes(name)) {
+    // With ApplyImmediately, upgrading a plan fires two webhooks in quick
+    // succession: CANCELLED for the old plan, then ACTIVE for the new one.
+    // If they arrive out of order (ACTIVE first), the DB already shows the
+    // new plan — do NOT overwrite it. Only downgrade if the plan being
+    // cancelled still matches what's stored.
+    const updated = await db.shopConfig.updateMany({
+      where: { shop, planName: name },
+      data: { planName: "free", subscriptionCancelledAt: new Date() },
+    });
+    if (updated.count > 0) {
+      console.info(`[billing] ${shop}: ${name} cancelled → reverted to free`);
+    } else {
+      console.info(`[billing] ${shop}: ${name} cancelled but plan already changed — skipping downgrade`);
+    }
+  } else if (status === "EXPIRED") {
+    // EXPIRED is not caused by a plan replacement — always downgrade.
     await db.shopConfig.updateMany({
       where: { shop },
       data: { planName: "free", subscriptionCancelledAt: new Date() },
     });
-    console.info(`[billing] ${shop}: subscription ${status.toLowerCase()} → reverted to free`);
+    console.info(`[billing] ${shop}: subscription expired → reverted to free`);
   }
 
   return json({ ok: true });
