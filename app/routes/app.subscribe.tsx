@@ -23,7 +23,10 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 
   const validPlan = plan as "starter" | "growth" | "pro";
   const shopHandle = session.shop.replace(".myshopify.com", "");
-  const returnUrl = `https://admin.shopify.com/store/${shopHandle}/apps/${process.env.SHOPIFY_API_KEY}/app/pricing`;
+  // SHOPIFY_API_KEY must match the client_id in shopify.app.toml (2306fcd511592e435b9b26ac07304811).
+  // Fall back to the known value so the returnUrl is never malformed.
+  const clientId = process.env.SHOPIFY_API_KEY || "2306fcd511592e435b9b26ac07304811";
+  const returnUrl = `https://admin.shopify.com/store/${shopHandle}/apps/${clientId}/app/pricing`;
 
   try {
     await billing.request({
