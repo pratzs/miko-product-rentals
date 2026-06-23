@@ -36,9 +36,11 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       replacementBehavior: BillingReplacementBehavior.ApplyImmediately,
     });
   } catch (err: unknown) {
-    // Billing errors contain a full response body - log everything so we can diagnose.
+    // billing.request() always throws a Response redirect — that is the normal path.
+    // Only log unexpected non-Response errors.
+    if (err instanceof Response) throw err;
     const e = err as { errorData?: unknown; response?: { body?: unknown; code?: number }; message?: string };
-    console.error("[billing] request failed for", session.shop, {
+    console.error("[billing] unexpected error for", session.shop, {
       errorData: e?.errorData,
       responseBody: e?.response?.body,
       responseCode: e?.response?.code,
