@@ -169,7 +169,7 @@
     {%- endfor -%}
   {%- endif -%}
 
-  {%- if rental_handles != "" -%}
+  {%- if rental_handles != "" and request.page_type != 'product' -%}
     <style data-miko-display-rules="collection-badge">
       [data-miko-rental-card] {
         position: relative;
