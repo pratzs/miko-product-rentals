@@ -11,7 +11,7 @@
   show it per product based on the `miko.is_rental` metafield set by the app.
 {%- endcomment -%}
 {%- unless product.metafields.miko.is_rental -%}
-  {%- if request.design_mode -%}
+  {%- if request.page_type != 'product' or request.design_mode -%}
     <div id="miko-setup-notice" style="
       padding: 20px 24px;
       border: 2px dashed #c9cccf;
