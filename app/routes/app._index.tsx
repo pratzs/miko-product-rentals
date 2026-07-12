@@ -1,6 +1,7 @@
 import type { LoaderFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
 import { useLoaderData, useNavigate } from "@remix-run/react";
+import { CrossSellSection } from "../components/CrossSellSection";
 import {
   Page,
   Layout,
@@ -598,6 +599,8 @@ export default function Dashboard() {
             </Card>
           </Layout.Section>
         </Layout>
+
+        <CrossSellSection currentApp="rentals" />
       </BlockStack>
     </Page>
   );

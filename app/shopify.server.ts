@@ -9,7 +9,7 @@ import { PrismaSessionStorage } from "@shopify/shopify-app-session-storage-prism
 import { db } from "./db.server";
 import { ensureCartTransformActivated } from "./utils/cart-transform.server";
 import { ensureRentalMetafieldDefinition } from "./utils/product-metafields.server";
-import { ensureShopName } from "./utils/shop-info.server";
+import { ensureShopName, ensureShopCurrency } from "./utils/shop-info.server";
 
 const shopify = shopifyApp({
   apiKey: process.env.SHOPIFY_API_KEY,
@@ -50,6 +50,7 @@ const shopify = shopifyApp({
       await ensureCartTransformActivated(admin, session.shop);
       await ensureRentalMetafieldDefinition(admin);
       await ensureShopName(admin, session.shop);
+      await ensureShopCurrency(admin, session.shop);
     },
   },
   ...(process.env.SHOP_CUSTOM_DOMAIN
