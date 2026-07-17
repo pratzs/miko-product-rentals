@@ -16,7 +16,7 @@ import { db as prisma } from "./db.server";
  * block auth, webhooks, or the scheduler. Without RESEND_API_KEY every send
  * is a silent no-op.
  *
- * Design: Miko brand (navy/gold, 3D robot hero) + Tripster Developers
+ * Design: bright per-app branding (app tint hero + accent, 3D robot) + Tripster Developers
  * sign-off, table-based markup so it renders in Outlook too. No tracking
  * pixels; the only images are the hosted app icon and mascot.
  */
@@ -38,6 +38,10 @@ const GOLD = "#F5B731";
 const BORDER = "#E6EAF4";
 const PAGE_BG = "#F4F6FB";
 const TD_RED = "#E52D2D";
+// Per-app brand colors (from the Miko Mark system / tripsterdevelopers.com/apps)
+const APP_ACCENT = "#0D9488";
+const APP_DARK = "#0F766E";
+const APP_TINT = "#F0FDFA";
 const FONT = "'Outfit','Segoe UI',Arial,Helvetica,sans-serif";
 
 let resendClient: Resend | null = null;
@@ -65,8 +69,8 @@ function para(text: string): string {
 /** Gold CTA button, table-based so Outlook renders it too. */
 function ctaButton(label: string, url: string): string {
   return `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:28px 0 6px;"><tr>
-<td align="center" bgcolor="${GOLD}" style="border-radius:10px;">
-<a href="${url}" target="_blank" style="display:inline-block;padding:15px 34px;font-family:${FONT};font-size:15px;font-weight:bold;color:${NAVY};text-decoration:none;border-radius:10px;letter-spacing:0.01em;">${label}</a>
+<td align="center" bgcolor="${APP_DARK}" style="border-radius:10px;">
+<a href="${url}" target="_blank" style="display:inline-block;padding:15px 34px;font-family:${FONT};font-size:15px;font-weight:bold;color:#FFFFFF;text-decoration:none;border-radius:10px;letter-spacing:0.01em;">${label}</a>
 </td></tr></table>`;
 }
 
@@ -84,21 +88,21 @@ function wrap(eyebrow: string, headline: string, bodyHtml: string): string {
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
     <td width="40"><img src="${APP_ICON_URL}" width="40" height="40" alt="" style="display:block;border-radius:10px;"></td>
     <td style="padding-left:12px;font-family:${FONT};font-size:16px;font-weight:bold;color:${NAVY};">${APP_NAME}</td>
-    <td align="right" style="font-family:${FONT};font-size:11px;font-weight:bold;letter-spacing:0.14em;color:#8CA0C8;">MIKO&nbsp;APPS</td>
+    <td align="right" style="font-family:${FONT};font-size:11px;font-weight:bold;letter-spacing:0.14em;color:${APP_ACCENT};">MIKO&nbsp;APPS</td>
   </tr></table>
 </td></tr>
 
-<tr><td bgcolor="${NAVY}" style="background-color:${NAVY};background:linear-gradient(135deg,${NAVY} 0%,${NAVY2} 100%);border-radius:18px 18px 0 0;padding:34px 38px 26px;">
+<tr><td bgcolor="${APP_TINT}" style="background-color:${APP_TINT};border:1px solid ${BORDER};border-bottom:none;border-radius:18px 18px 0 0;padding:34px 38px 26px;">
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
     <td style="vertical-align:middle;">
-      <p style="margin:0 0 10px;font-family:${FONT};font-size:11px;font-weight:bold;letter-spacing:0.18em;color:${GOLD};">${eyebrow}</p>
-      <p style="margin:0;font-family:${FONT};font-size:26px;line-height:1.25;font-weight:bold;color:#FFFFFF;">${headline}</p>
+      <p style="margin:0 0 10px;font-family:${FONT};font-size:11px;font-weight:bold;letter-spacing:0.18em;color:${APP_DARK};">${eyebrow}</p>
+      <p style="margin:0;font-family:${FONT};font-size:26px;line-height:1.25;font-weight:bold;color:${NAVY};">${headline}</p>
     </td>
     <td width="104" align="right" style="vertical-align:bottom;"><img src="${ROBOT_URL}" width="88" alt="Miko robot" style="display:block;"></td>
   </tr></table>
 </td></tr>
 
-<tr><td height="4" bgcolor="${GOLD}" style="font-size:0;line-height:0;">&nbsp;</td></tr>
+<tr><td height="4" bgcolor="${APP_ACCENT}" style="font-size:0;line-height:0;">&nbsp;</td></tr>
 
 <tr><td bgcolor="#FFFFFF" style="background-color:#FFFFFF;border:1px solid ${BORDER};border-top:none;border-radius:0 0 18px 18px;padding:36px 38px 30px;font-family:${FONT};font-size:15px;line-height:1.75;color:${MUTED};">
 ${bodyHtml}
