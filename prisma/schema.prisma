@@ -53,6 +53,10 @@ model ShopConfig {
   // On paid plans, merchants can choose to show the "Powered by Miko Rentals"
   // credit on their storefront widget. Forced on for the Free plan.
   showPoweredBy       Boolean   @default(false)
+  // Set when the merchant interacts with the App Store review banner (clicked
+  // through or declined). Banner shows only after the first real booking and
+  // never again once this is set.
+  reviewPromptDismissedAt DateTime?
   // Email identity — shown to customers on every email sent.
   senderName          String   @default("")   // From: display name, e.g. "Kiwi Surf Gear"
   replyToEmail        String   @default("")   // Reply-To address, e.g. owner@kiwisurfgear.co.nz

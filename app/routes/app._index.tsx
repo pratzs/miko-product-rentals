@@ -1,7 +1,8 @@
-import type { LoaderFunctionArgs } from "@remix-run/node";
+import type { ActionFunctionArgs, LoaderFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
 import { useLoaderData, useNavigate } from "@remix-run/react";
 import { CrossSellSection } from "../components/CrossSellSection";
+import { ReviewPrompt } from "../components/ReviewPrompt";
 import {
   Page,
   Layout,
@@ -31,9 +32,14 @@ import {
 } from "@shopify/polaris-icons";
 import { authenticate } from "../shopify.server";
 import { db } from "../db.server";
+import { dismissReviewPrompt, shouldShowReviewPrompt } from "../review-prompt.server";
 import { format, isToday, isTomorrow } from "date-fns";
 import { formatCurrency } from "../utils/pricing";
 import { checkRentalLimit, getPlan } from "../utils/plans";
+
+/** Client-safe App Store write-a-review deep link for this app's listing. */
+const APP_STORE_REVIEW_URL =
+  "https://apps.shopify.com/miko-product-rentals#modal-show=WriteReviewModal";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const { session } = await authenticate.admin(request);
@@ -148,7 +154,10 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     config?.installedAt &&
     config.subscriptionCancelledAt > config.installedAt;
 
+  const showReviewPrompt = await shouldShowReviewPrompt(shop);
+
   return json({
+    showReviewPrompt,
     shop,
     shopHandle,
     currency: config?.currency || "USD",
@@ -211,6 +220,15 @@ const STATUS_BADGE: Record<string, { tone: any; label: string }> = {
   cancelled: { tone: "subdued",   label: "Cancelled" },
 };
 
+export const action = async ({ request }: ActionFunctionArgs) => {
+  const { session } = await authenticate.admin(request);
+  const formData = await request.formData();
+  if (formData.get("intent") === "review_prompt_dismiss") {
+    await dismissReviewPrompt(session.shop);
+  }
+  return json({ ok: true });
+};
+
 export default function Dashboard() {
   const {
     stats,
@@ -224,6 +242,7 @@ export default function Dashboard() {
     overdueCount,
     needsReviewCount,
     reinstalledFromPaid,
+    showReviewPrompt,
   } = useLoaderData<typeof loader>();
   const navigate = useNavigate();
 
@@ -362,6 +381,13 @@ export default function Dashboard() {
       }
     >
       <BlockStack gap="600">
+        {showReviewPrompt && (
+          <ReviewPrompt
+            reviewUrl={APP_STORE_REVIEW_URL}
+            title="Your first rental booking just came through"
+            message="If Miko Product Rentals is working well for you, a short review on the Shopify App Store helps other rental businesses find it, and means a lot to our small team in Auckland."
+          />
+        )}
         {!onboardingCompleted && (
           <Card>
             <BlockStack gap="400">
