@@ -16,8 +16,8 @@ import { db as prisma } from "./db.server";
  * captured and never blocks auth, webhooks, or the scheduler.
  *
  * Sender identity comes from env so all Miko apps share one verified Resend
- * domain: RESEND_API_KEY + MIKO_SENDER_EMAIL (e.g. "hello@miko.co.nz").
- * Without RESEND_API_KEY every send is a silent no-op, nothing breaks.
+ * domain: RESEND_API_KEY + MIKO_SENDER_EMAIL (noreply@miko.co.nz). Without
+ * RESEND_API_KEY every send is a silent no-op, nothing breaks.
  */
 
 const APP_NAME = "Miko Product Rentals";
@@ -25,6 +25,15 @@ const APP_HANDLE = "miko-product-rentals";
 const REVIEW_URL = `https://apps.shopify.com/${APP_HANDLE}#modal-show=WriteReviewModal`;
 const REINSTALL_URL = `https://apps.shopify.com/${APP_HANDLE}`;
 const SUPPORT_EMAIL = "hello@tripsterdevelopers.com";
+const APP_ICON_URL = "https://miko.co.nz/assets/app-icons/rentals.png?v=5";
+const LEARN_URL = "https://miko.co.nz/rentals-docs";
+
+// Miko brand palette (matches miko.co.nz)
+const NAVY = "#0D1527";
+const MUTED = "#3D5280";
+const GOLD = "#F5B731";
+const BORDER = "#E6EAF4";
+const PAGE_BG = "#F4F6FB";
 
 let resendClient: Resend | null = null;
 function getResend(): Resend | null {
@@ -44,16 +53,54 @@ function firstName(full: string | null | undefined): string {
   return name || "there";
 }
 
-/** Shared minimal wrapper: readable plain-style HTML, no images, no tracking
- * pixels. The opt-out line keeps these compliant as relationship emails. */
+/** Bulletproof CTA button (table-based so Outlook renders it too). */
+function ctaButton(label: string, url: string): string {
+  return `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:26px 0 8px;">
+  <tr><td align="center" bgcolor="${NAVY}" style="border-radius:8px;">
+    <a href="${url}" target="_blank"
+       style="display:inline-block;padding:13px 28px;font-family:Arial,Helvetica,sans-serif;font-size:15px;font-weight:bold;color:#FFFFFF;text-decoration:none;border-radius:8px;">
+      ${label}</a>
+  </td></tr></table>`;
+}
+
+/** Branded, email-client-safe wrapper: Miko icon header, white card, footer
+ * with real links, and the opt-out line that keeps these compliant as
+ * one-off relationship emails. No tracking pixels. */
 function wrap(bodyHtml: string): string {
-  return `<div style="font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;font-size:15px;line-height:1.7;color:#1a202c;max-width:560px;margin:0 auto;padding:8px 4px;">
+  return `<!DOCTYPE html>
+<html lang="en"><body style="margin:0;padding:0;background-color:${PAGE_BG};">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="${PAGE_BG}">
+<tr><td align="center" style="padding:32px 14px;">
+  <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="max-width:600px;width:100%;">
+
+    <tr><td style="padding:0 6px 18px;">
+      <table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>
+        <td><img src="${APP_ICON_URL}" width="42" height="42" alt="${APP_NAME}" style="display:block;border-radius:10px;"></td>
+        <td style="padding-left:12px;font-family:Arial,Helvetica,sans-serif;font-size:17px;font-weight:bold;color:${NAVY};">${APP_NAME}</td>
+      </tr></table>
+    </td></tr>
+
+    <tr><td bgcolor="#FFFFFF" style="background-color:#FFFFFF;border:1px solid ${BORDER};border-top:4px solid ${GOLD};border-radius:14px;padding:34px 34px 28px;font-family:Arial,Helvetica,sans-serif;font-size:15px;line-height:1.7;color:${MUTED};">
 ${bodyHtml}
-<p style="color:#718096;font-size:13px;margin-top:28px;border-top:1px solid #e2e8f0;padding-top:14px;">
-You are receiving this because you installed ${APP_NAME} on your Shopify store.
-This is a one-off note, not a mailing list. If you would rather not hear from
-us at all, just reply and say so, we will make sure of it.</p>
-</div>`;
+    </td></tr>
+
+    <tr><td style="padding:22px 6px 0;font-family:Arial,Helvetica,sans-serif;font-size:13px;line-height:1.7;color:#8CA0C8;">
+      <a href="https://miko.co.nz" style="color:${MUTED};text-decoration:underline;">miko.co.nz</a>
+      &nbsp;&middot;&nbsp;
+      <a href="https://tripsterdevelopers.com/apps/" style="color:${MUTED};text-decoration:underline;">All Miko apps</a>
+      &nbsp;&middot;&nbsp;
+      <a href="mailto:${SUPPORT_EMAIL}" style="color:${MUTED};text-decoration:underline;">Support</a>
+      <br><br>
+      You are receiving this one-off note because you installed ${APP_NAME} on
+      your Shopify store. This is not a mailing list. If you would rather not
+      hear from us at all, just reply and say so, we will make sure of it.
+      <br><br>
+      Tripster Developers &middot; Auckland, New Zealand
+    </td></tr>
+
+  </table>
+</td></tr></table>
+</body></html>`;
 }
 
 async function send(to: string, subject: string, html: string): Promise<boolean> {
@@ -108,13 +155,12 @@ export async function sendWelcomeEmail(shop: string): Promise<void> {
 
   const name = firstName(config.merchantName);
   const html = wrap(`
-<p>Hi ${name},</p>
-<p>Thanks for installing ${APP_NAME}. I am Pratham, the founder, and I wanted
-to say hello personally.</p>
-<p>The fastest way to see it work: open the app, enable one product for rental, and add the calendar block to your product page from the theme editor. Bookings, deposits, and reminder emails run from there.</p>
-<p>If anything is confusing, or you want a hand setting up, just reply to this
-email. It comes straight to me and I usually answer the same day.</p>
-<p>Pratham<br>Tripster Developers, Auckland NZ</p>`);
+<p style="margin:0 0 16px;font-size:19px;font-weight:bold;color:${NAVY};">Welcome aboard, ${name}</p>
+<p style="margin:0 0 16px;">Thanks for installing ${APP_NAME}. I am Pratham, the founder, and I wanted to say hello personally.</p>
+<p style="margin:0 0 16px;">The fastest way to see it work: open the app, enable one product for rental, and add the calendar block to your product page from the theme editor. Bookings, deposits, and reminder emails run from there.</p>
+${ctaButton("Read the setup guide", LEARN_URL)}
+<p style="margin:18px 0 0;">If anything is confusing, or you want a hand setting up, just reply to this email. It comes straight to me and I usually answer the same day.</p>
+<p style="margin:18px 0 0;color:${NAVY};">Pratham<br><span style="color:${MUTED};">Tripster Developers, Auckland NZ</span></p>`);
 
   const ok = await send(config.merchantEmail, `Welcome to ${APP_NAME}`, html);
   if (ok) {
@@ -139,16 +185,14 @@ export async function sendUninstallEmail(shop: string): Promise<void> {
 
   const name = firstName(config.merchantName);
   const html = wrap(`
-<p>Hi ${name},</p>
-<p>I saw you uninstalled ${APP_NAME}, sorry to see you go.</p>
-<p>If something did not work, was missing, or just was not what you expected,
-I would genuinely like to know. Reply with one line and I will read it, that
-kind of note is how the app gets better.</p>
-<p>And if there is something we can fix or help set up, say the word. If you
-ever want to give it another try, it is here:
-<a href="${REINSTALL_URL}">${REINSTALL_URL}</a></p>
-<p>Either way, thanks for trying it.</p>
-<p>Pratham<br>Tripster Developers, Auckland NZ</p>`);
+<p style="margin:0 0 16px;font-size:19px;font-weight:bold;color:${NAVY};">Sorry to see you go, ${name}</p>
+<p style="margin:0 0 16px;">I saw you uninstalled ${APP_NAME}.</p>
+<p style="margin:0 0 16px;">If something did not work, was missing, or just was not what you expected, I would genuinely like to know.
+<a href="mailto:${SUPPORT_EMAIL}" style="color:${NAVY};font-weight:bold;text-decoration:underline;">Reply with one line</a>
+and I will read it, that kind of note is how the app gets better. If there is something we can fix or help set up, say the word.</p>
+${ctaButton("Give it another try", REINSTALL_URL)}
+<p style="margin:18px 0 0;">Either way, thanks for trying it.</p>
+<p style="margin:18px 0 0;color:${NAVY};">Pratham<br><span style="color:${MUTED};">Tripster Developers, Auckland NZ</span></p>`);
 
   const ok = await send(config.merchantEmail, "Sorry to see you go", html);
   if (ok) {
@@ -183,16 +227,14 @@ export async function sendDueReviewRequestEmails(): Promise<number> {
   for (const config of due) {
     const name = firstName(config.merchantName);
     const html = wrap(`
-<p>Hi ${name},</p>
-<p>You have had ${APP_NAME} for about a week now, so a quick question: how is
-it going?</p>
-<p>If it is saving you time, would you leave a short review on the App Store?
-It takes about a minute and genuinely helps other merchants find the app:
-<a href="${REVIEW_URL}">Leave a review</a></p>
-<p>And if it is NOT going well, do not review it, reply to this email instead
-and tell me what is wrong. I read every reply and I would rather fix your
-problem than collect a star.</p>
-<p>Pratham<br>Tripster Developers, Auckland NZ</p>`);
+<p style="margin:0 0 16px;font-size:19px;font-weight:bold;color:${NAVY};">How is it going, ${name}?</p>
+<p style="margin:0 0 16px;">You have had ${APP_NAME} for about a week now, so a quick question: how is it working for you?</p>
+<p style="margin:0 0 16px;">If it is saving you time, would you leave a short review on the App Store? It takes about a minute and genuinely helps other merchants find the app.</p>
+${ctaButton("Leave a review", REVIEW_URL)}
+<p style="margin:18px 0 0;">And if it is <strong style="color:${NAVY};">not</strong> going well, do not review it,
+<a href="mailto:${SUPPORT_EMAIL}" style="color:${NAVY};font-weight:bold;text-decoration:underline;">reply to this email instead</a>
+and tell me what is wrong. I read every reply and I would rather fix your problem than collect a star.</p>
+<p style="margin:18px 0 0;color:${NAVY};">Pratham<br><span style="color:${MUTED};">Tripster Developers, Auckland NZ</span></p>`);
 
     const ok = await send(config.merchantEmail as string, `How is ${APP_NAME} working for you?`, html);
     if (ok) {
@@ -206,9 +248,8 @@ problem than collect a star.</p>
   return sent;
 }
 
-/** In-process daily scheduler for the review-request scan, same shape as the
- * bulk-job scheduler in cron.server.ts: singleton, non-overlapping, unref'd,
- * opt-out via DISABLE_IN_PROCESS_CRON. */
+/** In-process daily scheduler for the review-request scan: singleton,
+ * non-overlapping, unref'd, opt-out via DISABLE_IN_PROCESS_CRON. */
 const LIFECYCLE_INTERVAL_MS = 6 * 60 * 60 * 1000; // every 6h; sends are idempotent
 
 declare global {
