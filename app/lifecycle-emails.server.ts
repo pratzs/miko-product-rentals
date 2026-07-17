@@ -12,12 +12,13 @@ import { db as prisma } from "./db.server";
  *  3. Uninstall       - sent once from the app/uninstalled webhook
  *
  * Every send is guarded by a sentAt timestamp on ShopConfig, so retries and
- * scheduler overlaps are idempotent. All sends are best-effort: a failure is
- * captured and never blocks auth, webhooks, or the scheduler.
+ * scheduler overlaps are idempotent. All sends are best-effort and never
+ * block auth, webhooks, or the scheduler. Without RESEND_API_KEY every send
+ * is a silent no-op.
  *
- * Sender identity comes from env so all Miko apps share one verified Resend
- * domain: RESEND_API_KEY + MIKO_SENDER_EMAIL (noreply@miko.co.nz). Without
- * RESEND_API_KEY every send is a silent no-op, nothing breaks.
+ * Design: Miko brand (navy/gold, 3D robot hero) + Tripster Developers
+ * sign-off, table-based markup so it renders in Outlook too. No tracking
+ * pixels; the only images are the hosted app icon and mascot.
  */
 
 const APP_NAME = "Miko Product Rentals";
@@ -27,13 +28,17 @@ const REINSTALL_URL = `https://apps.shopify.com/${APP_HANDLE}`;
 const SUPPORT_EMAIL = "hello@tripsterdevelopers.com";
 const APP_ICON_URL = "https://miko.co.nz/assets/app-icons/rentals.png?v=5";
 const LEARN_URL = "https://miko.co.nz/rentals-docs";
+const ROBOT_URL = "https://miko.co.nz/assets/miko-robot/miko-robot.png?v=2";
 
-// Miko brand palette (matches miko.co.nz)
+// Brand palette: Miko navy/gold (miko.co.nz) + Tripster red for the studio credit
 const NAVY = "#0D1527";
+const NAVY2 = "#243358";
 const MUTED = "#3D5280";
 const GOLD = "#F5B731";
 const BORDER = "#E6EAF4";
 const PAGE_BG = "#F4F6FB";
+const TD_RED = "#E52D2D";
+const FONT = "'Outfit','Segoe UI',Arial,Helvetica,sans-serif";
 
 let resendClient: Resend | null = null;
 function getResend(): Resend | null {
@@ -53,54 +58,70 @@ function firstName(full: string | null | undefined): string {
   return name || "there";
 }
 
-/** Bulletproof CTA button (table-based so Outlook renders it too). */
-function ctaButton(label: string, url: string): string {
-  return `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:26px 0 8px;">
-  <tr><td align="center" bgcolor="${NAVY}" style="border-radius:8px;">
-    <a href="${url}" target="_blank"
-       style="display:inline-block;padding:13px 28px;font-family:Arial,Helvetica,sans-serif;font-size:15px;font-weight:bold;color:#FFFFFF;text-decoration:none;border-radius:8px;">
-      ${label}</a>
-  </td></tr></table>`;
+function para(text: string): string {
+  return `<p style="margin:0 0 16px;">${text}</p>`;
 }
 
-/** Branded, email-client-safe wrapper: Miko icon header, white card, footer
- * with real links, and the opt-out line that keeps these compliant as
- * one-off relationship emails. No tracking pixels. */
-function wrap(bodyHtml: string): string {
-  return `<!DOCTYPE html>
-<html lang="en"><body style="margin:0;padding:0;background-color:${PAGE_BG};">
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="${PAGE_BG}">
-<tr><td align="center" style="padding:32px 14px;">
-  <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="max-width:600px;width:100%;">
+/** Gold CTA button, table-based so Outlook renders it too. */
+function ctaButton(label: string, url: string): string {
+  return `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:28px 0 6px;"><tr>
+<td align="center" bgcolor="${GOLD}" style="border-radius:10px;">
+<a href="${url}" target="_blank" style="display:inline-block;padding:15px 34px;font-family:${FONT};font-size:15px;font-weight:bold;color:${NAVY};text-decoration:none;border-radius:10px;letter-spacing:0.01em;">${label}</a>
+</td></tr></table>`;
+}
 
-    <tr><td style="padding:0 6px 18px;">
-      <table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>
-        <td><img src="${APP_ICON_URL}" width="42" height="42" alt="${APP_NAME}" style="display:block;border-radius:10px;"></td>
-        <td style="padding-left:12px;font-family:Arial,Helvetica,sans-serif;font-size:17px;font-weight:bold;color:${NAVY};">${APP_NAME}</td>
-      </tr></table>
-    </td></tr>
+/** Branded wrapper: app-icon header, navy gradient hero with the 3D Miko
+ * robot, gold accent rule, white body card, Tripster sign-off, linked footer,
+ * and the opt-out line that keeps these compliant as one-off relationship
+ * emails. */
+function wrap(eyebrow: string, headline: string, bodyHtml: string): string {
+  return `<!DOCTYPE html><html lang="en"><body style="margin:0;padding:0;background-color:${PAGE_BG};">
+<div style="display:none;max-height:0;overflow:hidden;">${headline}</div>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="${PAGE_BG}"><tr><td align="center" style="padding:36px 14px;">
+<table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="max-width:600px;width:100%;">
 
-    <tr><td bgcolor="#FFFFFF" style="background-color:#FFFFFF;border:1px solid ${BORDER};border-top:4px solid ${GOLD};border-radius:14px;padding:34px 34px 28px;font-family:Arial,Helvetica,sans-serif;font-size:15px;line-height:1.7;color:${MUTED};">
+<tr><td style="padding:0 8px 20px;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
+    <td width="40"><img src="${APP_ICON_URL}" width="40" height="40" alt="" style="display:block;border-radius:10px;"></td>
+    <td style="padding-left:12px;font-family:${FONT};font-size:16px;font-weight:bold;color:${NAVY};">${APP_NAME}</td>
+    <td align="right" style="font-family:${FONT};font-size:11px;font-weight:bold;letter-spacing:0.14em;color:#8CA0C8;">MIKO&nbsp;APPS</td>
+  </tr></table>
+</td></tr>
+
+<tr><td bgcolor="${NAVY}" style="background-color:${NAVY};background:linear-gradient(135deg,${NAVY} 0%,${NAVY2} 100%);border-radius:18px 18px 0 0;padding:34px 38px 26px;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
+    <td style="vertical-align:middle;">
+      <p style="margin:0 0 10px;font-family:${FONT};font-size:11px;font-weight:bold;letter-spacing:0.18em;color:${GOLD};">${eyebrow}</p>
+      <p style="margin:0;font-family:${FONT};font-size:26px;line-height:1.25;font-weight:bold;color:#FFFFFF;">${headline}</p>
+    </td>
+    <td width="104" align="right" style="vertical-align:bottom;"><img src="${ROBOT_URL}" width="88" alt="Miko robot" style="display:block;"></td>
+  </tr></table>
+</td></tr>
+
+<tr><td height="4" bgcolor="${GOLD}" style="font-size:0;line-height:0;">&nbsp;</td></tr>
+
+<tr><td bgcolor="#FFFFFF" style="background-color:#FFFFFF;border:1px solid ${BORDER};border-top:none;border-radius:0 0 18px 18px;padding:36px 38px 30px;font-family:${FONT};font-size:15px;line-height:1.75;color:${MUTED};">
 ${bodyHtml}
-    </td></tr>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-top:30px;"><tr>
+  <td style="border-top:1px solid ${BORDER};padding-top:20px;font-family:${FONT};font-size:14px;line-height:1.6;">
+    <span style="color:${NAVY};font-weight:bold;">Pratham</span><br>
+    <span style="color:${MUTED};">Founder, <a href="https://tripsterdevelopers.com" style="color:${TD_RED};font-weight:bold;text-decoration:none;">Tripster Developers</a> &middot; Auckland, NZ</span>
+  </td>
+</tr></table>
+</td></tr>
 
-    <tr><td style="padding:22px 6px 0;font-family:Arial,Helvetica,sans-serif;font-size:13px;line-height:1.7;color:#8CA0C8;">
-      <a href="https://miko.co.nz" style="color:${MUTED};text-decoration:underline;">miko.co.nz</a>
-      &nbsp;&middot;&nbsp;
-      <a href="https://tripsterdevelopers.com/apps/" style="color:${MUTED};text-decoration:underline;">All Miko apps</a>
-      &nbsp;&middot;&nbsp;
-      <a href="mailto:${SUPPORT_EMAIL}" style="color:${MUTED};text-decoration:underline;">Support</a>
-      <br><br>
-      You are receiving this one-off note because you installed ${APP_NAME} on
-      your Shopify store. This is not a mailing list. If you would rather not
-      hear from us at all, just reply and say so, we will make sure of it.
-      <br><br>
-      Tripster Developers &middot; Auckland, New Zealand
-    </td></tr>
+<tr><td style="padding:24px 8px 0;font-family:${FONT};font-size:12.5px;line-height:1.8;color:#8CA0C8;">
+  <a href="https://miko.co.nz" style="color:${MUTED};text-decoration:underline;">miko.co.nz</a>
+  &nbsp;&middot;&nbsp;<a href="https://tripsterdevelopers.com/apps/" style="color:${MUTED};text-decoration:underline;">All Miko apps</a>
+  &nbsp;&middot;&nbsp;<a href="mailto:${SUPPORT_EMAIL}" style="color:${MUTED};text-decoration:underline;">Support</a>
+  <br><br>
+  You are receiving this one-off note because you installed ${APP_NAME} on your Shopify store.
+  This is not a mailing list. If you would rather not hear from us at all, just reply and say so, we will make sure of it.
+  <br><br>
+  Miko Apps &middot; built by <a href="https://tripsterdevelopers.com" style="color:${MUTED};text-decoration:underline;">Tripster Developers</a> &middot; Auckland, New Zealand
+</td></tr>
 
-  </table>
-</td></tr></table>
-</body></html>`;
+</table></td></tr></table></body></html>`;
 }
 
 async function send(to: string, subject: string, html: string): Promise<boolean> {
@@ -154,13 +175,15 @@ export async function sendWelcomeEmail(shop: string): Promise<void> {
   if (!config?.merchantEmail || config.welcomeEmailSentAt) return;
 
   const name = firstName(config.merchantName);
-  const html = wrap(`
-<p style="margin:0 0 16px;font-size:19px;font-weight:bold;color:${NAVY};">Welcome aboard, ${name}</p>
-<p style="margin:0 0 16px;">Thanks for installing ${APP_NAME}. I am Pratham, the founder, and I wanted to say hello personally.</p>
-<p style="margin:0 0 16px;">The fastest way to see it work: open the app, enable one product for rental, and add the calendar block to your product page from the theme editor. Bookings, deposits, and reminder emails run from there.</p>
-${ctaButton("Read the setup guide", LEARN_URL)}
-<p style="margin:18px 0 0;">If anything is confusing, or you want a hand setting up, just reply to this email. It comes straight to me and I usually answer the same day.</p>
-<p style="margin:18px 0 0;color:${NAVY};">Pratham<br><span style="color:${MUTED};">Tripster Developers, Auckland NZ</span></p>`);
+  const html = wrap(
+    "WELCOME TO THE MIKO FAMILY",
+    "Let us take your first booking.",
+    para(`Hi ${name},`) +
+      para(`Thanks for installing ${APP_NAME}. I am Pratham, the founder, and I wanted to say hello personally.`) +
+      para("The fastest way to see it work: open the app, enable one product for rental, and add the calendar block to your product page from the theme editor. Bookings, deposits, and reminder emails run from there.") +
+      ctaButton("Read the setup guide", LEARN_URL) +
+      `<p style="margin:20px 0 0;">If anything is confusing, or you want a hand setting up, just reply to this email. It comes straight to me and I usually answer the same day.</p>`,
+  );
 
   const ok = await send(config.merchantEmail, `Welcome to ${APP_NAME}`, html);
   if (ok) {
@@ -184,15 +207,15 @@ export async function sendUninstallEmail(shop: string): Promise<void> {
   if (!config?.merchantEmail || config.uninstallEmailSentAt) return;
 
   const name = firstName(config.merchantName);
-  const html = wrap(`
-<p style="margin:0 0 16px;font-size:19px;font-weight:bold;color:${NAVY};">Sorry to see you go, ${name}</p>
-<p style="margin:0 0 16px;">I saw you uninstalled ${APP_NAME}.</p>
-<p style="margin:0 0 16px;">If something did not work, was missing, or just was not what you expected, I would genuinely like to know.
-<a href="mailto:${SUPPORT_EMAIL}" style="color:${NAVY};font-weight:bold;text-decoration:underline;">Reply with one line</a>
-and I will read it, that kind of note is how the app gets better. If there is something we can fix or help set up, say the word.</p>
-${ctaButton("Give it another try", REINSTALL_URL)}
-<p style="margin:18px 0 0;">Either way, thanks for trying it.</p>
-<p style="margin:18px 0 0;color:${NAVY};">Pratham<br><span style="color:${MUTED};">Tripster Developers, Auckland NZ</span></p>`);
+  const html = wrap(
+    "SORRY TO SEE YOU GO",
+    "We would love another chance.",
+    para(`Hi ${name},`) +
+      para(`I saw you uninstalled ${APP_NAME}, sorry to see you go.`) +
+      para(`If something did not work, was missing, or just was not what you expected, I would genuinely like to know. <a href="mailto:${SUPPORT_EMAIL}" style="color:${NAVY};font-weight:bold;">Reply with one line</a> and I will read it, that kind of note is how the app gets better.`) +
+      ctaButton("Give it another try", REINSTALL_URL) +
+      `<p style="margin:20px 0 0;">Either way, thanks for trying it.</p>`,
+  );
 
   const ok = await send(config.merchantEmail, "Sorry to see you go", html);
   if (ok) {
@@ -226,15 +249,15 @@ export async function sendDueReviewRequestEmails(): Promise<number> {
   let sent = 0;
   for (const config of due) {
     const name = firstName(config.merchantName);
-    const html = wrap(`
-<p style="margin:0 0 16px;font-size:19px;font-weight:bold;color:${NAVY};">How is it going, ${name}?</p>
-<p style="margin:0 0 16px;">You have had ${APP_NAME} for about a week now, so a quick question: how is it working for you?</p>
-<p style="margin:0 0 16px;">If it is saving you time, would you leave a short review on the App Store? It takes about a minute and genuinely helps other merchants find the app.</p>
-${ctaButton("Leave a review", REVIEW_URL)}
-<p style="margin:18px 0 0;">And if it is <strong style="color:${NAVY};">not</strong> going well, do not review it,
-<a href="mailto:${SUPPORT_EMAIL}" style="color:${NAVY};font-weight:bold;text-decoration:underline;">reply to this email instead</a>
-and tell me what is wrong. I read every reply and I would rather fix your problem than collect a star.</p>
-<p style="margin:18px 0 0;color:${NAVY};">Pratham<br><span style="color:${MUTED};">Tripster Developers, Auckland NZ</span></p>`);
+    const html = wrap(
+      "ONE WEEK IN",
+      "How is it going so far?",
+      para(`Hi ${name},`) +
+        para(`You have had ${APP_NAME} for about a week now, so a quick question: how is it working for you?`) +
+        para("If it is saving you time, would you leave a short review on the App Store? It takes about a minute and genuinely helps other merchants find the app.") +
+        ctaButton("Leave a review", REVIEW_URL) +
+        `<p style="margin:20px 0 0;">And if it is <strong style="color:${NAVY};">not</strong> going well, do not review it, <a href="mailto:${SUPPORT_EMAIL}" style="color:${NAVY};font-weight:bold;">reply to this email instead</a> and tell me what is wrong. I read every reply and I would rather fix your problem than collect a star.</p>`,
+    );
 
     const ok = await send(config.merchantEmail as string, `How is ${APP_NAME} working for you?`, html);
     if (ok) {
