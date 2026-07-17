@@ -49,6 +49,15 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   // are preserved so a reinstall picks up exactly where they left off.
   await db.session.deleteMany({ where: { shop } }).catch(() => {});
 
+  // One-off "sorry to see you go" email. Marks uninstalledAt so the day-7
+  // review scan skips this shop. Best-effort, never blocks the response.
+  try {
+    const { sendUninstallEmail } = await import("../lifecycle-emails.server");
+    await sendUninstallEmail(shop);
+  } catch (err) {
+    console.warn(`[webhook] uninstall email failed for ${shop}:`, err);
+  }
+
   console.log(`[webhook] APP_UNINSTALLED for ${shop} - cleanup complete`);
   return json({ ok: true });
 };

@@ -51,6 +51,15 @@ const shopify = shopifyApp({
       await ensureRentalMetafieldDefinition(admin);
       await ensureShopName(admin, session.shop);
       await ensureShopCurrency(admin, session.shop);
+      // Lifecycle emails: capture the owner's contact once, then send the
+      // one-off welcome. Both idempotent and best-effort.
+      try {
+        const { captureMerchantContact, sendWelcomeEmail } = await import("./lifecycle-emails.server");
+        await captureMerchantContact(admin, session.shop);
+        await sendWelcomeEmail(session.shop);
+      } catch (err) {
+        console.warn("[afterAuth] lifecycle email step failed:", err);
+      }
     },
   },
   ...(process.env.SHOP_CUSTOM_DOMAIN
@@ -66,3 +75,9 @@ export const unauthenticated = shopify.unauthenticated;
 export const login = shopify.login;
 export const registerWebhooks = shopify.registerWebhooks;
 export const sessionStorage = shopify.sessionStorage;
+
+// In-process lifecycle-email scheduler (day-7 review requests). Idempotent
+// sends guarded by sentAt timestamps; opt-out via DISABLE_IN_PROCESS_CRON.
+import { startLifecycleScheduler } from "./lifecycle-emails.server";
+startLifecycleScheduler();
+

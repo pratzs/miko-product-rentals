@@ -86,6 +86,18 @@ model ShopConfig {
   // Tracks the Cart Transform Function record so we can clean it up on
   // uninstall and avoid orphaned records.
   cartTransformId     String?
+  // ---- Lifecycle emails (welcome / day-7 review / uninstall winback) ----
+  // Store owner's email + name captured at install via the shop query. Used
+  // only for the three one-off relationship emails, never campaigns.
+  merchantEmail          String?
+  merchantName           String?
+  welcomeEmailSentAt     DateTime?
+  reviewEmailSentAt      DateTime?
+  uninstallEmailSentAt   DateTime?
+  // Set by the app/uninstalled webhook, cleared on reinstall. Guards the
+  // day-7 scan from emailing shops that already left.
+  uninstalledAt          DateTime?
+
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
 
