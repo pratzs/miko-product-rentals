@@ -1,0 +1,209 @@
+/* Miko AI-native visual language -- shared across every /app/* route.
+   Dark navy/indigo gradients matching the Miko Robot mascot's chest glow,
+   used for anything that's a merchant's first impression (heroes, empty
+   states, headers). Functional forms/tables stay on Polaris. */
+
+:root {
+  --miko-navy-950: #0d0f2b;
+  --miko-navy-900: #1a1a2e;
+  --miko-navy-800: #16213e;
+  --miko-blue-glow: #5b8def;
+  --miko-blue-bright: #7dd3fc;
+  --miko-purple-glow: #8b7cf6;
+  --miko-green-live: #3ecf8e;
+}
+
+.miko-gradient-bg {
+  background: linear-gradient(135deg, var(--miko-navy-950) 0%, var(--miko-navy-900) 55%, var(--miko-navy-800) 100%);
+  position: relative;
+  overflow: hidden;
+}
+
+.miko-gradient-bg::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at 85% 15%, rgba(91, 141, 239, 0.35), transparent 55%),
+    radial-gradient(circle at 10% 90%, rgba(139, 124, 246, 0.25), transparent 50%);
+  pointer-events: none;
+}
+
+.miko-glass-card {
+  position: relative;
+  border-radius: 16px;
+  background: linear-gradient(160deg, rgba(26, 26, 46, 0.92) 0%, rgba(22, 33, 62, 0.92) 100%);
+  border: 1px solid rgba(125, 211, 252, 0.15);
+  overflow: hidden;
+}
+
+.miko-glass-card::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at 20% 0%, var(--miko-glow-accent, rgba(91, 141, 239, 0.28)), transparent 60%);
+  pointer-events: none;
+}
+
+.miko-glass-card > * {
+  position: relative;
+  z-index: 1;
+}
+
+@keyframes miko-pulse {
+  0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(62, 207, 142, 0.55); }
+  50% { opacity: 0.7; box-shadow: 0 0 0 6px rgba(62, 207, 142, 0); }
+}
+
+.miko-status-dot {
+  animation: miko-pulse 2.2s ease-in-out infinite;
+}
+
+@keyframes miko-float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-10px); }
+}
+
+.miko-mascot-float {
+  animation: miko-float 4s ease-in-out infinite;
+}
+
+@keyframes miko-fade-up {
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.miko-fade-up {
+  animation: miko-fade-up 0.35s ease-out both;
+}
+
+.miko-speech-bubble {
+  position: relative;
+  background: #ffffff;
+  color: var(--miko-navy-900);
+  border-radius: 16px;
+  padding: 14px 18px;
+  font-weight: 500;
+  box-shadow: 0 8px 24px rgba(13, 15, 43, 0.35);
+}
+
+.miko-speech-bubble::after {
+  content: "";
+  position: absolute;
+  left: 28px;
+  bottom: -8px;
+  width: 16px;
+  height: 16px;
+  background: #ffffff;
+  clip-path: polygon(0 0, 100% 0, 0 100%);
+}
+
+/* Tail points right, for a bubble sitting to the LEFT of the mascot. */
+.miko-speech-bubble--right::after {
+  left: auto;
+  right: -8px;
+  bottom: auto;
+  top: 50%;
+  transform: translateY(-50%);
+  clip-path: polygon(0 0, 100% 50%, 0 100%);
+}
+
+.miko-tour-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(13, 15, 43, 0.72);
+  backdrop-filter: blur(4px);
+}
+
+.miko-tour-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.25);
+  transition: background 0.2s ease, width 0.2s ease;
+}
+
+.miko-tour-dot--active {
+  background: var(--miko-blue-bright);
+  width: 22px;
+  border-radius: 4px;
+}
+
+/* Fixed right-hand mascot columns in heroes/panels: decorative at heart, so
+   below tablet width they yield the space back to the text instead of
+   squeezing it. */
+@media (max-width: 640px) {
+  .miko-side-mascot {
+    display: none;
+  }
+}
+
+/* ── Analytics tiles + completeness ring (light, in-app data-viz) ──────────
+   Elevates the plain impact/SEO numbers toward the App Store banner polish
+   without going garish: soft-tinted tiles, colored icon chips, a conic ring. */
+.miko-stats3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+@media (max-width: 700px) { .miko-stats3 { grid-template-columns: 1fr; } }
+.miko-tile {
+  display: flex; align-items: center; gap: 16px;
+  padding: 18px 20px; border-radius: 16px;
+  background: linear-gradient(160deg, #ffffff 0%, #f6f8ff 100%);
+  border: 1px solid #e9edfb;
+}
+.miko-tile .ic { width: 46px; height: 46px; border-radius: 13px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
+.miko-tile .ic svg { width: 24px; height: 24px; }
+.miko-tile .n { font-size: 30px; font-weight: 800; line-height: 1; letter-spacing: -0.02em; color: #12122b; }
+.miko-tile .l { font-size: 13px; color: #6b7280; margin-top: 6px; font-weight: 500; line-height: 1.35; }
+.miko-ring { width: 58px; height: 58px; border-radius: 50%; flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
+.miko-ring .in { width: 44px; height: 44px; border-radius: 50%; background: #fff; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 800; color: #12122b; }
+
+/* SEO scan summary banner (light) */
+.miko-scan { display: flex; align-items: center; gap: 20px; padding: 20px 22px; border-radius: 16px; background: linear-gradient(160deg, #f2f7ff, #eef3ff); border: 1px solid #e2e9fb; }
+.miko-scan .big { font-size: 22px; font-weight: 800; color: #12122b; letter-spacing: -0.01em; }
+.miko-scan .sm { font-size: 14px; color: #64748b; margin-top: 3px; }
+
+/* Copy Catch -- the on-brand mini-game shown while a bulk job processes.
+   The play field is Miko's dark violet core; word chips glow softly and are
+   colour-neutral on purpose (the skill is reading the copy, not spotting a hue). */
+.miko-cc-field {
+  position: relative;
+  height: 300px;
+  border-radius: 18px;
+  overflow: hidden;
+  background:
+    radial-gradient(120% 90% at 20% 0%, #3a2b7a 0%, rgba(58,43,122,0) 55%),
+    radial-gradient(120% 90% at 90% 100%, #5b3df5 0%, rgba(91,61,245,0) 50%),
+    linear-gradient(160deg, #141334 0%, #0d0f2b 100%);
+  border: 1px solid #241f52;
+  user-select: none;
+}
+.miko-cc-center {
+  position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  padding: 24px 28px;
+}
+.miko-cc-center p { color: #cdd2f0; }
+.miko-cc-chip {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  padding: 9px 15px;
+  border-radius: 999px;
+  border: 1px solid rgba(179,164,255,0.5);
+  background: rgba(255,255,255,0.94);
+  color: #1b1640;
+  font-size: 14px;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+  cursor: pointer;
+  white-space: nowrap;
+  box-shadow: 0 6px 18px rgba(91,61,245,0.35), 0 0 0 4px rgba(124,58,237,0.12);
+  animation: miko-cc-pop 180ms ease-out;
+}
+.miko-cc-chip:hover { background: #fff; box-shadow: 0 8px 22px rgba(91,61,245,0.5), 0 0 0 5px rgba(124,58,237,0.18); }
+@keyframes miko-cc-pop {
+  from { opacity: 0; transform: translate(-50%, -50%) scale(0.7); }
+  to   { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+}
+@media (prefers-reduced-motion: reduce) { .miko-cc-chip { animation: none; } }

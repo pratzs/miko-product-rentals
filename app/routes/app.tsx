@@ -5,10 +5,14 @@ import { boundary } from "@shopify/shopify-app-remix/server";
 import { AppProvider } from "@shopify/shopify-app-remix/react";
 import { NavMenu } from "@shopify/app-bridge-react";
 import polarisStyles from "@shopify/polaris/build/esm/styles.css?url";
+import mikoStyles from "../styles/miko-theme.css?url";
 import { authenticate } from "../shopify.server";
 import { db } from "../db.server";
 
-export const links = () => [{ rel: "stylesheet", href: polarisStyles }];
+export const links = () => [
+  { rel: "stylesheet", href: polarisStyles },
+  { rel: "stylesheet", href: mikoStyles },
+];
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const { session } = await authenticate.admin(request);

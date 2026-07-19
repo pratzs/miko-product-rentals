@@ -2,6 +2,7 @@ import type { ActionFunctionArgs, LoaderFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
 import { useLoaderData, useNavigate } from "@remix-run/react";
 import { CrossSellSection } from "../components/CrossSellSection";
+import { MikoMascot } from "../components/MikoMascot";
 import { ReviewPrompt } from "../components/ReviewPrompt";
 import {
   Page,
@@ -381,6 +382,43 @@ export default function Dashboard() {
       }
     >
       <BlockStack gap="600">
+        {/* Hero */}
+        <div
+          className="miko-gradient-bg"
+          style={{ borderRadius: 16, padding: "28px 32px", display: "flex", alignItems: "center", gap: 32 }}
+        >
+          <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 14 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <div className="miko-status-dot" style={{ width: 8, height: 8, borderRadius: "50%", background: "#3ecf8e", boxShadow: "0 0 8px #3ecf8e", flexShrink: 0 }} />
+              <Text as="span" variant="bodySm">
+                <span style={{ color: "rgba(255,255,255,0.8)" }}>
+                  {stats.totalProducts > 0 ? "Your rentals are live" : "Let's set up your first rental"}
+                </span>
+              </Text>
+            </div>
+            <Text as="h2" variant="headingXl" fontWeight="bold">
+              <span style={{ color: "white" }}>Rent out your products, effortlessly.</span>
+            </Text>
+            <Text as="p" variant="bodyLg">
+              <span style={{ color: "rgba(255,255,255,0.9)" }}>
+                Let customers book by the day with live availability, flexible dates, and refundable
+                deposits, all handled automatically at checkout.
+              </span>
+            </Text>
+            <div style={{ display: "flex", gap: 8, marginTop: 4, flexWrap: "wrap" }}>
+              <Button variant="primary" tone="success" size="large" onClick={() => navigate(stats.totalProducts === 0 ? "/app/products" : "/app/bookings")}>
+                {stats.totalProducts === 0 ? "Enable your first rental" : "View bookings"}
+              </Button>
+              <Button variant="secondary" size="large" onClick={() => navigate("/app/help")}>
+                See how it works
+              </Button>
+            </div>
+          </div>
+          <div className="miko-side-mascot" style={{ flexShrink: 0 }}>
+            <MikoMascot size="lg" pose="present" />
+          </div>
+        </div>
+
         {showReviewPrompt && (
           <ReviewPrompt
             reviewUrl={APP_STORE_REVIEW_URL}
