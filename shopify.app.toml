@@ -8,6 +8,12 @@ embedded = true
 [access_scopes]
 scopes = "read_products,write_products,read_orders,write_orders,read_cart_transforms,write_cart_transforms"
 
+[sidekick]
+# Routes a merchant's question to THIS app before Sidekick picks a tool. Names
+# the domain nouns and verbs so vague copy doesn't force the merchant to invoke
+# the app by name. Required once any Sidekick-eligible extension exists.
+extensions_summary = "Look up rental bookings and their status, find overdue and currently-active rentals, check whether a product is available to rent for given dates, search a customer's bookings, list the rental catalogue and pricing, and report this month's rental revenue and held deposits"
+
 [auth]
 redirect_urls = [
   "https://miko-product-rentals-production.up.railway.app/auth/callback",

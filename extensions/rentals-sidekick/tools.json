@@ -1,0 +1,71 @@
+[
+  {
+    "$schema": "https://extensions.shopifycdn.com/shopifycloud/schemas/v1/tool.json",
+    "name": "list_overdue_rentals",
+    "description": "List rentals that are past their due date and have not been returned, with the customer, contact, and how late they are. Use whenever the merchant asks what is overdue, what is late, what has not come back, or who still has the merchant's gear.",
+    "inputSchema": { "type": "object", "properties": {} },
+    "outputSchema": { "type": "object", "properties": { "results": { "type": "array", "items": { "type": "object", "properties": { "uri": { "type": "string" }, "name": { "type": "string" }, "type": { "type": "string" } }, "required": ["uri", "type"] } } } }
+  },
+  {
+    "$schema": "https://extensions.shopifycdn.com/shopifycloud/schemas/v1/tool.json",
+    "name": "list_active_rentals",
+    "description": "List rentals that are currently out with a customer right now, with who has what and when it is due back. Use when the merchant asks what is out, what is currently rented, or what is due back soon.",
+    "inputSchema": { "type": "object", "properties": {} },
+    "outputSchema": { "type": "object", "properties": { "results": { "type": "array", "items": { "type": "object", "properties": { "uri": { "type": "string" }, "name": { "type": "string" }, "type": { "type": "string" } }, "required": ["uri", "type"] } } } }
+  },
+  {
+    "$schema": "https://extensions.shopifycdn.com/shopifycloud/schemas/v1/tool.json",
+    "name": "list_upcoming_bookings",
+    "description": "List upcoming rental bookings that have not started yet, ordered by start date, with customer and dates. Use when the merchant asks what is coming up, upcoming rentals, or what is booked for the next while.",
+    "inputSchema": { "type": "object", "properties": {} },
+    "outputSchema": { "type": "object", "properties": { "results": { "type": "array", "items": { "type": "object", "properties": { "uri": { "type": "string" }, "name": { "type": "string" }, "type": { "type": "string" } }, "required": ["uri", "type"] } } } }
+  },
+  {
+    "$schema": "https://extensions.shopifycdn.com/shopifycloud/schemas/v1/tool.json",
+    "name": "check_availability",
+    "description": "Check whether a rental product is available for a date range, returning how many units are free. Use when the merchant asks if an item is available, free, or bookable for given dates. Pass the product name as query, and optional from and to dates.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "query": { "type": "string", "description": "Rental product name, e.g. 'DJ controller'" },
+        "from": { "type": "string", "description": "Start date in YYYY-MM-DD. Defaults to today." },
+        "to": { "type": "string", "description": "End date in YYYY-MM-DD. Defaults to a week from the start." },
+        "units": { "type": "integer", "description": "How many units are needed. Defaults to 1." }
+      },
+      "required": ["query"]
+    },
+    "outputSchema": { "type": "object", "properties": { "results": { "type": "array", "items": { "type": "object", "properties": { "uri": { "type": "string" }, "name": { "type": "string" }, "type": { "type": "string" } }, "required": ["uri", "type"] } } } }
+  },
+  {
+    "$schema": "https://extensions.shopifycdn.com/shopifycloud/schemas/v1/tool.json",
+    "name": "find_customer_bookings",
+    "description": "Find all rental bookings for a customer by name or email, across every status. Use when the merchant asks about a specific customer's rentals or history.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "query": { "type": "string", "description": "Customer name or email to search for" }
+      },
+      "required": ["query"]
+    },
+    "outputSchema": { "type": "object", "properties": { "results": { "type": "array", "items": { "type": "object", "properties": { "uri": { "type": "string" }, "name": { "type": "string" }, "type": { "type": "string" } }, "required": ["uri", "type"] } } } }
+  },
+  {
+    "$schema": "https://extensions.shopifycdn.com/shopifycloud/schemas/v1/tool.json",
+    "name": "list_rental_products",
+    "description": "List the products set up for rental, with their unit count, daily price, and deposit. Use when the merchant asks what they rent out, their rental catalogue, or how a rental item is priced. Pass an optional product name to filter.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "query": { "type": "string", "description": "Optional product name to filter by. Omit to list all." }
+      }
+    },
+    "outputSchema": { "type": "object", "properties": { "results": { "type": "array", "items": { "type": "object", "properties": { "uri": { "type": "string" }, "name": { "type": "string" }, "type": { "type": "string" } }, "required": ["uri", "type"] } } } }
+  },
+  {
+    "$schema": "https://extensions.shopifycdn.com/shopifycloud/schemas/v1/tool.json",
+    "name": "get_rental_revenue",
+    "description": "Report this month's rental revenue, the number of bookings, and the total value of deposits currently held. Use when the merchant asks about rental income, revenue, earnings this month, or held deposits.",
+    "inputSchema": { "type": "object", "properties": {} },
+    "outputSchema": { "type": "object", "properties": { "results": { "type": "array", "items": { "type": "object", "properties": { "uri": { "type": "string" }, "name": { "type": "string" }, "type": { "type": "string" } }, "required": ["uri", "type"] } } } }
+  }
+]
