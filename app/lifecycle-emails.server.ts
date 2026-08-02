@@ -267,6 +267,18 @@ export async function sendUninstallEmail(shop: string): Promise<void> {
  * received this email, and have not already interacted with the in-app review
  * prompt. One email each, permanently recorded. */
 export async function sendDueReviewRequestEmails(): Promise<number> {
+  // DISABLED by default as of 2026-08-02. Shopify's review policy prohibits
+  // "sending unsolicited emails that ask for reviews" - permitted only where the
+  // merchant has actually opted in to receive them. Capturing the store owner's
+  // address at install is NOT an opt-in, so this email was non-compliant, and
+  // Shopify has already unpublished our reviews once; repeat breaches escalate
+  // to demotion, delisting or Partner account termination.
+  //
+  // The in-app review prompt remains the compliant path: it is win-gated, uses
+  // neutral wording, and is what Shopify explicitly endorses. Only re-enable
+  // this if a genuine, recorded opt-in exists.
+  // https://shopify.dev/docs/apps/launch/marketing/manage-app-reviews
+  if (process.env.REVIEW_EMAIL_ENABLED !== "true") return 0;
   if (!getResend()) return 0;
   const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
   const due = await prisma.shopConfig.findMany({
