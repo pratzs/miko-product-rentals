@@ -26,9 +26,19 @@ export async function ensureShopName(admin: AdminClient, shop: string): Promise<
     const name = data.data?.shop?.name?.trim();
     if (!name) return;
 
+    // upsert, not updateMany - afterAuth runs before the app.tsx loader has
+    // created the ShopConfig row, so updateMany matched nothing on a fresh
+    // install and the shop name was never cached. Same defect as the currency
+    // seed below.
     await db.shopConfig
-      .updateMany({ where: { shop }, data: { shopName: name } })
-      .catch(() => {});
+      .upsert({
+        where: { shop },
+        create: { shop, shopName: name },
+        update: { shopName: name },
+      })
+      .catch((err) => {
+        console.error(`[shop-info] failed to persist shop name for ${shop}:`, err);
+      });
   } catch (err) {
     console.error(`[shop-info] failed to fetch shop name for ${shop}:`, err);
   }
@@ -58,9 +68,22 @@ export async function ensureShopCurrency(admin: AdminClient, shop: string): Prom
     const currencyCode = data.data?.shop?.currencyCode?.trim();
     if (!currencyCode) return;
 
+    // MUST be upsert, not updateMany. This runs from afterAuth, which fires
+    // BEFORE the app.tsx loader creates the ShopConfig row - so on a fresh
+    // install updateMany matched zero rows, silently did nothing, and the row
+    // was then created with the schema default of "USD". Every shop was
+    // stranded on USD no matter its real Shopify currency, and the only way
+    // out was finding Settings. Ubuge (a JPY shop) uninstalled five minutes
+    // after install: "Cannot select a currency other than USD. Useless."
     await db.shopConfig
-      .updateMany({ where: { shop }, data: { currency: currencyCode } })
-      .catch(() => {});
+      .upsert({
+        where: { shop },
+        create: { shop, currency: currencyCode },
+        update: { currency: currencyCode },
+      })
+      .catch((err) => {
+        console.error(`[shop-info] failed to persist currency for ${shop}:`, err);
+      });
   } catch (err) {
     console.error(`[shop-info] failed to fetch shop currency for ${shop}:`, err);
   }
