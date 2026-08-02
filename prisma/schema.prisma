@@ -34,6 +34,11 @@ model ShopConfig {
   accessToken         String   @default("")
   planName            String   @default("free")
   currency            String   @default("USD")
+  // True once we have successfully read the shop's real currency from Shopify.
+  // The default above is a guess, and an unseeded row is indistinguishable from
+  // a genuine USD shop without this flag — which is how every shop silently sat
+  // on USD. Lets the seed retry on later page loads instead of only at install.
+  currencySeeded      Boolean  @default(false)
   timezone            String   @default("UTC")
   // How many hours before the rental start date the merchant wants
   // to stop accepting new bookings (buffer time).

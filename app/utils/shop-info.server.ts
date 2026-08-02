@@ -57,9 +57,21 @@ export async function ensureShopCurrency(admin: AdminClient, shop: string): Prom
   try {
     const existing = await db.shopConfig.findUnique({
       where: { shop },
-      select: { currency: true },
+      select: { currency: true, currencySeeded: true },
     });
-    if (existing?.currency && existing.currency !== "USD") return;
+
+    // Already resolved against Shopify once - nothing more to do. This is what
+    // keeps the repair off the hot path for the vast majority of page loads.
+    if (existing?.currencySeeded) return;
+
+    // A non-default value on an unseeded row means the merchant picked it by
+    // hand in Settings. Respect it, and record that so we stop re-checking.
+    if (existing && existing.currency !== "USD") {
+      await db.shopConfig
+        .update({ where: { shop }, data: { currencySeeded: true } })
+        .catch(() => {});
+      return;
+    }
 
     const res = await admin.graphql(`#graphql
       query ShopCurrency { shop { currencyCode } }
@@ -78,8 +90,8 @@ export async function ensureShopCurrency(admin: AdminClient, shop: string): Prom
     await db.shopConfig
       .upsert({
         where: { shop },
-        create: { shop, currency: currencyCode },
-        update: { currency: currencyCode },
+        create: { shop, currency: currencyCode, currencySeeded: true },
+        update: { currency: currencyCode, currencySeeded: true },
       })
       .catch((err) => {
         console.error(`[shop-info] failed to persist currency for ${shop}:`, err);

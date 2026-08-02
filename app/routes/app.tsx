@@ -8,6 +8,7 @@ import polarisStyles from "@shopify/polaris/build/esm/styles.css?url";
 import mikoStyles from "../styles/miko-theme.css?url";
 import { authenticate } from "../shopify.server";
 import { db } from "../db.server";
+import { ensureShopName, ensureShopCurrency } from "../utils/shop-info.server";
 
 export const links = () => [
   { rel: "stylesheet", href: polarisStyles },
@@ -15,7 +16,7 @@ export const links = () => [
 ];
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
-  const { session } = await authenticate.admin(request);
+  const { admin, session } = await authenticate.admin(request);
 
   // Ensure shop config exists on every page load.
   await db.shopConfig.upsert({
@@ -23,6 +24,17 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     create: { shop: session.shop, accessToken: session.accessToken || "" },
     update: { accessToken: session.accessToken || "" },
   });
+
+  // Repair the shop currency and name here too, not only in afterAuth. afterAuth
+  // fires once at install, so when its write failed the shop was stranded on the
+  // "USD" schema default forever with no way back. Both helpers short-circuit on
+  // a cheap indexed read once seeded, so this costs one query on a normal load.
+  // Never block or fail the page on it - a wrong currency label is bad, a dead
+  // dashboard is worse.
+  await Promise.allSettled([
+    ensureShopName(admin, session.shop),
+    ensureShopCurrency(admin, session.shop),
+  ]);
 
   return json({ apiKey: process.env.SHOPIFY_API_KEY || "" });
 };
