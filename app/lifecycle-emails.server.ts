@@ -21,6 +21,39 @@ import { db as prisma } from "./db.server";
  * pixels; the only images are the hosted app icon and mascot.
  */
 
+/**
+ * Shops we must NEVER solicit an App Store review from: our own test stores,
+ * and any merchant we have a commercial relationship with or hold collaborator
+ * access to.
+ *
+ * Shopify unpublished all three of our genuine reviews in July 2026 precisely
+ * because they came from our own clients, and their detection was correct.
+ * Their policy removes "reviews left by app developers and affiliated
+ * employees", and repeated breaches escalate to demotion, delisting, or
+ * termination of the Partner account.
+ *
+ * Client domains come from REVIEW_BLOCKLIST_SHOPS (comma-separated myshopify
+ * domains) so they are never baked into the repo. The built-in patterns catch
+ * our own dev/test stores unconditionally. An unknown shop fails closed.
+ */
+const AFFILIATED_SHOP_PATTERNS = [
+  /(^|[.-])pratham/i,
+  /(^|[.-])miko-?testing/i,
+  /app-testing/i,
+  /tripster/i,
+];
+
+export function isAffiliatedShop(shop: string): boolean {
+  const s = (shop || "").toLowerCase().trim();
+  if (!s) return true;
+  const configured = (process.env.REVIEW_BLOCKLIST_SHOPS || "")
+    .split(",")
+    .map((d) => d.trim().toLowerCase())
+    .filter(Boolean);
+  if (configured.some((d) => s === d || s.startsWith(`${d}.`))) return true;
+  return AFFILIATED_SHOP_PATTERNS.some((re) => re.test(s));
+}
+
 const APP_NAME = "Miko Product Rentals";
 const APP_HANDLE = "miko-product-rentals";
 const REVIEW_URL = `https://apps.shopify.com/${APP_HANDLE}#modal-show=WriteReviewModal`;
@@ -252,6 +285,9 @@ export async function sendDueReviewRequestEmails(): Promise<number> {
 
   let sent = 0;
   for (const config of due) {
+    // Never solicit from our own stores or from clients - this is what got our
+    // three genuine reviews unpublished in July 2026.
+    if (isAffiliatedShop(config.shop)) continue;
     const name = firstName(config.merchantName);
     const html = wrap(
       "ONE WEEK IN",
