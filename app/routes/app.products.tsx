@@ -102,8 +102,8 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       where: { id: productId, shop },
     });
     if (!product) return json({ error: "Product not found" }, { status: 404 });
-    if (!isActive && product.pricePerDay === 0) {
-      return json({ error: "Set a daily rental price before activating." }, { status: 400 });
+    if (isActive && product.pricePerDay === 0 && product.depositAmount === 0) {
+      return json({ error: "Set a daily rental price, or a refundable deposit for free rentals, before activating." }, { status: 400 });
     }
 
     await db.rentalProduct.update({
@@ -271,8 +271,11 @@ export default function ProductsPage() {
                           </Text>
                         </BlockStack>
                       )}
-                      {product.pricePerDay === 0 && (
+                      {product.pricePerDay === 0 && product.depositAmount === 0 && (
                         <Badge tone="attention">Pricing not set</Badge>
+                      )}
+                      {product.pricePerDay === 0 && product.depositAmount > 0 && (
+                        <Badge tone="info">Free rental</Badge>
                       )}
                     </InlineStack>
 
@@ -284,7 +287,7 @@ export default function ProductsPage() {
                         tone={product.isActive ? "critical" : undefined}
                         variant="plain"
                         onClick={() => toggleActive(product.id, product.isActive)}
-                        disabled={!product.isActive && product.pricePerDay === 0}
+                        disabled={!product.isActive && product.pricePerDay === 0 && product.depositAmount === 0}
                       >
                         {product.isActive ? "Deactivate" : "Activate"}
                       </Button>

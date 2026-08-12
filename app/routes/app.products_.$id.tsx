@@ -109,8 +109,8 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
     const allowRentalWhenSoldOut = formData.get("allowRentalWhenSoldOut") !== "false";
     const rentalNotes = (formData.get("rentalNotes") as string) || "";
 
-    if (pricePerDay <= 0) {
-      return json({ error: "Daily price is required. Weekly and monthly prices are optional." }, { status: 400 });
+    if (pricePerDay <= 0 && depositAmount <= 0) {
+      return json({ error: "Set a daily price, or a refundable deposit for free rentals." }, { status: 400 });
     }
     if (totalUnits < 1) {
       return json({ error: "You must have at least 1 unit available." }, { status: 400 });
@@ -145,8 +145,8 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
   }
 
   if (intent === "toggle_active") {
-    if (!product.isActive && product.pricePerDay === 0) {
-      return json({ error: "Set a daily price before activating this product." }, { status: 400 });
+    if (!product.isActive && product.pricePerDay === 0 && product.depositAmount === 0) {
+      return json({ error: "Set a daily price, or a refundable deposit for free rentals, before activating this product." }, { status: 400 });
     }
     const newActive = !product.isActive;
     await db.rentalProduct.update({
@@ -190,8 +190,8 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
     const depositAmount = parseFloat(formData.get("depositAmount") as string) || 0;
     const totalUnits = parseInt(formData.get("totalUnits") as string) || 1;
     const isActive = formData.get("isActive") === "true";
-    if (isActive && pricePerDay <= 0) {
-      return json({ error: "Set a daily price before activating this variant." }, { status: 400 });
+    if (isActive && pricePerDay <= 0 && depositAmount <= 0) {
+      return json({ error: "Set a daily price, or a refundable deposit for free rentals, before activating this variant." }, { status: 400 });
     }
     await db.rentalVariant.update({
       where: { id: variant.id },

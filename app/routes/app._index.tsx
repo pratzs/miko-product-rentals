@@ -49,7 +49,11 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   const [config, totalProducts, liveProducts, totalBookingsCount, bookings] = await Promise.all([
     db.shopConfig.findUnique({ where: { shop } }),
     db.rentalProduct.count({ where: { shop } }),
-    db.rentalProduct.count({ where: { shop, isActive: true, pricePerDay: { gt: 0 } } }),
+    // Active rentals always have pricing set (either a daily rate, or $0 with
+    // a refundable deposit) — the activation guard enforces that — so this is
+    // just the active count. Not filtering on pricePerDay alone, since a free
+    // rental with a deposit is a valid active state.
+    db.rentalProduct.count({ where: { shop, isActive: true } }),
     db.rentalBooking.count({ where: { shop } }),
     db.rentalBooking.findMany({
       where: { shop },

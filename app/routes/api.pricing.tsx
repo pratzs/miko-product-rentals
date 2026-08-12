@@ -87,7 +87,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
         { status: 404, headers: corsHeaders(request) },
       );
     }
-    if (variant.pricePerDay <= 0) {
+    if (variant.pricePerDay <= 0 && variant.depositAmount <= 0) {
       return json(
         { error: "This variant does not have a rental price set yet." },
         { status: 400, headers: corsHeaders(request) },
