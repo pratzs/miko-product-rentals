@@ -64,6 +64,30 @@ const MIKO_APPS: MikoApp[] = [
     icon: "/cross-sell/miko-b2b-mark.png",
     url: "https://apps.shopify.com/miko-b2b-wholesale-hub",
   },
+  {
+    key: "stock",
+    name: "Miko Restock: Inventory & PO",
+    pitch: "Low-stock alerts and one-click purchase orders so you never sell out.",
+    color: "#16A34A",
+    icon: "/cross-sell/miko-restock-mark.png",
+    url: "https://apps.shopify.com/miko-restock-inventory-po",
+  },
+  {
+    key: "resizer",
+    name: "Miko Bulk Image Resizer",
+    pitch: "Batch-resize and compress product images without leaving your catalogue.",
+    color: "#DB2777",
+    icon: "/cross-sell/miko-resizer-mark.png",
+    url: "https://apps.shopify.com/miko-bulk-image-resizer",
+  },
+  {
+    key: "authentica",
+    name: "Authentica: COA Certificates",
+    pitch: "Auto-issue a QR-verifiable Certificate of Authenticity with every order.",
+    color: "#8A6D3B",
+    icon: "/cross-sell/miko-authentica-mark.png",
+    url: "https://apps.shopify.com/authentica-coa-certificates",
+  },
 ];
 
 // Card + gap width in px, kept in one place so scroll math and layout agree.
