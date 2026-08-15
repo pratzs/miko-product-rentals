@@ -156,9 +156,9 @@ export function CrossSellSection({ currentApp }: { currentApp: MikoApp["key"] })
     display: "inline-flex",
     alignItems: "center",
     justifyContent: "center",
-    border: "1px solid rgba(255,255,255,0.18)",
-    background: "rgba(255,255,255,0.08)",
-    color: "#fff",
+    border: "1px solid #CBD5E1",
+    background: "#FFFFFF",
+    color: "#0F172A",
     cursor: disabled ? "default" : "pointer",
     opacity: disabled ? 0.35 : 1,
     transition: "background 0.15s, opacity 0.15s",
@@ -172,8 +172,8 @@ export function CrossSellSection({ currentApp }: { currentApp: MikoApp["key"] })
         overflow: "hidden",
         borderRadius: 16,
         padding: "24px 24px 20px",
-        background:
-          "linear-gradient(135deg, #0d0f2b 0%, #1a1a2e 55%, #16213e 100%)",
+        background: "#F8FAFC",
+        border: "1px solid #E2E8F0",
       }}
     >
       <style>{`
@@ -191,7 +191,7 @@ export function CrossSellSection({ currentApp }: { currentApp: MikoApp["key"] })
           inset: 0,
           pointerEvents: "none",
           background:
-            "radial-gradient(circle at 88% 10%, rgba(91,141,239,0.28), transparent 55%), radial-gradient(circle at 8% 95%, rgba(139,124,246,0.22), transparent 50%)",
+            "radial-gradient(circle at 88% 10%, rgba(91,141,239,0.10), transparent 55%), radial-gradient(circle at 8% 95%, rgba(139,124,246,0.08), transparent 50%)",
         }}
       />
 
@@ -207,10 +207,10 @@ export function CrossSellSection({ currentApp }: { currentApp: MikoApp["key"] })
           }}
         >
           <div style={{ minWidth: 0 }}>
-            <div style={{ fontSize: 17, fontWeight: 700, color: "#fff", letterSpacing: "-0.01em" }}>
+            <div style={{ fontSize: 17, fontWeight: 700, color: "#0F172A", letterSpacing: "-0.01em" }}>
               More from Miko
             </div>
-            <div style={{ fontSize: 13, color: "rgba(255,255,255,0.65)", marginTop: 3 }}>
+            <div style={{ fontSize: 13, color: "#64748B", marginTop: 3 }}>
               Built by the same team, made to work well together.
             </div>
           </div>
@@ -263,8 +263,9 @@ export function CrossSellSection({ currentApp }: { currentApp: MikoApp["key"] })
                 display: "flex",
                 flexDirection: "column",
                 gap: 12,
-                background: `linear-gradient(160deg, rgba(255,255,255,0.09) 0%, rgba(255,255,255,0.04) 100%), radial-gradient(circle at 25% 0%, ${app.color}30, transparent 60%)`,
-                border: `1px solid ${app.color}40`,
+                background: `linear-gradient(160deg, #FFFFFF 0%, #FFFFFF 100%), radial-gradient(circle at 25% 0%, ${app.color}14, transparent 60%)`,
+                border: `1px solid ${app.color}33`,
+                boxShadow: `0 10px 28px ${app.color}14`,
                 minHeight: 210,
               }}
             >
@@ -291,7 +292,7 @@ export function CrossSellSection({ currentApp }: { currentApp: MikoApp["key"] })
                   style={{
                     fontSize: 15,
                     fontWeight: 650,
-                    color: "#fff",
+                    color: "#0F172A",
                     lineHeight: 1.25,
                     letterSpacing: "-0.01em",
                   }}
@@ -304,7 +305,7 @@ export function CrossSellSection({ currentApp }: { currentApp: MikoApp["key"] })
                 style={{
                   fontSize: 13,
                   lineHeight: 1.5,
-                  color: "rgba(255,255,255,0.72)",
+                  color: "#64748B",
                   flex: 1,
                 }}
               >
@@ -356,7 +357,7 @@ export function CrossSellSection({ currentApp }: { currentApp: MikoApp["key"] })
                     border: "none",
                     padding: 0,
                     cursor: "pointer",
-                    background: on ? "rgba(255,255,255,0.9)" : "rgba(255,255,255,0.3)",
+                    background: on ? "#0F172A" : "#CBD5E1",
                     transition: "width 0.2s, background 0.2s",
                   }}
                 />
