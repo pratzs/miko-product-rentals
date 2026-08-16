@@ -9,6 +9,7 @@ import mikoStyles from "../styles/miko-theme.css?url";
 import { authenticate } from "../shopify.server";
 import { db } from "../db.server";
 import { ensureShopName, ensureShopCurrency } from "../utils/shop-info.server";
+import { PLANS } from "../utils/plans";
 
 export const links = () => [
   { rel: "stylesheet", href: polarisStyles },
@@ -16,14 +17,54 @@ export const links = () => [
 ];
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
-  const { admin, session } = await authenticate.admin(request);
+  const { admin, session, billing } = await authenticate.admin(request);
 
   // Ensure shop config exists on every page load.
-  await db.shopConfig.upsert({
+  const shopConfig = await db.shopConfig.upsert({
     where: { shop: session.shop },
     create: { shop: session.shop, accessToken: session.accessToken || "" },
     update: { accessToken: session.accessToken || "" },
   });
+
+  // ── Billing reconcile ───────────────────────────────────────────────────────
+  // The stored planName was only ever demoted by the app/uninstalled webhook.
+  // A webhook that never arrives, or a merchant who cancels the subscription
+  // without uninstalling, left the shop on a paid tier indefinitely with no
+  // charge behind it. Every other Miko app already reconciles here; this one
+  // did not.
+  //
+  // Deliberately asymmetric, because the two mistakes are not equally bad:
+  //   - No active payment            -> demote to free. Safe and correct.
+  //   - Active payment we can map    -> trust it.
+  //   - Active payment we CANNOT map (a plan renamed in the Partner Dashboard)
+  //     -> change nothing. Silently demoting a paying merchant is the one
+  //     outcome worth avoiding, so an unknown name keeps whatever is stored.
+  // Never block the dashboard on any of it: billing being unreachable must not
+  // cost the merchant their page.
+  try {
+    const isTest = process.env.SHOPIFY_BILLING_TEST !== "false";
+    const check = await billing.check({
+      plans: ["starter", "growth", "pro"],
+      isTest,
+    });
+
+    let resolved: string | null = null;
+    if (check.hasActivePayment) {
+      const subName = (check.appSubscriptions?.[0]?.name ?? "").toLowerCase();
+      resolved = subName in PLANS ? subName : null;
+    } else {
+      resolved = "free";
+    }
+
+    if (resolved && resolved !== shopConfig.planName) {
+      await db.shopConfig.update({
+        where: { shop: session.shop },
+        data: { planName: resolved },
+      });
+    }
+  } catch {
+    // Keep the stored plan. A transient billing error must never downgrade.
+  }
 
   // Repair the shop currency and name here too, not only in afterAuth. afterAuth
   // fires once at install, so when its write failed the shop was stranded on the
