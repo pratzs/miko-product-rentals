@@ -237,6 +237,21 @@ export default function HelpPage() {
     >
       <Layout>
         <Layout.Section>
+          <Card>
+            <BlockStack gap="200">
+              <Text as="h2" variant="headingMd">Full documentation</Text>
+              <Text as="p" tone="subdued">
+                Every feature, step by step, with a troubleshooting guide. Opens in a new tab.
+              </Text>
+              <div>
+                <Button onClick={() => window.open("https://miko.co.nz/docs/rentals/", "_blank")}>
+                  Open the documentation
+                </Button>
+              </div>
+            </BlockStack>
+          </Card>
+        </Layout.Section>
+        <Layout.Section>
           <BlockStack gap="600">
             {/* Hero */}
             <Box
