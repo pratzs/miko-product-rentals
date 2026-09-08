@@ -423,6 +423,65 @@
     }
   }
 
+  // ── Rental-only pages: keep OTHER products buyable ──────────────────────────
+  //
+  // The rental_only stylesheet hides buy controls page-wide, because a theme can
+  // render a sticky buy bar outside form[action="/cart/add"] where no scoped
+  // selector reaches it. CSS cannot then tell this product's button from a
+  // recommended product's quick-add, so those get hidden too and the shopper
+  // cannot buy anything else on the page.
+  //
+  // Undo it for anything inside a recommendations region. Those regions are
+  // named consistently across themes, unlike buy buttons. Recommendations are
+  // fetched after load, so this re-runs on mutation.
+  var RECOMMENDATION_REGIONS = [
+    'product-recommendations',
+    'complementary-products',
+    '[class*="recommendation"]',
+    '[id*="recommendation"]',
+    '[class*="related-product"]',
+    '[id*="related-product"]',
+    '[class*="complementary"]',
+    '[class*="also-like"]',
+    '[class*="you-may"]',
+  ].join(",");
+
+  function restoreRecommendedProductsBuyControls() {
+    var regions;
+    try { regions = document.querySelectorAll(RECOMMENDATION_REGIONS); } catch (e) { return; }
+    Array.prototype.forEach.call(regions, function (region) {
+      // Never touch the widget itself, and never re-show the main product's
+      // controls just because a theme nests them oddly.
+      if (region.querySelector("#miko-rental-widget")) return;
+      var hidden = region.querySelectorAll(
+        'button, [class*="add-to-cart"], [class*="add_to_cart"], [class*="payment-button"], [class*="buy-buttons"]'
+      );
+      Array.prototype.forEach.call(hidden, function (el) {
+        if (el.id === "miko-add-to-cart") return;
+        // Only override our own stylesheet, never a hide the theme intended.
+        if (el.style.getPropertyValue("display") === "none") return;
+        el.style.setProperty("display", "revert", "important");
+        el.setAttribute("data-miko-rental-restored", "1");
+      });
+    });
+  }
+
+  function watchForRecommendations() {
+    restoreRecommendedProductsBuyControls();
+    if (typeof MutationObserver !== "function") return;
+    var t = null;
+    new MutationObserver(function () {
+      clearTimeout(t);
+      t = setTimeout(restoreRecommendedProductsBuyControls, 100);
+    }).observe(document.body, { childList: true, subtree: true });
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", watchForRecommendations);
+  } else {
+    watchForRecommendations();
+  }
+
   function formatDateDisplay(isoDate) {
     try {
       return new Date(isoDate + "T00:00:00").toLocaleDateString(undefined, {

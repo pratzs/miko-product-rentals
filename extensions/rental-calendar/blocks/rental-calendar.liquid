@@ -64,7 +64,24 @@
 
 {% if block.settings.rental_only %}
 <style>
-  /* Hide the theme's default price and buy button for rental-only products */
+  /*
+   * Hide the theme's own price and buy controls for rental-only products.
+   *
+   * Class names differ per theme and the named ones below match nothing on
+   * Shopify's current default theme (Horizon renders none of
+   * .product-form__buttons, .product__buy-buttons, .product-form__submit or
+   * .btn). Worse, a theme can render a STICKY buy bar that sits entirely
+   * outside form[action="/cart/add"], so every form-scoped selector misses it
+   * and the shopper can book a rental with no dates by scrolling.
+   *
+   * So match on what the control IS, not what a theme calls it: anything named
+   * "add"/"add-to-cart", any payment or buy-button wrapper, and any sticky bar.
+   * Miko's own button is excluded by id and class.
+   *
+   * These are page-wide, which would also hide quick-add on recommended
+   * products. hideOtherProductsBuyControls() in rental-calendar.js restores
+   * those, and re-runs when recommendations load in.
+   */
   .product-form__buttons,
   .product__buy-buttons,
   .shopify-payment-button,
@@ -72,7 +89,19 @@
   form[action*="/cart/add"] .btn,
   form[action*="/cart/add"] button[type="submit"],
   form[action*="/cart/add"] .product-form__submit,
-  [data-type="add-to-cart-form"] button[type="submit"] { display: none !important; }
+  [data-type="add-to-cart-form"] button[type="submit"],
+  [class*="buy-buttons"],
+  [class*="payment-button"],
+  [class*="sticky-add-to-cart"],
+  [class*="sticky-atc"],
+  [class*="sticky-buy"],
+  button[name="add"]:not(#miko-add-to-cart),
+  [class*="add-to-cart"]:not(#miko-add-to-cart):not([class*="miko"]),
+  [class*="add_to_cart"]:not(#miko-add-to-cart):not([class*="miko"]) { display: none !important; }
+
+  /* Never let the rules above take Miko's own button with them. */
+  #miko-add-to-cart,
+  .miko-btn { display: inline-flex !important; }
 
   .price,
   .product__price,

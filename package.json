@@ -14,6 +14,7 @@
     "setup": "prisma generate && prisma db push --accept-data-loss",
     "lint": "eslint --cache --cache-location ./node_modules/.cache/eslint .",
     "shopify": "shopify",
+    "test:buycontrols": "node tests/rental-buy-controls.test.mjs",
     "prisma": "prisma",
     "vite": "vite"
   },
@@ -56,6 +57,7 @@
     "@types/react-dom": "^18.2.14",
     "eslint": "^8.42.0",
     "eslint-config-prettier": "^10.0.1",
+    "jsdom": "^29.1.1",
     "prettier": "^3.2.4",
     "typescript": "^5.2.2",
     "vite": "^6.2.2"
