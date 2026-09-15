@@ -1,3 +1,5 @@
+import { useT } from "../i18n/context";
+
 export type MikoPose = "wave" | "listen" | "write" | "tune" | "speak" | "present";
 
 interface MikoMascotProps {
@@ -30,11 +32,12 @@ function poseSrc(pose: MikoPose, size: "sm" | "md" | "lg"): string {
  * greet, listen when taking input, write when generating, tune on settings,
  * speak for narration, present when showing something off. */
 export function MikoMascot({ size = "md", pose = "wave", float = true, glow = true }: MikoMascotProps) {
+  const t = useT();
   const px = SIZE_PX[size];
   return (
     <img
       src={poseSrc(pose, size)}
-      alt="Miko, your AI co-pilot"
+      alt={t("Miko, your AI co-pilot")}
       className={float ? "miko-mascot-float" : undefined}
       style={{
         height: px,

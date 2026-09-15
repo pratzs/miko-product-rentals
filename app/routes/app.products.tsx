@@ -21,6 +21,7 @@ import { db } from "../db.server";
 import { formatCurrency } from "../utils/pricing";
 import { setRentalMetafield, ensureRentalVariantsCanOversell } from "../utils/product-metafields.server";
 import { syncRentalProductVariants } from "../utils/variant-sync.server";
+import { useT } from "../i18n/context";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const { session } = await authenticate.admin(request);
@@ -147,6 +148,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 };
 
 export default function ProductsPage() {
+  const t = useT();
   const { rentalProducts, currency } = useLoaderData<typeof loader>();
   const actionData = useActionData<typeof action>();
   const navigate = useNavigate();
@@ -167,17 +169,17 @@ export default function ProductsPage() {
 
   return (
     <Page
-      title="Rental Products"
-      subtitle="Choose which products in your store can be rented. Each product gets its own pricing, availability calendar, and deposit settings."
+      title={t("Rental Products")}
+      subtitle={t("Choose which products in your store can be rented. Each product gets its own pricing, availability calendar, and deposit settings.")}
       primaryAction={{
-        content: "Add rental product",
+        content: t("Add rental product"),
         onAction: () => navigate("/app/products/new"),
       }}
       secondaryActions={[
         {
-          content: "Sync with storefront",
+          content: t("Sync with storefront"),
           onAction: syncStorefront,
-          helpText: "Re-sync the rental flag on every product so the storefront embed knows which products are rentals.",
+          helpText: t("Re-sync the rental flag on every product so the storefront embed knows which products are rentals."),
         },
       ]}
     >
@@ -192,17 +194,15 @@ export default function ProductsPage() {
         {rentalProducts.length === 0 ? (
           <Card>
             <EmptyState
-              heading="No rental products yet"
+              heading={t("No rental products yet")}
               action={{
-                content: "Add your first rental product",
+                content: t("Add your first rental product"),
                 onAction: () => navigate("/app/products/new"),
               }}
               image=""
             >
               <p>
-                Pick any product from your Shopify store and turn it into a rental.
-                Customers will see a date picker on the product page and can book it
-                directly without leaving your store.
+                {t("Pick any product from your Shopify store and turn it into a rental. Customers will see a date picker on the product page and can book it directly without leaving your store.")}
               </p>
             </EmptyState>
           </Card>
@@ -222,15 +222,19 @@ export default function ProductsPage() {
                         <InlineStack align="space-between" blockAlign="start">
                           <Text as="h3" variant="headingMd">{product.title}</Text>
                           <Badge tone={product.isActive ? "success" : "attention"}>
-                            {product.isActive ? "Active" : "Inactive"}
+                            {product.isActive ? t("Active") : t("Inactive")}
                           </Badge>
                         </InlineStack>
                         <Text as="p" variant="bodySm" tone="subdued">
-                          {product.totalUnits} unit{product.totalUnits !== 1 ? "s" : ""} available
+                          {product.totalUnits === 1
+                            ? t("{n} unit available", { n: product.totalUnits })
+                            : t("{n} units available", { n: product.totalUnits })}
                         </Text>
                         {product.activeBookings > 0 && (
                           <Badge tone="info">
-                            {`${product.activeBookings} active booking${product.activeBookings !== 1 ? "s" : ""}`}
+                            {product.activeBookings === 1
+                              ? t("{n} active booking", { n: product.activeBookings })
+                              : t("{n} active bookings", { n: product.activeBookings })}
                           </Badge>
                         )}
                       </BlockStack>
@@ -241,7 +245,7 @@ export default function ProductsPage() {
                     <InlineStack gap="400" wrap>
                       {product.pricePerDay > 0 && (
                         <BlockStack gap="050">
-                          <Text as="p" variant="bodySm" tone="subdued">Per day</Text>
+                          <Text as="p" variant="bodySm" tone="subdued">{t("Per day")}</Text>
                           <Text as="p" variant="bodyMd" fontWeight="medium">
                             {formatCurrency(product.pricePerDay, currency)}
                           </Text>
@@ -249,7 +253,7 @@ export default function ProductsPage() {
                       )}
                       {product.pricePerWeek > 0 && (
                         <BlockStack gap="050">
-                          <Text as="p" variant="bodySm" tone="subdued">Per week</Text>
+                          <Text as="p" variant="bodySm" tone="subdued">{t("Per week")}</Text>
                           <Text as="p" variant="bodyMd" fontWeight="medium">
                             {formatCurrency(product.pricePerWeek, currency)}
                           </Text>
@@ -257,7 +261,7 @@ export default function ProductsPage() {
                       )}
                       {product.pricePerMonth > 0 && (
                         <BlockStack gap="050">
-                          <Text as="p" variant="bodySm" tone="subdued">Per month</Text>
+                          <Text as="p" variant="bodySm" tone="subdued">{t("Per month")}</Text>
                           <Text as="p" variant="bodyMd" fontWeight="medium">
                             {formatCurrency(product.pricePerMonth, currency)}
                           </Text>
@@ -265,23 +269,23 @@ export default function ProductsPage() {
                       )}
                       {product.depositAmount > 0 && (
                         <BlockStack gap="050">
-                          <Text as="p" variant="bodySm" tone="subdued">Deposit</Text>
+                          <Text as="p" variant="bodySm" tone="subdued">{t("Deposit")}</Text>
                           <Text as="p" variant="bodyMd" fontWeight="medium">
                             {formatCurrency(product.depositAmount, currency)}
                           </Text>
                         </BlockStack>
                       )}
                       {product.pricePerDay === 0 && product.depositAmount === 0 && (
-                        <Badge tone="attention">Pricing not set</Badge>
+                        <Badge tone="attention">{t("Pricing not set")}</Badge>
                       )}
                       {product.pricePerDay === 0 && product.depositAmount > 0 && (
-                        <Badge tone="info">Free rental</Badge>
+                        <Badge tone="info">{t("Free rental")}</Badge>
                       )}
                     </InlineStack>
 
                     <InlineStack gap="300">
                       <Button onClick={() => navigate(`/app/products/${product.id}`)}>
-                        Configure
+                        {t("Configure")}
                       </Button>
                       <Button
                         tone={product.isActive ? "critical" : undefined}
@@ -289,7 +293,7 @@ export default function ProductsPage() {
                         onClick={() => toggleActive(product.id, product.isActive)}
                         disabled={!product.isActive && product.pricePerDay === 0 && product.depositAmount === 0}
                       >
-                        {product.isActive ? "Deactivate" : "Activate"}
+                        {product.isActive ? t("Deactivate") : t("Activate")}
                       </Button>
                     </InlineStack>
                   </BlockStack>

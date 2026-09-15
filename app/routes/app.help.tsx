@@ -32,6 +32,7 @@ import {
   AlertCircleIcon,
 } from "@shopify/polaris-icons";
 import { authenticate } from "../shopify.server";
+import { useT } from "../i18n/context";
 
 const EXTENSION_HANDLE = "rental-calendar";
 const EMBED_HANDLE = "rental-display-rules";
@@ -209,6 +210,7 @@ export default function HelpPage() {
     supportEmail,
   } = useLoaderData<typeof loader>();
   const navigate = useNavigate();
+  const t = useT();
 
   // Shopify embeds the admin app in an iframe, which blocks mailto: from
   // navigating to a system handler. window.top.location escapes the iframe
@@ -232,20 +234,20 @@ export default function HelpPage() {
 
   return (
     <Page
-      title="Help center"
-      subtitle="Everything you need to launch and run rentals with confidence."
+      title={t("Help center")}
+      subtitle={t("Everything you need to launch and run rentals with confidence.")}
     >
       <Layout>
         <Layout.Section>
           <Card>
             <BlockStack gap="200">
-              <Text as="h2" variant="headingMd">Full documentation</Text>
+              <Text as="h2" variant="headingMd">{t("Full documentation")}</Text>
               <Text as="p" tone="subdued">
-                Every feature, step by step, with a troubleshooting guide. Opens in a new tab.
+                {t("Every feature, step by step, with a troubleshooting guide. Opens in a new tab.")}
               </Text>
               <div>
                 <Button onClick={() => window.open("https://miko.co.nz/docs/rentals/", "_blank")}>
-                  Open the documentation
+                  {t("Open the documentation")}
                 </Button>
               </div>
             </BlockStack>
@@ -289,9 +291,9 @@ export default function HelpPage() {
                       </div>
                     </div>
                     <BlockStack gap="100">
-                      <Text as="h2" variant="headingLg">Welcome to Miko</Text>
+                      <Text as="h2" variant="headingLg">{t("Welcome to Miko")}</Text>
                       <Text as="p" tone="subdued">
-                        Get your first rental product live in about 5 minutes. We will walk you through every step.
+                        {t("Get your first rental product live in about 5 minutes. We will walk you through every step.")}
                       </Text>
                     </BlockStack>
                   </div>
@@ -301,21 +303,21 @@ export default function HelpPage() {
                       icon={ProductIcon}
                       onClick={() => navigate("/app/products")}
                     >
-                      Add your first rental
+                      {t("Add your first rental")}
                     </Button>
                     <Button
                       icon={ExternalIcon}
                       url={themeEditorBlockUrl}
                       target="_blank"
                     >
-                      Open theme editor
+                      {t("Open theme editor")}
                     </Button>
                     <Button
                       icon={EmailIcon}
-                      onClick={() => openMailto("Miko support request")}
+                      onClick={() => openMailto(t("Miko support request"))}
                       variant="plain"
                     >
-                      Email support
+                      {t("Email support")}
                     </Button>
                   </InlineStack>
                 </BlockStack>
@@ -327,52 +329,52 @@ export default function HelpPage() {
               <BlockStack gap="500">
                 <InlineStack gap="300" align="space-between" blockAlign="center">
                   <BlockStack gap="200">
-                    <SectionHeader icon={CheckCircleIcon} title="Quick start" tone="success" iconBg="#ecfdf5" />
+                    <SectionHeader icon={CheckCircleIcon} title={t("Quick start")} tone="success" iconBg="#ecfdf5" />
                     <Text as="p" tone="subdued">
-                      Follow these in order. The dashboard checklist ticks each one off as you go.
+                      {t("Follow these in order. The dashboard checklist ticks each one off as you go.")}
                     </Text>
                   </BlockStack>
-                  <Badge tone="info">5 steps</Badge>
+                  <Badge tone="info">{t("5 steps")}</Badge>
                 </InlineStack>
                 <BlockStack gap="300">
                   <StepCard
                     number={1}
                     icon={ProductIcon}
-                    title="Add your first rental product"
-                    body="Pick any product from your Shopify store and turn on rentals for it. Its normal listing stays the same. You are just adding a rental option on top."
-                    cta={{ label: "Manage products", onClick: () => navigate("/app/products") }}
+                    title={t("Add your first rental product")}
+                    body={t("Pick any product from your Shopify store and turn on rentals for it. Its normal listing stays the same. You are just adding a rental option on top.")}
+                    cta={{ label: t("Manage products"), onClick: () => navigate("/app/products") }}
                   />
                   <StepCard
                     number={2}
                     icon={StoreIcon}
-                    title="Set your rental pricing and units"
+                    title={t("Set your rental pricing and units")}
                     body={
                       <>
-                        Enter at least a <strong>daily price</strong>. Weekly and monthly rates are optional and we will automatically apply the best one for the customer's chosen dates. Set <strong>Total units available</strong> to how many of this item you have on hand to rent out.
+                        {t("Enter at least a")} <strong>{t("daily price")}</strong>{t(". Weekly and monthly rates are optional and we will automatically apply the best one for the customer's chosen dates. Set")} <strong>{t("Total units available")}</strong> {t("to how many of this item you have on hand to rent out.")}
                       </>
                     }
-                    cta={{ label: "Open products", onClick: () => navigate("/app/products") }}
+                    cta={{ label: t("Open products"), onClick: () => navigate("/app/products") }}
                   />
                   <StepCard
                     number={3}
                     icon={CalendarIcon}
-                    title="Add the booking calendar to your product page"
-                    body="Open your theme editor and drop the Miko Rental Calendar block onto your product template. As soon as a customer views the product, we automatically detect that the calendar is live."
-                    cta={{ label: "Open theme editor", url: themeEditorBlockUrl }}
+                    title={t("Add the booking calendar to your product page")}
+                    body={t("Open your theme editor and drop the Miko Rental Calendar block onto your product template. As soon as a customer views the product, we automatically detect that the calendar is live.")}
+                    cta={{ label: t("Open theme editor"), url: themeEditorBlockUrl }}
                   />
                   <StepCard
                     number={4}
                     icon={CodeIcon}
-                    title="Turn on the display rules (recommended)"
-                    body="Enable the Miko Rental Display Rules app embed. It hides the normal price and Add to cart button on rental products so customers can only check out through the rental flow. It also adds a Rental badge on your collection pages."
-                    cta={{ label: "Enable app embed", url: themeEditorEmbedUrl }}
+                    title={t("Turn on the display rules (recommended)")}
+                    body={t("Enable the Miko Rental Display Rules app embed. It hides the normal price and Add to cart button on rental products so customers can only check out through the rental flow. It also adds a Rental badge on your collection pages.")}
+                    cta={{ label: t("Enable app embed"), url: themeEditorEmbedUrl }}
                   />
                   <StepCard
                     number={5}
                     icon={EmailIcon}
-                    title="Set your email sender name"
-                    body="Customers receive booking confirmations, return reminders, and overdue notices from Miko. The sender name is what shows up in their inbox, usually your store name."
-                    cta={{ label: "Email settings", onClick: () => navigate("/app/settings") }}
+                    title={t("Set your email sender name")}
+                    body={t("Customers receive booking confirmations, return reminders, and overdue notices from Miko. The sender name is what shows up in their inbox, usually your store name.")}
+                    cta={{ label: t("Email settings"), onClick: () => navigate("/app/settings") }}
                   />
                 </BlockStack>
               </BlockStack>
@@ -381,46 +383,46 @@ export default function HelpPage() {
             {/* How it works */}
             <Card>
               <BlockStack gap="400">
-                <SectionHeader icon={PlayIcon} title="How a rental flows through Miko" />
+                <SectionHeader icon={PlayIcon} title={t("How a rental flows through Miko")} />
                 <Text as="p" tone="subdued">
-                  Here is what happens from the moment a customer picks their dates to the day the item is back on your shelf.
+                  {t("Here is what happens from the moment a customer picks their dates to the day the item is back on your shelf.")}
                 </Text>
                 <Box paddingBlockStart="200">
                   <BlockStack gap="400">
                     <JourneyStep
                       number={1}
-                      title="Customer picks their dates"
-                      body="The booking widget on your product page checks availability, calculates the rental fee and deposit, and shows the total before checkout."
+                      title={t("Customer picks their dates")}
+                      body={t("The booking widget on your product page checks availability, calculates the rental fee and deposit, and shows the total before checkout.")}
                     />
                     <JourneyStep
                       number={2}
-                      title="Customer clicks Book now"
-                      body="The item is added to the standard Shopify cart with the rental dates and price attached. We override the cart price so the customer pays the rental amount, not the product's regular price."
+                      title={t("Customer clicks Book now")}
+                      body={t("The item is added to the standard Shopify cart with the rental dates and price attached. We override the cart price so the customer pays the rental amount, not the product's regular price.")}
                     />
                     <JourneyStep
                       number={3}
-                      title="Order placed"
-                      body="A pending booking appears in your dashboard right away, even before payment is captured. This is handy for Cash on Delivery or Net payment terms."
+                      title={t("Order placed")}
+                      body={t("A pending booking appears in your dashboard right away, even before payment is captured. This is handy for Cash on Delivery or Net payment terms.")}
                     />
                     <JourneyStep
                       number={4}
-                      title="Payment captured"
-                      body="The booking automatically moves to Confirmed and the customer receives a booking confirmation email."
+                      title={t("Payment captured")}
+                      body={t("The booking automatically moves to Confirmed and the customer receives a booking confirmation email.")}
                     />
                     <JourneyStep
                       number={5}
-                      title="Rental day arrives"
-                      body="Miko flips the booking to Out on rental and sends a friendly return reminder the day before the return date."
+                      title={t("Rental day arrives")}
+                      body={t("Miko flips the booking to Out on rental and sends a friendly return reminder the day before the return date.")}
                     />
                     <JourneyStep
                       number={6}
-                      title="Item comes back"
-                      body="Open the booking and click Mark as returned. If you enabled auto release of deposits, the deposit is released. Otherwise click Refund deposit and Miko sends the money back through Shopify to the customer's original payment method."
+                      title={t("Item comes back")}
+                      body={t("Open the booking and click Mark as returned. If you enabled auto release of deposits, the deposit is released. Otherwise click Refund deposit and Miko sends the money back through Shopify to the customer's original payment method.")}
                     />
                     <JourneyStep
                       number={7}
-                      title="Late returns"
-                      body="If the return date passes, the booking moves to Overdue and the customer gets an overdue notice showing your late fee rate. When the item is back, click Record late fee and create a draft order in Shopify to collect."
+                      title={t("Late returns")}
+                      body={t("If the return date passes, the booking moves to Overdue and the customer gets an overdue notice showing your late fee rate. When the item is back, click Record late fee and create a draft order in Shopify to collect.")}
                     />
                   </BlockStack>
                 </Box>
@@ -430,87 +432,87 @@ export default function HelpPage() {
             {/* Common scenarios */}
             <Card>
               <BlockStack gap="400">
-                <SectionHeader icon={QuestionCircleIcon} title="Common questions" />
+                <SectionHeader icon={QuestionCircleIcon} title={t("Common questions")} />
                 <Text as="p" tone="subdued">
-                  Real situations you may run into and the quickest way to handle each one.
+                  {t("Real situations you may run into and the quickest way to handle each one.")}
                 </Text>
                 <Divider />
 
                 <Scenario
-                  question="An order came in but I don't see a booking for it"
+                  question={t("An order came in but I don't see a booking for it")}
                   answer={
                     <>
-                      Open the <strong>Bookings</strong> page and click <strong>Sync from Shopify</strong> at the top. It pulls in the last 50 orders and creates bookings for any that have rental info but were missed (usually because of a brief webhook outage). New orders going forward show up automatically.
+                      {t("Open the")} <strong>{t("Bookings")}</strong> {t("page and click")} <strong>{t("Sync from Shopify")}</strong> {t("at the top. It pulls in the last 50 orders and creates bookings for any that have rental info but were missed (usually because of a brief webhook outage). New orders going forward show up automatically.")}
                     </>
                   }
                 />
                 <Divider />
 
                 <Scenario
-                  question="A booking is flagged as Needs review"
+                  question={t("A booking is flagged as Needs review")}
                   answer={
                     <>
-                      That means an order came in for dates where you would be overbooked. For example, you have 2 units, both are already rented for those dates, and a third customer paid. Open the booking, contact the customer, and either refund or move their dates. The booking still holds inventory until you cancel it, so handle it before the rental day.
+                      {t("That means an order came in for dates where you would be overbooked. For example, you have 2 units, both are already rented for those dates, and a third customer paid. Open the booking, contact the customer, and either refund or move their dates. The booking still holds inventory until you cancel it, so handle it before the rental day.")}
                     </>
                   }
                 />
                 <Divider />
 
                 <Scenario
-                  question="The product page still shows the regular price"
+                  question={t("The product page still shows the regular price")}
                   answer={
                     <>
-                      Two quick checks. First, go to <strong>Rental Products</strong> and click <strong>Sync with storefront</strong> so the rental flag is written to your product. Second, confirm the Miko Rental Display Rules app embed is turned on in the theme editor. Then do a hard refresh of the product page (<strong>Cmd + Shift + R</strong> on Mac or <strong>Ctrl + Shift + R</strong> on Windows) to clear the cached version.
+                      {t("Two quick checks. First, go to")} <strong>{t("Rental Products")}</strong> {t("and click")} <strong>{t("Sync with storefront")}</strong> {t("so the rental flag is written to your product. Second, confirm the Miko Rental Display Rules app embed is turned on in the theme editor. Then do a hard refresh of the product page (")}<strong>{t("Cmd + Shift + R")}</strong> {t("on Mac or")} <strong>{t("Ctrl + Shift + R")}</strong> {t("on Windows) to clear the cached version.")}
                     </>
                   }
                 />
                 <Divider />
 
                 <Scenario
-                  question="The customer's deposit needs to be refunded"
+                  question={t("The customer's deposit needs to be refunded")}
                   answer={
                     <>
-                      Open the booking, scroll to <strong>Deposit management</strong>, and click <strong>Refund deposit to customer</strong>. We use Shopify's standard refund flow so the customer gets the money back on their original payment method, and Shopify automatically sends them a refund email.
+                      {t("Open the booking, scroll to")} <strong>{t("Deposit management")}</strong>{t(", and click")} <strong>{t("Refund deposit to customer")}</strong>{t(". We use Shopify's standard refund flow so the customer gets the money back on their original payment method, and Shopify automatically sends them a refund email.")}
                     </>
                   }
                 />
                 <Divider />
 
                 <Scenario
-                  question="The customer damaged the item or did not return it"
+                  question={t("The customer damaged the item or did not return it")}
                   answer={
                     <>
-                      Open the booking, scroll to <strong>Deposit management</strong>, and click <strong>Mark forfeited</strong>. The deposit stays with you and the customer is not refunded. If you need to charge more than the deposit, create a draft order in Shopify for the extra amount and send them an invoice.
+                      {t("Open the booking, scroll to")} <strong>{t("Deposit management")}</strong>{t(", and click")} <strong>{t("Mark forfeited")}</strong>{t(". The deposit stays with you and the customer is not refunded. If you need to charge more than the deposit, create a draft order in Shopify for the extra amount and send them an invoice.")}
                     </>
                   }
                 />
                 <Divider />
 
                 <Scenario
-                  question="I want to block out certain dates (holidays, maintenance)"
+                  question={t("I want to block out certain dates (holidays, maintenance)")}
                   answer={
                     <>
-                      Open the product, scroll to <strong>Blocked dates</strong>, and add the dates you want to keep unavailable. Customers will not be able to pick those dates in the calendar.
+                      {t("Open the product, scroll to")} <strong>{t("Blocked dates")}</strong>{t(", and add the dates you want to keep unavailable. Customers will not be able to pick those dates in the calendar.")}
                     </>
                   }
                 />
                 <Divider />
 
                 <Scenario
-                  question="I changed my plan but rentals are still being blocked at the limit"
+                  question={t("I changed my plan but rentals are still being blocked at the limit")}
                   answer={
                     <>
-                      Plan changes apply right away, but if your monthly usage already passed the new plan's limit, it stays blocked until the next calendar month. The <strong>Awaiting payment</strong> count on your dashboard shows where you stand.
+                      {t("Plan changes apply right away, but if your monthly usage already passed the new plan's limit, it stays blocked until the next calendar month. The")} <strong>{t("Awaiting payment")}</strong> {t("count on your dashboard shows where you stand.")}
                     </>
                   }
                 />
                 <Divider />
 
                 <Scenario
-                  question="I uninstalled and reinstalled the app"
+                  question={t("I uninstalled and reinstalled the app")}
                   answer={
                     <>
-                      No worries, your products, bookings, settings, and email templates are all kept. Shopify cancels paid subscriptions on uninstall, so you will be on the Free plan until you reactivate from <strong>Pricing</strong>. The cart price override is set back up automatically when you reinstall.
+                      {t("No worries, your products, bookings, settings, and email templates are all kept. Shopify cancels paid subscriptions on uninstall, so you will be on the Free plan until you reactivate from")} <strong>{t("Pricing")}</strong>{t(". The cart price override is set back up automatically when you reinstall.")}
                     </>
                   }
                 />
@@ -520,17 +522,17 @@ export default function HelpPage() {
             {/* Multi-unit + overbooking */}
             <Card>
               <BlockStack gap="400">
-                <SectionHeader icon={AlertCircleIcon} title="Multi unit rentals and overbooking protection" tone="warning" iconBg="#fffbeb" />
+                <SectionHeader icon={AlertCircleIcon} title={t("Multi unit rentals and overbooking protection")} tone="warning" iconBg="#fffbeb" />
                 <Text as="p">
-                  Set <strong>Total units available</strong> on each product to how many physical copies you have on hand. When a product has more than one unit, customers see a quantity picker on the storefront, and the calendar only blocks dates when every unit is booked.
+                  {t("Set")} <strong>{t("Total units available")}</strong> {t("on each product to how many physical copies you have on hand. When a product has more than one unit, customers see a quantity picker on the storefront, and the calendar only blocks dates when every unit is booked.")}
                 </Text>
-                <Text as="p">We protect you from overbooking in two places:</Text>
+                <Text as="p">{t("We protect you from overbooking in two places:")}</Text>
                 <List type="bullet">
                   <List.Item>
-                    The booking widget checks availability before the customer can pay and shows a clear warning if not enough units are free for their dates.
+                    {t("The booking widget checks availability before the customer can pay and shows a clear warning if not enough units are free for their dates.")}
                   </List.Item>
                   <List.Item>
-                    The order webhook checks again at order creation and at payment. If two customers race for the last unit, the second booking is created as <strong>Needs review</strong> instead of silently overbooking. A banner on your dashboard tells you what to do.
+                    {t("The order webhook checks again at order creation and at payment. If two customers race for the last unit, the second booking is created as")} <strong>{t("Needs review")}</strong> {t("instead of silently overbooking. A banner on your dashboard tells you what to do.")}
                   </List.Item>
                 </List>
               </BlockStack>
@@ -539,9 +541,9 @@ export default function HelpPage() {
             {/* Theme compatibility */}
             <Card>
               <BlockStack gap="400">
-                <SectionHeader icon={CodeIcon} title="Works on every modern Shopify theme" />
+                <SectionHeader icon={CodeIcon} title={t("Works on every modern Shopify theme")} />
                 <Text as="p">
-                  Our display rules embed works automatically on every Shopify built theme (Dawn, Horizon, Sense, Refresh, Studio, Craft, Origin, and the rest) and the vast majority of third party themes. No setup needed beyond turning the embed on.
+                  {t("Our display rules embed works automatically on every Shopify built theme (Dawn, Horizon, Sense, Refresh, Studio, Craft, Origin, and the rest) and the vast majority of third party themes. No setup needed beyond turning the embed on.")}
                 </Text>
                 <Box
                   background="bg-surface-info"
@@ -555,10 +557,10 @@ export default function HelpPage() {
                       <div style={{ width: 20, height: 20, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
                         <Icon source={AlertCircleIcon} tone="info" />
                       </div>
-                      <Text as="h3" variant="headingSm">On a heavily customized theme?</Text>
+                      <Text as="h3" variant="headingSm">{t("On a heavily customized theme?")}</Text>
                     </div>
                     <Text as="p" tone="subdued">
-                      If the Rental badge does not appear or the price is still showing on rental cards, paste this snippet into your theme's main CSS file. Go to <strong>Online Store, then Themes, then Edit code, then assets/base.css</strong> (or whatever stylesheet your theme uses) and replace <code>.your-card-class</code> with the wrapper class your theme actually uses.
+                      {t("If the Rental badge does not appear or the price is still showing on rental cards, paste this snippet into your theme's main CSS file. Go to")} <strong>{t("Online Store, then Themes, then Edit code, then assets/base.css")}</strong> {t("(or whatever stylesheet your theme uses) and replace")} <code>.your-card-class</code> {t("with the wrapper class your theme actually uses.")}
                     </Text>
                   </BlockStack>
                 </Box>
@@ -594,7 +596,7 @@ export default function HelpPage() {
                   </pre>
                 </Box>
                 <Text as="p" tone="subdued">
-                  Not sure what your class names are? Right click any product card on your storefront and choose <strong>Inspect</strong>. The wrapping element's <code>class</code> attribute is what goes in place of <code>.your-card-class</code>. The visible price element's class goes in place of <code>.your-price-class</code>.
+                  {t("Not sure what your class names are? Right click any product card on your storefront and choose")} <strong>{t("Inspect")}</strong>{t(". The wrapping element's")} <code>class</code> {t("attribute is what goes in place of")} <code>.your-card-class</code>{t(". The visible price element's class goes in place of")} <code>.your-price-class</code>.
                 </Text>
                 <Box
                   background="bg-surface-success"
@@ -605,22 +607,22 @@ export default function HelpPage() {
                 >
                   <InlineStack gap="400" align="space-between" blockAlign="center" wrap>
                     <BlockStack gap="100">
-                      <Text as="h3" variant="headingSm">Don't want to touch code?</Text>
+                      <Text as="h3" variant="headingSm">{t("Don't want to touch code?")}</Text>
                       <Text as="p" tone="subdued" variant="bodySm">
-                        Send us your store URL and we will send back a ready to paste snippet tailored to your theme. Usually within one business day.
+                        {t("Send us your store URL and we will send back a ready to paste snippet tailored to your theme. Usually within one business day.")}
                       </Text>
                     </BlockStack>
                     <Button
                       onClick={() =>
                         openMailto(
-                          "Custom theme CSS help",
-                          "Hi Miko team,\n\nMy store URL: \nMy theme: \n\nThe Rental badge / price hide is not working on my collection pages. Could you send me a CSS snippet that works for my theme?\n\nThanks!",
+                          t("Custom theme CSS help"),
+                          t("Hi Miko team,\n\nMy store URL: \nMy theme: \n\nThe Rental badge / price hide is not working on my collection pages. Could you send me a CSS snippet that works for my theme?\n\nThanks!"),
                         )
                       }
                       variant="primary"
                       icon={EmailIcon}
                     >
-                      Get a custom snippet
+                      {t("Get a custom snippet")}
                     </Button>
                   </InlineStack>
                 </Box>
@@ -630,12 +632,12 @@ export default function HelpPage() {
             {/* Late fees */}
             <Card>
               <BlockStack gap="400">
-                <SectionHeader icon={ClockIcon} title="How late fees work" tone="critical" iconBg="#fef2f2" />
+                <SectionHeader icon={ClockIcon} title={t("How late fees work")} tone="critical" iconBg="#fef2f2" />
                 <Text as="p">
-                  Set the <strong>Late fee per day</strong> and a <strong>Grace period</strong> in Settings. After a rental's return date passes, Miko automatically marks it as Overdue and sends the customer an overdue notice showing your late fee rate.
+                  {t("Set the")} <strong>{t("Late fee per day")}</strong> {t("and a")} <strong>{t("Grace period")}</strong> {t("in Settings. After a rental's return date passes, Miko automatically marks it as Overdue and sends the customer an overdue notice showing your late fee rate.")}
                 </Text>
                 <Text as="p">
-                  When the item is back, open the booking and click <strong>Record late fee</strong>. We calculate it as (days overdue minus your grace period) times your daily rate and save it on the booking. We do not auto charge the card. To collect, create a draft order in Shopify with a custom line item and send the invoice. This keeps you in control of any goodwill exceptions you want to make.
+                  {t("When the item is back, open the booking and click")} <strong>{t("Record late fee")}</strong>{t(". We calculate it as (days overdue minus your grace period) times your daily rate and save it on the booking. We do not auto charge the card. To collect, create a draft order in Shopify with a custom line item and send the invoice. This keeps you in control of any goodwill exceptions you want to make.")}
                 </Text>
               </BlockStack>
             </Card>
@@ -647,16 +649,16 @@ export default function HelpPage() {
           <BlockStack gap="400">
             <Card>
               <BlockStack gap="300">
-                <SectionHeader icon={ExternalIcon} title="Quick links" />
+                <SectionHeader icon={ExternalIcon} title={t("Quick links")} />
                 <BlockStack gap="200">
                   <Button url={themeEditorBlockUrl} target="_blank" fullWidth icon={CalendarIcon}>
-                    Add calendar block
+                    {t("Add calendar block")}
                   </Button>
                   <Button url={themeEditorEmbedUrl} target="_blank" fullWidth icon={CodeIcon}>
-                    Enable display rules
+                    {t("Enable display rules")}
                   </Button>
                   <Button url={appEmbedsUrl} target="_blank" fullWidth variant="plain">
-                    All app embeds
+                    {t("All app embeds")}
                   </Button>
                 </BlockStack>
               </BlockStack>
@@ -664,45 +666,45 @@ export default function HelpPage() {
 
             <Card>
               <BlockStack gap="300">
-                <SectionHeader icon={ChatIcon} title="Talk to a human" tone="success" iconBg="#ecfdf5" />
+                <SectionHeader icon={ChatIcon} title={t("Talk to a human")} tone="success" iconBg="#ecfdf5" />
                 <Text as="p" tone="subdued">
-                  Stuck on something? Email our team and we will get back to you within one business day.
+                  {t("Stuck on something? Email our team and we will get back to you within one business day.")}
                 </Text>
-                <Button onClick={() => openMailto("Miko support request")} fullWidth variant="primary" icon={EmailIcon}>
-                  Email our team
+                <Button onClick={() => openMailto(t("Miko support request"))} fullWidth variant="primary" icon={EmailIcon}>
+                  {t("Email our team")}
                 </Button>
               </BlockStack>
             </Card>
 
             <Card>
               <BlockStack gap="300">
-                <SectionHeader icon={MagicIcon} title="Beyond rentals?" />
+                <SectionHeader icon={MagicIcon} title={t("Beyond rentals?")} />
                 <Text as="p" tone="subdued">
-                  Want to use Miko for event bookings, equipment hire, studio time, or any other date based booking? Tell us your use case and we will see if we can help.
+                  {t("Want to use Miko for event bookings, equipment hire, studio time, or any other date based booking? Tell us your use case and we will see if we can help.")}
                 </Text>
                 <Button
                   onClick={() =>
                     openMailto(
-                      "Use case beyond rentals",
-                      "Hi Miko team,\n\nI run a store on Shopify and I'm interested in using Miko for:\n\n(Describe your use case here, e.g. event bookings, equipment hire, studio time, appointments...)\n\nIs this something you can help with?\n\nThanks!",
+                      t("Use case beyond rentals"),
+                      t("Hi Miko team,\n\nI run a store on Shopify and I'm interested in using Miko for:\n\n(Describe your use case here, e.g. event bookings, equipment hire, studio time, appointments...)\n\nIs this something you can help with?\n\nThanks!"),
                     )
                   }
                   fullWidth
                   icon={EmailIcon}
                 >
-                  Share your use case
+                  {t("Share your use case")}
                 </Button>
               </BlockStack>
             </Card>
 
             <Card>
               <BlockStack gap="300">
-                <SectionHeader icon={LockIcon} title="Privacy and your data" tone="subdued" iconBg="#f3f4f6" />
+                <SectionHeader icon={LockIcon} title={t("Privacy and your data")} tone="subdued" iconBg="#f3f4f6" />
                 <Text as="p" tone="subdued">
-                  Miko only stores the data you create through the app: rental products, bookings, settings, and email templates. Customer data is limited to the name, email, and phone attached to orders.
+                  {t("Miko only stores the data you create through the app: rental products, bookings, settings, and email templates. Customer data is limited to the name, email, and phone attached to orders.")}
                 </Text>
                 <Text as="p" tone="subdued">
-                  When you uninstall, your sessions are deleted right away and a 48 hour retention window lets you reinstall without losing anything. After that, your shop's data is fully deleted.
+                  {t("When you uninstall, your sessions are deleted right away and a 48 hour retention window lets you reinstall without losing anything. After that, your shop's data is fully deleted.")}
                 </Text>
               </BlockStack>
             </Card>

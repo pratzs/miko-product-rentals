@@ -37,13 +37,14 @@ import { dismissReviewPrompt, shouldShowReviewPrompt } from "../review-prompt.se
 import { format, isToday, isTomorrow } from "date-fns";
 import { formatCurrency } from "../utils/pricing";
 import { checkRentalLimit, getPlan } from "../utils/plans";
+import { useT } from "../i18n/context";
 
 /** Client-safe App Store write-a-review deep link for this app's listing. */
 const APP_STORE_REVIEW_URL =
   "https://apps.shopify.com/miko-product-rentals#modal-show=WriteReviewModal";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
-  const { session } = await authenticate.admin(request);
+  const { session, admin } = await authenticate.admin(request);
   const shop = session.shop;
 
   const [config, totalProducts, liveProducts, totalBookingsCount, bookings] = await Promise.all([
@@ -161,7 +162,38 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 
   const showReviewPrompt = await shouldShowReviewPrompt(shop);
 
+  // Dry-run nudge: every real merchant who finished setup still had zero
+  // bookings (measured 2026-09-02), so the step after "calendar live" is
+  // proving the flow works by booking it yourself. Only fetch the storefront
+  // URL in that narrow window — one Admin API call, and only until the first
+  // booking arrives.
+  let dryRun: { url: string; title: string } | null = null;
+  if (steps.calendarLive && totalBookingsCount === 0 && liveProducts > 0) {
+    try {
+      const firstActive = await db.rentalProduct.findFirst({
+        where: { shop, isActive: true },
+        orderBy: { createdAt: "asc" },
+      });
+      if (firstActive) {
+        const res = await admin.graphql(
+          `#graphql
+          query DryRunProductUrl($id: ID!) {
+            product(id: $id) { title onlineStoreUrl onlineStorePreviewUrl }
+          }`,
+          { variables: { id: firstActive.shopifyProductId } },
+        );
+        const body = await res.json();
+        const p = body?.data?.product;
+        const url = p?.onlineStoreUrl || p?.onlineStorePreviewUrl;
+        if (url) dryRun = { url, title: p.title || firstActive.shopifyProductTitle };
+      }
+    } catch {
+      // The nudge is a nice-to-have; the dashboard must never fail over it.
+    }
+  }
+
   return json({
+    dryRun,
     showReviewPrompt,
     shop,
     shopHandle,
@@ -222,7 +254,7 @@ const STATUS_BADGE: Record<string, { tone: any; label: string }> = {
   active:    { tone: "success",   label: "Out on rental" },
   returned:  { tone: "success",   label: "Returned" },
   overdue:   { tone: "critical",  label: "Overdue" },
-  cancelled: { tone: "subdued",   label: "Cancelled" },
+  cancelled: { tone: "subdued",   label: "Canceled" },
 };
 
 export const action = async ({ request }: ActionFunctionArgs) => {
@@ -248,8 +280,10 @@ export default function Dashboard() {
     needsReviewCount,
     reinstalledFromPaid,
     showReviewPrompt,
+    dryRun,
   } = useLoaderData<typeof loader>();
   const navigate = useNavigate();
+  const t = useT();
 
   // Deep-links to the product template with the "add block" prompt open for
   // the Miko Rental Calendar block (client ID + handle).
@@ -267,122 +301,131 @@ export default function Dashboard() {
     onAction: () => void;
   }[] = [
     {
-      title: "Add your first rental product",
-      description: "Pick any product from your store and turn it into a rental. Its normal listing stays exactly the same.",
+      title: t("Add your first rental product"),
+      description: t("Pick any product from your store and turn it into a rental. Its normal listing stays exactly the same."),
       done: onboarding.steps.productAdded,
-      actionLabel: "Add a product",
+      actionLabel: t("Add a product"),
       onAction: () => navigate("/app/products/new"),
     },
     {
-      title: "Set your pricing and switch it on",
-      description: "Add a daily rate (weekly and monthly are optional), then activate the product so customers can book it.",
+      title: t("Set your pricing and switch it on"),
+      description: t("Add a daily rate (weekly and monthly are optional), then activate the product so customers can book it."),
       done: onboarding.steps.pricingLive,
-      actionLabel: "Set pricing",
+      actionLabel: t("Set pricing"),
       onAction: () => navigate("/app/products"),
     },
     {
-      title: "Show the booking calendar on your store",
-      description: "Add the Miko Rental Calendar block to your product page in the theme editor. We tick this off automatically once it goes live.",
+      title: t("Show the booking calendar on your store"),
+      description: t("Add the Miko Rental Calendar block to your product page in the theme editor. We tick this off automatically once it goes live."),
       done: onboarding.steps.calendarLive,
-      actionLabel: "Open theme editor",
+      actionLabel: t("Open theme editor"),
       onAction: () => window.open(themeEditorUrl, "_blank"),
     },
     {
-      title: "Turn on the storefront display rules",
-      description: "Enable the Miko Rental Display Rules app embed. It hides the regular price and Add to cart button on rental products so customers only check out through the rental flow. Auto-detected once the embed loads on a storefront page.",
+      title: t("Turn on the storefront display rules"),
+      description: t("Enable the Miko Rental Display Rules app embed. It hides the regular price and Add to cart button on rental products so customers only check out through the rental flow. Auto-detected once the embed loads on a storefront page."),
       done: onboarding.steps.displayRulesLive,
-      actionLabel: "Open app embeds",
+      actionLabel: t("Open app embeds"),
       onAction: () => window.open(displayRulesUrl, "_blank"),
     },
     {
-      title: "Set how your emails are signed",
-      description: "Choose the sender name customers see on their booking confirmation and reminder emails.",
+      title: t("Set how your emails are signed"),
+      description: t("Choose the sender name customers see on their booking confirmation and reminder emails."),
       done: onboarding.steps.emailReady,
-      actionLabel: "Set sender name",
+      actionLabel: t("Set sender name"),
       onAction: () => navigate("/app/settings"),
     },
   ];
 
   const statCards = [
     {
-      label: "Out on rental now",
+      label: t("Out on rental now"),
       value: stats.activeBookings.toString(),
       sublabel:
         stats.confirmedBookings > 0
-          ? `${stats.confirmedBookings} more confirmed, not yet started`
-          : "Items currently with customers",
+          ? t("{n} more confirmed, not yet started", { n: stats.confirmedBookings })
+          : t("Items currently with customers"),
       accent: "#10b981",
       accentBg: "#ecfdf5",
       icon: CalendarIcon,
     },
     {
-      label: "Awaiting payment",
+      label: t("Awaiting payment"),
       value: stats.pendingPaymentBookings.toString(),
       sublabel:
         stats.pendingPaymentBookings > 0
-          ? `${formatCurrency(stats.pendingPaymentValue, currency)} unpaid. Mark orders paid in Shopify.`
-          : "All recent orders are paid",
+          ? t("{amount} unpaid. Mark orders paid in Shopify.", {
+              amount: formatCurrency(stats.pendingPaymentValue, currency),
+            })
+          : t("All recent orders are paid"),
       accent: stats.pendingPaymentBookings > 0 ? "#f59e0b" : "#9ca3af",
       accentBg: stats.pendingPaymentBookings > 0 ? "#fffbeb" : "#f3f4f6",
       icon: CreditCardIcon,
     },
     {
-      label: "Overdue returns",
+      label: t("Overdue returns"),
       value: stats.overdueBookings.toString(),
-      sublabel: stats.overdueBookings > 0 ? "Past the return date" : "Everything on track",
+      sublabel: stats.overdueBookings > 0 ? t("Past the return date") : t("Everything on track"),
       accent: stats.overdueBookings > 0 ? "#ef4444" : "#9ca3af",
       accentBg: stats.overdueBookings > 0 ? "#fef2f2" : "#f3f4f6",
       icon: ClockIcon,
     },
     {
-      label: "Deposits held",
+      label: t("Deposits held"),
       value: formatCurrency(stats.depositsHeld, currency),
       sublabel:
         stats.depositsHeldCount > 0
-          ? `Owed back across ${stats.depositsHeldCount} booking${stats.depositsHeldCount > 1 ? "s" : ""}`
-          : "No deposits outstanding",
+          ? stats.depositsHeldCount > 1
+            ? t("Owed back across {n} bookings", { n: stats.depositsHeldCount })
+            : t("Owed back across {n} booking", { n: stats.depositsHeldCount })
+          : t("No deposits outstanding"),
       accent: "#6366f1",
       accentBg: "#eef2ff",
       icon: CashDollarIcon,
     },
     {
-      label: "Revenue this month",
+      label: t("Revenue this month"),
       value: formatCurrency(stats.thisMonthRevenue, currency),
-      sublabel: `${formatCurrency(stats.totalRevenue, currency)} all time (rental fees only)`,
+      sublabel: t("{amount} all time (rental fees only)", {
+        amount: formatCurrency(stats.totalRevenue, currency),
+      }),
       accent: "#0ea5e9",
       accentBg: "#f0f9ff",
       icon: CashDollarIcon,
     },
     {
-      label: "Rental products",
+      label: t("Rental products"),
       value: stats.totalProducts.toString(),
-      sublabel: `${stats.totalBookings} total bookings`,
+      sublabel: t("{n} total bookings", { n: stats.totalBookings }),
       accent: "#8b5cf6",
       accentBg: "#f5f3ff",
       icon: ProductIcon,
     },
   ];
 
-  const tableRows = recentBookings.map((b) => [
-    b.orderName || "-",
-    b.customerName,
-    b.productTitle,
-    format(new Date(b.startDate), "d MMM yyyy"),
-    format(new Date(b.endDate), "d MMM yyyy"),
-    formatCurrency(b.totalCharged, currency),
-    <Badge tone={STATUS_BADGE[b.status]?.tone || "subdued"}>
-      {STATUS_BADGE[b.status]?.label || b.status}
-    </Badge>,
-  ]);
+  const tableRows = recentBookings.map((b) => {
+    const badge = STATUS_BADGE[b.status];
+    return [
+      b.orderName || "-",
+      b.customerName,
+      b.productTitle,
+      format(new Date(b.startDate), "d MMM yyyy"),
+      format(new Date(b.endDate), "d MMM yyyy"),
+      formatCurrency(b.totalCharged, currency),
+      <Badge tone={badge?.tone || "subdued"}>
+        {badge ? t(badge.label) : b.status}
+      </Badge>,
+    ];
+  });
 
   return (
     <Page
-      title="Dashboard"
-      subtitle="Welcome to Miko Product Rentals"
+      title={t("Dashboard")}
+      subtitle={t("Welcome to Miko Product Rentals")}
       primaryAction={
         stats.totalProducts === 0
-          ? { content: "Enable your first rental", onAction: () => navigate("/app/products") }
-          : { content: "View all bookings", onAction: () => navigate("/app/bookings") }
+          ? { content: t("Enable your first rental"), onAction: () => navigate("/app/products") }
+          : { content: t("View all bookings"), onAction: () => navigate("/app/bookings") }
       }
     >
       <BlockStack gap="600">
@@ -396,25 +439,24 @@ export default function Dashboard() {
               <div className="miko-status-dot" style={{ width: 8, height: 8, borderRadius: "50%", background: "#3ecf8e", boxShadow: "0 0 8px #3ecf8e", flexShrink: 0 }} />
               <Text as="span" variant="bodySm">
                 <span style={{ color: "rgba(255,255,255,0.8)" }}>
-                  {stats.totalProducts > 0 ? "Your rentals are live" : "Let's set up your first rental"}
+                  {stats.totalProducts > 0 ? t("Your rentals are live") : t("Let's set up your first rental")}
                 </span>
               </Text>
             </div>
             <Text as="h2" variant="headingXl" fontWeight="bold">
-              <span style={{ color: "white" }}>Rent out your products, effortlessly.</span>
+              <span style={{ color: "white" }}>{t("Rent out your products, effortlessly.")}</span>
             </Text>
             <Text as="p" variant="bodyLg">
               <span style={{ color: "rgba(255,255,255,0.9)" }}>
-                Let customers book by the day with live availability, flexible dates, and refundable
-                deposits, all handled automatically at checkout.
+                {t("Let customers book by the day with live availability, flexible dates, and refundable deposits, all handled automatically at checkout.")}
               </span>
             </Text>
             <div style={{ display: "flex", gap: 8, marginTop: 4, flexWrap: "wrap" }}>
               <Button variant="primary" tone="success" size="large" onClick={() => navigate(stats.totalProducts === 0 ? "/app/products" : "/app/bookings")}>
-                {stats.totalProducts === 0 ? "Enable your first rental" : "View bookings"}
+                {stats.totalProducts === 0 ? t("Enable your first rental") : t("View bookings")}
               </Button>
               <Button variant="secondary" size="large" onClick={() => navigate("/app/help")}>
-                See how it works
+                {t("See how it works")}
               </Button>
             </div>
           </div>
@@ -426,8 +468,8 @@ export default function Dashboard() {
         {showReviewPrompt && (
           <ReviewPrompt
             reviewUrl={APP_STORE_REVIEW_URL}
-            title="Your first rental booking just came through"
-            message="If Miko Product Rentals is working well for you, a short review on the Shopify App Store helps other rental businesses find it, and means a lot to our small team in Auckland."
+            title={t("Your first rental booking just came through")}
+            message={t("If Miko Product Rentals is working well for you, a short review on the Shopify App Store helps other rental businesses find it, and means a lot to our small team in Auckland.")}
           />
         )}
         {!onboardingCompleted && (
@@ -435,13 +477,16 @@ export default function Dashboard() {
             <BlockStack gap="400">
               <BlockStack gap="100">
                 <InlineStack align="space-between" blockAlign="center">
-                  <Text as="h2" variant="headingMd">Get your rentals up and running</Text>
+                  <Text as="h2" variant="headingMd">{t("Get your rentals up and running")}</Text>
                   <Badge tone={onboarding.allStepsDone ? "success" : "attention"}>
-                    {`${onboarding.stepsDone} of ${onboarding.totalSteps} done`}
+                    {t("{done} of {total} done", {
+                      done: onboarding.stepsDone,
+                      total: onboarding.totalSteps,
+                    })}
                   </Badge>
                 </InlineStack>
                 <Text as="p" tone="subdued">
-                  Work through these steps and your first product will be ready to rent. Each one ticks itself off as soon as we detect it is done, so there is nothing to mark by hand.
+                  {t("Work through these steps and your first product will be ready to rent. Each one ticks itself off as soon as we detect it is done, so there is nothing to mark by hand.")}
                 </Text>
               </BlockStack>
 
@@ -481,7 +526,7 @@ export default function Dashboard() {
                         </Box>
                         <Box minWidth="fit-content">
                           {step.done ? (
-                            <Badge tone="success">Done</Badge>
+                            <Badge tone="success">{t("Done")}</Badge>
                           ) : (
                             <Button onClick={step.onAction}>{step.actionLabel}</Button>
                           )}
@@ -493,74 +538,112 @@ export default function Dashboard() {
               </BlockStack>
 
               {onboarding.allStepsDone && (
-                <Banner tone="success" title="You are all set. Your store is ready to take rental bookings.">
-                  <p>This checklist will disappear on its own now that every step is complete.</p>
+                <Banner tone="success" title={t("You are all set. Your store is ready to take rental bookings.")}>
+                  <p>{t("This checklist will disappear on its own now that every step is complete.")}</p>
                 </Banner>
               )}
 
               <InlineStack>
                 <Button variant="plain" onClick={() => navigate("/app/help")}>
-                  Full setup guide and FAQ →
+                  {t("Full setup guide and FAQ →")}
                 </Button>
               </InlineStack>
             </BlockStack>
           </Card>
         )}
 
-        {usage.atLimit && (
+        {dryRun && (
           <Banner
-            title={`You have reached your ${usage.planLabel} plan limit of ${usage.limit} rentals${usage.isLifetime ? "" : " this month"}`}
-            tone="warning"
-            action={{ content: "See plans", onAction: () => navigate("/app/pricing") }}
+            tone="info"
+            title={t("Setup is done: now book it yourself, once")}
+            action={{
+              content: t("Open {product} on your store", { product: dryRun.title }),
+              onAction: () => window.open(dryRun.url, "_blank"),
+            }}
           >
             <p>
-              New online bookings are paused until you upgrade
-              {usage.isLifetime ? "" : ", or until your count resets next month"}. Your existing bookings are safe. Upgrade any time to start taking rentals again right away.
+              {t("The fastest way to know everything works is a dry run: open your rental on the storefront, pick dates, and check out exactly like a customer would. You will see the booking land here within a minute, and you can cancel and refund it straight away. This banner disappears on its own after the first booking.")}
+            </p>
+          </Banner>
+        )}
+
+        {usage.atLimit && (
+          <Banner
+            title={
+              usage.isLifetime
+                ? t("You have reached your {plan} plan limit of {limit} rentals", {
+                    plan: usage.planLabel,
+                    limit: usage.limit,
+                  })
+                : t("You have reached your {plan} plan limit of {limit} rentals this month", {
+                    plan: usage.planLabel,
+                    limit: usage.limit,
+                  })
+            }
+            tone="warning"
+            action={{ content: t("See plans"), onAction: () => navigate("/app/pricing") }}
+          >
+            <p>
+              {usage.isLifetime
+                ? t("New online bookings are paused until you upgrade. Your existing bookings are safe. Upgrade any time to start taking rentals again right away.")
+                : t("New online bookings are paused until you upgrade, or until your count resets next month. Your existing bookings are safe. Upgrade any time to start taking rentals again right away.")}
             </p>
           </Banner>
         )}
 
         {usage.nearLimit && !usage.atLimit && (
           <Banner
-            title={`You have used ${usage.current} of your ${usage.limit} rentals on the ${usage.planLabel} plan`}
+            title={t("You have used {current} of your {limit} rentals on the {plan} plan", {
+              current: usage.current,
+              limit: usage.limit,
+              plan: usage.planLabel,
+            })}
             tone="info"
-            action={{ content: "See plans", onAction: () => navigate("/app/pricing") }}
+            action={{ content: t("See plans"), onAction: () => navigate("/app/pricing") }}
           >
-            <p>You are getting close to your plan limit. Upgrading now keeps new bookings flowing without a gap.</p>
+            <p>{t("You are getting close to your plan limit. Upgrading now keeps new bookings flowing without a gap.")}</p>
           </Banner>
         )}
 
         {reinstalledFromPaid && (
           <Banner
             tone="warning"
-            title="Welcome back. Your previous paid plan has ended."
-            action={{ content: "Reactivate plan", onAction: () => navigate("/app/pricing") }}
+            title={t("Welcome back. Your previous paid plan has ended.")}
+            action={{ content: t("Reactivate plan"), onAction: () => navigate("/app/pricing") }}
           >
             <p>
-              Your previous Miko subscription was cancelled when you uninstalled the app. You're back on the Free plan. Reactivate any paid plan to lift the rental limits.
+              {t("Your previous Miko subscription was canceled when you uninstalled the app. You're back on the Free plan. Reactivate any paid plan to lift the rental limits.")}
             </p>
           </Banner>
         )}
 
         {needsReviewCount > 0 && (
           <Banner
-            title={`${needsReviewCount} booking${needsReviewCount > 1 ? "s need" : " needs"} review`}
+            title={
+              needsReviewCount > 1
+                ? t("{n} bookings need review", { n: needsReviewCount })
+                : t("{n} booking needs review", { n: needsReviewCount })
+            }
             tone="warning"
-            action={{ content: "Review now", onAction: () => navigate("/app/bookings?status=needs_review") }}
+            action={{ content: t("Review now"), onAction: () => navigate("/app/bookings?status=needs_review") }}
           >
             <p>
-              Orders came in for dates that would exceed your available units. Reach out to those customers to adjust dates or refund, otherwise you may end up overbooked.
+              {t("Orders came in for dates that would exceed your available units. Reach out to those customers to adjust dates or refund, otherwise you may end up overbooked.")}
             </p>
           </Banner>
         )}
 
         {overdueCount > 0 && (
           <Banner
-            title={`${overdueCount} rental${overdueCount > 1 ? "s are" : " is"} overdue`}
+            title={
+              overdueCount > 1
+                ? t("{n} rentals are overdue", { n: overdueCount })
+                : t("{n} rental is overdue", { n: overdueCount })
+            }
             tone="critical"
-            action={{ content: "Review overdue bookings", onAction: () => navigate("/app/bookings?status=overdue") }}
+            action={{ content: t("Review overdue bookings"), onAction: () => navigate("/app/bookings?status=overdue") }}
           >
-            <p>These items have not been returned past their due date. Contact the customers and apply late fees if needed.</p>
+            <p>{t("These items have not been returned past their due date. Contact the customers and apply late fees if needed.")}</p>
           </Banner>
         )}
 
@@ -602,22 +685,22 @@ export default function Dashboard() {
             <Card>
               <BlockStack gap="400">
                 <InlineStack align="space-between" blockAlign="center">
-                  <Text as="h2" variant="headingMd">Recent bookings</Text>
+                  <Text as="h2" variant="headingMd">{t("Recent bookings")}</Text>
                   <Button variant="plain" onClick={() => navigate("/app/bookings")}>
-                    View all
+                    {t("View all")}
                   </Button>
                 </InlineStack>
                 {recentBookings.length === 0 ? (
                   <EmptyState
-                    heading="No bookings yet"
+                    heading={t("No bookings yet")}
                     image=""
                   >
-                    <p>Once customers rent products, their bookings will appear here.</p>
+                    <p>{t("Once customers rent products, their bookings will appear here.")}</p>
                   </EmptyState>
                 ) : (
                   <DataTable
                     columnContentTypes={["text","text","text","text","text","numeric","text"]}
-                    headings={["Order","Customer","Product","Start date","Return by","Charged","Status"]}
+                    headings={[t("Order"),t("Customer"),t("Product"),t("Start date"),t("Return by"),t("Charged"),t("Status")]}
                     rows={tableRows}
                     hoverable
                   />
@@ -630,12 +713,12 @@ export default function Dashboard() {
           <Layout.Section variant="oneThird">
             <Card>
               <BlockStack gap="400">
-                <Text as="h2" variant="headingMd">Upcoming rentals</Text>
+                <Text as="h2" variant="headingMd">{t("Upcoming rentals")}</Text>
                 <Text as="p" variant="bodySm" tone="subdued">
-                  Confirmed bookings starting soon
+                  {t("Confirmed bookings starting soon")}
                 </Text>
                 {upcomingBookings.length === 0 ? (
-                  <Text as="p" tone="subdued">No upcoming rentals.</Text>
+                  <Text as="p" tone="subdued">{t("No upcoming rentals.")}</Text>
                 ) : (
                   <BlockStack gap="300">
                     {upcomingBookings.map((b, i) => (
@@ -647,15 +730,15 @@ export default function Dashboard() {
                               <Text as="p" variant="bodyMd" fontWeight="medium">{b.customerName}</Text>
                               <Badge tone={isToday(new Date(b.startDate)) ? "success" : isTomorrow(new Date(b.startDate)) ? "attention" : "info"}>
                                 {isToday(new Date(b.startDate))
-                                  ? "Starts today"
+                                  ? t("Starts today")
                                   : isTomorrow(new Date(b.startDate))
-                                  ? "Starts tomorrow"
+                                  ? t("Starts tomorrow")
                                   : format(new Date(b.startDate), "d MMM")}
                               </Badge>
                             </InlineStack>
                             <Text as="p" variant="bodySm" tone="subdued">{b.productTitle}</Text>
                             <Text as="p" variant="bodySm" tone="subdued">
-                              Returns {format(new Date(b.endDate), "d MMM yyyy")}
+                              {t("Returns {date}", { date: format(new Date(b.endDate), "d MMM yyyy") })}
                             </Text>
                           </BlockStack>
                         </Box>

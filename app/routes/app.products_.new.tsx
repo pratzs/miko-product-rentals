@@ -15,6 +15,7 @@ import {
 import { authenticate } from "../shopify.server";
 import { db } from "../db.server";
 import { useState, useCallback } from "react";
+import { useT } from "../i18n/context";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   await authenticate.admin(request);
@@ -56,6 +57,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 };
 
 export default function NewProductPage() {
+  const t = useT();
   const navigate = useNavigate();
   const submit = useSubmit();
   const actionData = useActionData<typeof action>();
@@ -100,9 +102,9 @@ export default function NewProductPage() {
 
   return (
     <Page
-      title="Add Rental Product"
-      subtitle="Choose a product from your store to enable for rental."
-      backAction={{ content: "Rental Products", url: "/app/products" }}
+      title={t("Add Rental Product")}
+      subtitle={t("Choose a product from your store to enable for rental.")}
+      backAction={{ content: t("Rental Products"), url: "/app/products" }}
     >
       <BlockStack gap="600">
         {actionData && "error" in actionData && (
@@ -112,25 +114,23 @@ export default function NewProductPage() {
         <Card>
           <BlockStack gap="500">
             <BlockStack gap="200">
-              <Text as="h2" variant="headingMd">Select a product</Text>
+              <Text as="h2" variant="headingMd">{t("Select a product")}</Text>
               <Text as="p" tone="subdued">
-                Pick any physical product you want to make available for rental.
-                The product's existing Shopify listing stays unchanged - Miko Rentals
-                adds a booking calendar to it automatically.
+                {t("Pick any physical product you want to make available for rental. The product's existing Shopify listing stays unchanged - Miko Rentals adds a booking calendar to it automatically.")}
               </Text>
             </BlockStack>
 
             {!selectedProduct ? (
               <EmptyState
-                heading="No product selected yet"
+                heading={t("No product selected yet")}
                 action={{
-                  content: picking ? "Opening picker…" : "Browse products",
+                  content: picking ? t("Opening picker…") : t("Browse products"),
                   onAction: openPicker,
                   loading: picking,
                 }}
                 image=""
               >
-                <p>Click Browse products to pick from your Shopify catalogue.</p>
+                <p>{t("Click Browse products to pick from your Shopify catalog.")}</p>
               </EmptyState>
             ) : (
               <BlockStack gap="400">
@@ -143,17 +143,17 @@ export default function NewProductPage() {
                   <BlockStack gap="100">
                     <Text as="p" variant="headingMd">{selectedProduct.title}</Text>
                     <Text as="p" variant="bodySm" tone="subdued">
-                      ID: {selectedProduct.id}
+                      {t("ID: {id}", { id: selectedProduct.id })}
                     </Text>
                   </BlockStack>
                 </InlineStack>
 
                 <InlineStack gap="300">
                   <Button variant="primary" onClick={confirmSelection}>
-                    Add this product
+                    {t("Add this product")}
                   </Button>
                   <Button variant="plain" onClick={() => setSelectedProduct(null)}>
-                    Choose a different product
+                    {t("Choose a different product")}
                   </Button>
                 </InlineStack>
               </BlockStack>
@@ -162,7 +162,7 @@ export default function NewProductPage() {
             {!selectedProduct && (
               <InlineStack>
                 <Button onClick={openPicker} loading={picking}>
-                  Browse products
+                  {t("Browse products")}
                 </Button>
               </InlineStack>
             )}

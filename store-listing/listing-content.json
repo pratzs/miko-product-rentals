@@ -1,0 +1,41 @@
+{
+  "_comment": "SEEDED FROM LIVE 2026-09-14 (apps.shopify.com/miko-product-rentals). Run: node store-listing/check-listing.cjs",
+  "name": "Miko Product Rentals & Hire",
+  "subtitle": "Rent out equipment or any product with bookings and deposits",
+  "introduction": "Turn products into rentals with date pickers, deposits, and overbooking protection built in.",
+  "details": "Miko adds a rental and hire layer to products you already sell. Customers pick dates on the product page and book through your normal cart and checkout, with no separate flows or draft orders. Each booking carries a rental amount plus a refundable deposit. Manage active rentals, returns, late fees and deposit refunds from one dashboard. Multi-unit inventory and a date-aware availability calendar prevent overbooking. Miko sends booking confirmations, return reminders and overdue emails.",
+  "features": [
+    "Date picker and availability calendar on every rental product page",
+    "Standard cart and checkout flow, with the rental amount set automatically",
+    "Multi-unit inventory with day-by-day overbooking prevention",
+    "Refundable deposit with one-click refunds to the original payment method",
+    "Automated booking confirmations, return reminders and overdue emails"
+  ],
+  "searchTerms": [
+    "rental booking",
+    "availability",
+    "refundable deposit",
+    "late fees",
+    "date picker"
+  ],
+  "titleTag": "Shopify Rental & Hire App | Bookings, Deposits, Calendar",
+  "metaDescription": "Rent out equipment or any product on Shopify: date pickers, an availability calendar, refundable deposits, late fees and day-by-day overbooking prevention.",
+  "worksWith": [
+    "Checkout",
+    "Shopify Admin"
+  ],
+  "imageText": [],
+  "screenshotAltText": {
+    "featured-1600x900.png": "Storefront date picker for choosing a rental period",
+    "ss1-units-1600x900.png": "Live unit availability for multi-unit product rentals",
+    "ss2-checkout-1600x900.png": "Rental amount and deposit as checkout line items",
+    "ss3-dashboard-1600x900.png": "Rental dashboard: active, upcoming, completed bookings",
+    "ss4-deposit-1600x900.png": "Deposit status card with one-click refund button",
+    "ss5-calendar-1600x900.png": "Month view calendar of booked and open rental dates"
+  },
+  "testingInstructions": "Install on a development store with at least one product.\n1. Mark a product as rentable and set the rental amount, deposit and minimum period.\n2. Storefront: pick a start and end date. Unavailable dates are blocked.\n3. Add to cart and check out. The rental amount and refundable deposit appear as line items.\n4. Dashboard: the booking shows as upcoming, then active. Mark it returned.\n5. Refund the deposit with one click, and confirm late fees on an overdue booking.\nSupport: hello@tripsterdevelopers.com",
+  "allowedPricingTerms": {
+    "fee": "A late fee is what the MERCHANT charges their renter for a late return. It is a feature they configure, not what we charge them. Present on the live approved listing.",
+    "fees": "Same as 'fee'. 'late fees' is the rental-industry term for the merchant's own overdue charge, and is a configurable feature (15 source files)."
+  }
+}

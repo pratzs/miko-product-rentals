@@ -40,6 +40,7 @@ import {
   compileBlocksToHtml,
   type BrandSettings,
 } from "../utils/email-templates";
+import { useT } from "../i18n/context";
 
 // ---------------------------------------------------------------------------
 // Loader
@@ -190,6 +191,7 @@ const BUILT_IN_TYPES = [
 export default function EmailsPage() {
   const { config, templates } =
     useLoaderData<typeof loader>();
+  const t = useT();
   const brandFetcher = useFetcher<typeof action>();
   const actionFetcher = useFetcher<typeof action>();
 
@@ -230,10 +232,10 @@ export default function EmailsPage() {
 
   return (
     <Page
-      title="Email Templates"
-      subtitle="Customise the emails sent to your customers."
+      title={t("Email Templates")}
+      subtitle={t("Customize the emails sent to your customers.")}
       primaryAction={{
-        content: "Add template",
+        content: t("Add template"),
         url: "/app/emails/new",
       }}
     >
@@ -252,7 +254,7 @@ export default function EmailsPage() {
               {/* Automated emails */}
               <BlockStack gap="300">
                 <Text as="h2" variant="headingMd">
-                  Automated emails
+                  {t("Automated emails")}
                 </Text>
 
                 {BUILT_IN_TYPES.map(({ type, label, description, icon }) => {
@@ -264,26 +266,26 @@ export default function EmailsPage() {
                           <Icon source={icon} />
                           <BlockStack gap="100">
                             <Text as="p" variant="bodyMd" fontWeight="semibold">
-                              {label}
+                              {t(label)}
                             </Text>
                             <Text as="p" variant="bodySm" tone="subdued">
-                              {tmpl ? tmpl.subject : description}
+                              {tmpl ? tmpl.subject : t(description)}
                             </Text>
                           </BlockStack>
                         </InlineStack>
                         <InlineStack gap="200" blockAlign="center">
                           {tmpl && (
                             <Badge tone={tmpl.isActive ? "success" : undefined}>
-                              {tmpl.isActive ? "Active" : "Inactive"}
+                              {tmpl.isActive ? t("Active") : t("Inactive")}
                             </Badge>
                           )}
                           {tmpl ? (
-                            <Button url={`/app/emails/${tmpl.id}`}>Edit</Button>
+                            <Button url={`/app/emails/${tmpl.id}`}>{t("Edit")}</Button>
                           ) : (
                             <Form method="post">
                               <input type="hidden" name="intent" value="create_default" />
                               <input type="hidden" name="type" value={type} />
-                              <Button submit>Set up</Button>
+                              <Button submit>{t("Set up")}</Button>
                             </Form>
                           )}
                         </InlineStack>
@@ -299,20 +301,19 @@ export default function EmailsPage() {
               <BlockStack gap="300">
                 <InlineStack align="space-between" blockAlign="center">
                   <Text as="h2" variant="headingMd">
-                    Custom templates
+                    {t("Custom templates")}
                   </Text>
-                  <Button url="/app/emails/new">Add template</Button>
+                  <Button url="/app/emails/new">{t("Add template")}</Button>
                 </InlineStack>
 
                 {customTemplates.length === 0 ? (
                   <Card>
                     <EmptyState
-                      heading="No custom templates yet"
+                      heading={t("No custom templates yet")}
                       image="https://cdn.shopify.com/s/files/1/0262/4071/2726/files/emptystate-files.png"
                     >
                       <Text as="p">
-                        Create custom templates for special occasions or
-                        one-off communications.
+                        {t("Create custom templates for special occasions or one-off communications.")}
                       </Text>
                     </EmptyState>
                   </Card>
@@ -330,9 +331,9 @@ export default function EmailsPage() {
                         </BlockStack>
                         <InlineStack gap="200" blockAlign="center">
                           <Badge tone={tmpl.isActive ? "success" : undefined}>
-                            {tmpl.isActive ? "Active" : "Inactive"}
+                            {tmpl.isActive ? t("Active") : t("Inactive")}
                           </Badge>
-                          <Button url={`/app/emails/${tmpl.id}`}>Edit</Button>
+                          <Button url={`/app/emails/${tmpl.id}`}>{t("Edit")}</Button>
                           <actionFetcher.Form method="post">
                             <input
                               type="hidden"
@@ -345,7 +346,7 @@ export default function EmailsPage() {
                               submit
                               loading={actionFetcher.state !== "idle"}
                             >
-                              Delete
+                              {t("Delete")}
                             </Button>
                           </actionFetcher.Form>
                         </InlineStack>
@@ -362,10 +363,10 @@ export default function EmailsPage() {
             <Card>
               <BlockStack gap="400">
                 <Text as="h2" variant="headingMd">
-                  Brand settings
+                  {t("Brand settings")}
                 </Text>
                 <Text as="p" variant="bodySm" tone="subdued">
-                  These settings are applied to all your email templates.
+                  {t("These settings are applied to all your email templates.")}
                 </Text>
                 <Divider />
 
@@ -380,12 +381,12 @@ export default function EmailsPage() {
                     {/* Logo upload */}
                     <BlockStack gap="200">
                       <Text as="p" variant="bodyMd">
-                        Logo
+                        {t("Logo")}
                       </Text>
                       {logoPreview && (
                         <Thumbnail
                           source={logoPreview}
-                          alt="Brand logo preview"
+                          alt={t("Brand logo preview")}
                           size="large"
                         />
                       )}
@@ -396,40 +397,40 @@ export default function EmailsPage() {
                         onDrop={handleDropZoneDrop}
                       >
                         <DropZone.FileUpload
-                          actionTitle="Add logo"
-                          actionHint="or drop an image to upload"
+                          actionTitle={t("Add logo")}
+                          actionHint={t("or drop an image to upload")}
                         />
                       </DropZone>
                       <Text as="p" variant="bodySm" tone="subdued">
-                        Shown in the email header. Recommended: 200×60px PNG.
+                        {t("Shown in the email header. Recommended: 200×60px PNG.")}
                       </Text>
                     </BlockStack>
 
                     <TextField
-                      label="Brand name"
+                      label={t("Brand name")}
                       name="brandName"
                       value={brandName}
                       onChange={setBrandName}
                       autoComplete="off"
-                      helpText="Shown in emails when no logo is uploaded."
+                      helpText={t("Shown in emails when no logo is uploaded.")}
                     />
 
                     <TextField
-                      label="Primary colour"
+                      label={t("Primary color")}
                       name="brandPrimaryColor"
                       value={brandPrimaryColor}
                       onChange={setBrandPrimaryColor}
                       autoComplete="off"
-                      helpText="Used for buttons and accents. Hex code e.g. #1a1a1a"
+                      helpText={t("Used for buttons and accents. Hex code e.g. #1a1a1a")}
                     />
 
                     <TextField
-                      label="Sender name"
+                      label={t("Sender name")}
                       name="senderName"
                       value={senderName}
                       onChange={setEmailSenderName}
                       autoComplete="off"
-                      helpText="Appears as the 'From' name in the customer's inbox."
+                      helpText={t("Appears as the 'From' name in the customer's inbox.")}
                     />
 
                     <Button
@@ -438,7 +439,7 @@ export default function EmailsPage() {
                       loading={savingBrand}
                       fullWidth
                     >
-                      Save brand settings
+                      {t("Save brand settings")}
                     </Button>
                   </FormLayout>
                 </brandFetcher.Form>

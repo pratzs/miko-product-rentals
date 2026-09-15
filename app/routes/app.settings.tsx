@@ -20,6 +20,7 @@ import {
 import { authenticate } from "../shopify.server";
 import { db } from "../db.server";
 import { useState } from "react";
+import { useT } from "../i18n/context";
 
 const CURRENCIES = [
   { label: "US Dollar (USD)", value: "USD" },
@@ -114,6 +115,7 @@ export default function SettingsPage() {
   const { config, planName, shopHandle } = useLoaderData<typeof loader>();
   const actionData = useActionData<typeof action>();
   const navigation = useNavigation();
+  const t = useT();
   const saving = navigation.state === "submitting";
 
   const [currency, setCurrency] = useState(config?.currency || "USD");
@@ -135,16 +137,16 @@ export default function SettingsPage() {
 
   if (!config) {
     return (
-      <Page title="Settings">
-        <Banner tone="critical" title="Store configuration not found. Please re-install the app." />
+      <Page title={t("Settings")}>
+        <Banner tone="critical" title={t("Store configuration not found. Please re-install the app.")} />
       </Page>
     );
   }
 
   return (
     <Page
-      title="Settings"
-      subtitle="Configure how your rental business operates."
+      title={t("Settings")}
+      subtitle={t("Configure how your rental business operates.")}
     >
       <BlockStack gap="600">
         {actionData && "error" in actionData && (
@@ -157,24 +159,23 @@ export default function SettingsPage() {
         <Layout>
           <Layout.Section>
             <BlockStack gap="600">
-              {/* Rental behaviour */}
+              {/* Rental behavior */}
               <Card>
                 <BlockStack gap="400">
                   <BlockStack gap="100">
-                    <Text as="h2" variant="headingMd">Rental settings</Text>
+                    <Text as="h2" variant="headingMd">{t("Rental settings")}</Text>
                     <Text as="p" tone="subdued">
-                      Control how late fees work and how far in advance bookings are blocked
-                      before the calendar shows availability.
+                      {t("Control how late fees work and how far in advance bookings are blocked before the calendar shows availability.")}
                     </Text>
                   </BlockStack>
                   <Divider />
 
                   <Select
-                    label="Currency"
-                    options={CURRENCIES}
+                    label={t("Currency")}
+                    options={CURRENCIES.map((c) => ({ ...c, label: t(c.label) }))}
                     value={currency}
                     onChange={setCurrency}
-                    helpText="This is shown on pricing labels and invoices throughout the app."
+                    helpText={t("This is shown on pricing labels and invoices throughout the app.")}
                   />
 
                   <Divider />
@@ -182,19 +183,19 @@ export default function SettingsPage() {
                   <InlineStack gap="400" wrap>
                     <Box minWidth="180px">
                       <TextField
-                        label="Grace period before late fees"
+                        label={t("Grace period before late fees")}
                         type="number"
                         value={gracePeriodDays}
                         onChange={setGracePeriodDays}
-                        suffix="days"
+                        suffix={t("days")}
                         min={0}
                         autoComplete="off"
-                        helpText="How many days past the return date before late fees kick in. Set to 0 for no grace period."
+                        helpText={t("How many days past the return date before late fees kick in. Set to 0 for no grace period.")}
                       />
                     </Box>
                     <Box minWidth="180px">
                       <TextField
-                        label="Late fee per day"
+                        label={t("Late fee per day")}
                         type="number"
                         value={lateFeePerDay}
                         onChange={setLateFeePerDay}
@@ -202,37 +203,37 @@ export default function SettingsPage() {
                         min={0}
                         step={0.01}
                         autoComplete="off"
-                        helpText="Extra charge per day the item is overdue. Set to 0 if you do not want to charge late fees."
+                        helpText={t("Extra charge per day the item is overdue. Set to 0 if you do not want to charge late fees.")}
                       />
                     </Box>
                     <Box minWidth="180px">
                       <TextField
-                        label="Availability buffer"
+                        label={t("Availability buffer")}
                         type="number"
                         value={bufferHours}
                         onChange={setBufferHours}
-                        suffix="hours"
+                        suffix={t("hours")}
                         min={0}
                         autoComplete="off"
-                        helpText="Block this many hours after a booking ends before the next booking can start. Gives you time to clean and inspect the item."
+                        helpText={t("Block this many hours after a booking ends before the next booking can start. Gives you time to clean and inspect the item.")}
                       />
                     </Box>
                   </InlineStack>
 
                   <Box background="bg-surface-secondary" borderRadius="200" padding="300">
                     <BlockStack gap="100">
-                      <Text as="p" variant="bodySm" fontWeight="semibold">How late fees flow through Miko</Text>
+                      <Text as="p" variant="bodySm" fontWeight="semibold">{t("How late fees flow through Miko")}</Text>
                       <Text as="p" variant="bodySm" tone="subdued">
-                        1. A rental's status flips to <strong>overdue</strong> automatically the day after its return date passes.
+                        {t("1. A rental's status flips to")} <strong>{t("overdue")}</strong> {t("automatically the day after its return date passes.")}
                       </Text>
                       <Text as="p" variant="bodySm" tone="subdued">
-                        2. The customer gets the <strong>Overdue Notice</strong> email, which shows your daily late fee rate.
+                        {t("2. The customer gets the")} <strong>{t("Overdue Notice")}</strong> {t("email, which shows your daily late fee rate.")}
                       </Text>
                       <Text as="p" variant="bodySm" tone="subdued">
-                        3. When the item is returned, open the booking and click <strong>Record late fee</strong>. We calculate it as <em>(days overdue minus grace period) times your daily rate</em> and save it on the booking.
+                        {t("3. When the item is returned, open the booking and click")} <strong>{t("Record late fee")}</strong>{t(". We calculate it as")} <em>{t("(days overdue minus grace period) times your daily rate")}</em> {t("and save it on the booking.")}
                       </Text>
                       <Text as="p" variant="bodySm" tone="subdued">
-                        4. To actually charge the customer, create a draft order in Shopify, add the late fee as a custom line item, and send the invoice. Miko never auto charges cards so you stay in control of every customer interaction.
+                        {t("4. To actually charge the customer, create a draft order in Shopify, add the late fee as a custom line item, and send the invoice. Miko never auto charges cards so you stay in control of every customer interaction.")}
                       </Text>
                     </BlockStack>
                   </Box>
@@ -244,7 +245,7 @@ export default function SettingsPage() {
                       <input type="hidden" name="gracePeriodDays" value={gracePeriodDays} />
                       <input type="hidden" name="lateFeePerDay" value={lateFeePerDay} />
                       <input type="hidden" name="bufferHours" value={bufferHours} />
-                      <Button variant="primary" submit loading={saving}>Save rental settings</Button>
+                      <Button variant="primary" submit loading={saving}>{t("Save rental settings")}</Button>
                     </Form>
                   </InlineStack>
                 </BlockStack>
@@ -254,24 +255,18 @@ export default function SettingsPage() {
               <Card>
                 <BlockStack gap="400">
                   <BlockStack gap="100">
-                    <Text as="h2" variant="headingMd">Storefront display</Text>
+                    <Text as="h2" variant="headingMd">{t("Storefront display")}</Text>
                     <Text as="p" tone="subdued">
-                      Control how rental products appear to customers across your storefront -
-                      hiding the regular price and Add to cart button so customers can only check
-                      out through the rental flow.
+                      {t("Control how rental products appear to customers across your storefront - hiding the regular price and Add to cart button so customers can only check out through the rental flow.")}
                     </Text>
                   </BlockStack>
                   <Divider />
                   <BlockStack gap="300">
                     <Text as="p" variant="bodyMd">
-                      These rules are managed through a sitewide app embed. Enable it once in your
-                      theme editor and it applies to every rental product automatically - no need to
-                      tag products one by one.
+                      {t("These rules are managed through a sitewide app embed. Enable it once in your theme editor and it applies to every rental product automatically - no need to tag products one by one.")}
                     </Text>
                     <Text as="p" variant="bodySm" tone="subdued">
-                      <strong>What you can hide:</strong> regular product price on the product page,
-                      Add to cart button on the product page, and the price shown on rental cards
-                      across collection or search results.
+                      <strong>{t("What you can hide:")}</strong> {t("regular product price on the product page, Add to cart button on the product page, and the price shown on rental cards across collection or search results.")}
                     </Text>
                     <InlineStack gap="200">
                       <Button
@@ -279,37 +274,36 @@ export default function SettingsPage() {
                         target="_blank"
                         variant="primary"
                       >
-                        Open theme editor to enable
+                        {t("Open theme editor to enable")}
                       </Button>
                       <Button
                         url={`https://admin.shopify.com/store/${shopHandle}/themes/current/editor?context=apps`}
                         target="_blank"
                       >
-                        See all app embeds
+                        {t("See all app embeds")}
                       </Button>
                     </InlineStack>
                     <Text as="p" variant="bodySm" tone="subdued">
-                      Tip: once the embed is on, each of the three rules (PDP price, PDP button,
-                      collection price) has its own checkbox you can toggle independently.
+                      {t("Tip: once the embed is on, each of the three rules (PDP price, PDP button, collection price) has its own checkbox you can toggle independently.")}
                     </Text>
                   </BlockStack>
 
                   <Divider />
 
                   <BlockStack gap="300">
-                    <Text as="h3" variant="headingSm">Widget branding</Text>
+                    <Text as="h3" variant="headingSm">{t("Widget branding")}</Text>
                     {planName === "free" ? (
                       <BlockStack gap="300">
                         <Checkbox
-                          label='Hide "Powered by Miko Rentals" credit on the storefront widget'
+                          label={t('Hide "Powered by Miko Rentals" credit on the storefront widget')}
                           checked={false}
                           disabled
-                          helpText="Available on the Starter plan and above. Free plan keeps the credit visible."
+                          helpText={t("Available on the Starter plan and above. Free plan keeps the credit visible.")}
                           onChange={() => {}}
                         />
                         <Box>
                           <Button url="/app/pricing" variant="primary">
-                            Upgrade to remove the credit
+                            {t("Upgrade to remove the credit")}
                           </Button>
                         </Box>
                       </BlockStack>
@@ -319,13 +313,13 @@ export default function SettingsPage() {
                         <input type="hidden" name="showPoweredBy" value={String(showPoweredBy)} />
                         <BlockStack gap="200">
                           <Checkbox
-                            label='Hide "Powered by Miko Rentals" credit on the storefront widget'
+                            label={t('Hide "Powered by Miko Rentals" credit on the storefront widget')}
                             checked={!showPoweredBy}
                             onChange={(checked) => setShowPoweredBy(!checked)}
-                            helpText="Hidden by default on paid plans. Uncheck if you'd like to keep the credit visible."
+                            helpText={t("Hidden by default on paid plans. Uncheck if you'd like to keep the credit visible.")}
                           />
                           <InlineStack>
-                            <Button submit loading={saving}>Save branding</Button>
+                            <Button submit loading={saving}>{t("Save branding")}</Button>
                           </InlineStack>
                         </BlockStack>
                       </Form>
@@ -338,10 +332,9 @@ export default function SettingsPage() {
               <Card>
                 <BlockStack gap="400">
                   <BlockStack gap="100">
-                    <Text as="h2" variant="headingMd">Email identity</Text>
+                    <Text as="h2" variant="headingMd">{t("Email identity")}</Text>
                     <Text as="p" tone="subdued">
-                      Booking confirmations, return reminders, and overdue notices are sent
-                      automatically on your behalf. Set how your business appears to customers.
+                      {t("Booking confirmations, return reminders, and overdue notices are sent automatically on your behalf. Set how your business appears to customers.")}
                     </Text>
                   </BlockStack>
                   <Divider />
@@ -349,22 +342,22 @@ export default function SettingsPage() {
                   <InlineStack gap="400" wrap>
                     <Box minWidth="220px">
                       <TextField
-                        label="Sender name"
+                        label={t("Sender name")}
                         value={senderName}
                         onChange={setSenderName}
                         autoComplete="off"
-                        helpText="What customers see as the sender in their inbox. Usually your store name."
-                        placeholder="Kiwi Surf Gear"
+                        helpText={t("What customers see as the sender in their inbox. Usually your store name.")}
+                        placeholder={t("Kiwi Surf Gear")}
                       />
                     </Box>
                     <Box minWidth="220px">
                       <TextField
-                        label="Reply-to email"
+                        label={t("Reply-to email")}
                         value={replyToEmail}
                         onChange={setReplyToEmail}
                         type="email"
                         autoComplete="off"
-                        helpText="Customer replies go here. Leave blank to use the default miko address."
+                        helpText={t("Customer replies go here. Leave blank to use the default miko address.")}
                         placeholder="hello@yourdomain.com"
                       />
                     </Box>
@@ -375,7 +368,7 @@ export default function SettingsPage() {
                       <input type="hidden" name="intent" value="save_email" />
                       <input type="hidden" name="senderName" value={senderName} />
                       <input type="hidden" name="replyToEmail" value={replyToEmail} />
-                      <Button variant="primary" submit loading={saving}>Save</Button>
+                      <Button variant="primary" submit loading={saving}>{t("Save")}</Button>
                     </Form>
                   </InlineStack>
                 </BlockStack>
@@ -385,27 +378,26 @@ export default function SettingsPage() {
                 <Card>
                   <BlockStack gap="400">
                     <BlockStack gap="100">
-                      <Text as="h2" variant="headingMd">Custom email sender (SMTP)</Text>
+                      <Text as="h2" variant="headingMd">{t("Custom email sender (SMTP)")}</Text>
                       <Text as="p" tone="subdued">
-                        Send emails from your own domain using your email provider.
+                        {t("Send emails from your own domain using your email provider.")}
                       </Text>
                     </BlockStack>
                     <Divider />
                     <Banner tone="info">
-                      Leave blank to use Miko&apos;s default sending address (noreply@miko.co.nz).
-                      Fill in all fields to send from your own domain.
+                      {t("Leave blank to use Miko's default sending address (noreply@miko.co.nz). Fill in all fields to send from your own domain.")}
                     </Banner>
                     <FormLayout>
                       <FormLayout.Group>
                         <TextField
-                          label="SMTP host"
+                          label={t("SMTP host")}
                           value={smtpHost}
                           onChange={setSmtpHost}
                           placeholder="smtp.gmail.com"
                           autoComplete="off"
                         />
                         <TextField
-                          label="Port"
+                          label={t("Port")}
                           type="number"
                           value={smtpPort}
                           onChange={setSmtpPort}
@@ -415,13 +407,13 @@ export default function SettingsPage() {
                       </FormLayout.Group>
                       <FormLayout.Group>
                         <TextField
-                          label="Username"
+                          label={t("Username")}
                           value={smtpUser}
                           onChange={setSmtpUser}
                           autoComplete="off"
                         />
                         <TextField
-                          label="Password"
+                          label={t("Password")}
                           type="password"
                           value={smtpPass}
                           onChange={setSmtpPass}
@@ -430,7 +422,7 @@ export default function SettingsPage() {
                       </FormLayout.Group>
                       <FormLayout.Group>
                         <TextField
-                          label="From email"
+                          label={t("From email")}
                           type="email"
                           value={smtpFromEmail}
                           onChange={setSmtpFromEmail}
@@ -438,15 +430,15 @@ export default function SettingsPage() {
                           autoComplete="off"
                         />
                         <TextField
-                          label="From name"
+                          label={t("From name")}
                           value={smtpFromName}
                           onChange={setSmtpFromName}
-                          placeholder="Kiwi Surf Gear"
+                          placeholder={t("Kiwi Surf Gear")}
                           autoComplete="off"
                         />
                       </FormLayout.Group>
                       <Checkbox
-                        label="Use SSL/TLS (port 465)"
+                        label={t("Use SSL/TLS (port 465)")}
                         checked={smtpSecure}
                         onChange={setSmtpSecure}
                       />
@@ -461,7 +453,7 @@ export default function SettingsPage() {
                         <input type="hidden" name="smtpFromEmail" value={smtpFromEmail} />
                         <input type="hidden" name="smtpFromName" value={smtpFromName} />
                         <input type="hidden" name="smtpSecure" value={String(smtpSecure)} />
-                        <Button variant="primary" submit loading={saving}>Save SMTP settings</Button>
+                        <Button variant="primary" submit loading={saving}>{t("Save SMTP settings")}</Button>
                       </Form>
                     </InlineStack>
                   </BlockStack>
@@ -475,23 +467,23 @@ export default function SettingsPage() {
             <BlockStack gap="400">
               <Card>
                 <BlockStack gap="300">
-                  <Text as="h2" variant="headingMd">How emails work</Text>
+                  <Text as="h2" variant="headingMd">{t("How emails work")}</Text>
                   <BlockStack gap="200">
                     <InlineStack gap="200" blockAlign="start">
                       <Text as="span" fontWeight="bold">1.</Text>
-                      <Text as="p" tone="subdued">When a customer pays for a rental, they immediately get a booking confirmation with all the details.</Text>
+                      <Text as="p" tone="subdued">{t("When a customer pays for a rental, they immediately get a booking confirmation with all the details.")}</Text>
                     </InlineStack>
                     <InlineStack gap="200" blockAlign="start">
                       <Text as="span" fontWeight="bold">2.</Text>
-                      <Text as="p" tone="subdued">The day before the return date, they get a friendly reminder with the return instructions.</Text>
+                      <Text as="p" tone="subdued">{t("The day before the return date, they get a friendly reminder with the return instructions.")}</Text>
                     </InlineStack>
                     <InlineStack gap="200" blockAlign="start">
                       <Text as="span" fontWeight="bold">3.</Text>
-                      <Text as="p" tone="subdued">If the item isn't returned on time, they receive an overdue notice with any applicable late fees.</Text>
+                      <Text as="p" tone="subdued">{t("If the item isn't returned on time, they receive an overdue notice with any applicable late fees.")}</Text>
                     </InlineStack>
                     <InlineStack gap="200" blockAlign="start">
                       <Text as="span" fontWeight="bold">4.</Text>
-                      <Text as="p" tone="subdued">You can also manually trigger a reminder or overdue notice from any booking's detail page.</Text>
+                      <Text as="p" tone="subdued">{t("You can also manually trigger a reminder or overdue notice from any booking's detail page.")}</Text>
                     </InlineStack>
                   </BlockStack>
                 </BlockStack>
@@ -499,26 +491,26 @@ export default function SettingsPage() {
 
               <Card>
                 <BlockStack gap="300">
-                  <Text as="h2" variant="headingMd">Setup status</Text>
+                  <Text as="h2" variant="headingMd">{t("Setup status")}</Text>
                   <BlockStack gap="200">
                     <InlineStack gap="200" blockAlign="center">
                       <Text as="span">{config.onboardingCompleted ? "✅" : "⬜"}</Text>
-                      <Text as="p" tone="subdued">Onboarding complete</Text>
+                      <Text as="p" tone="subdued">{t("Onboarding complete")}</Text>
                     </InlineStack>
                     <InlineStack gap="200" blockAlign="center">
                       <Text as="span">{config.senderName ? "✅" : "⬜"}</Text>
-                      <Text as="p" tone="subdued">Email identity set</Text>
+                      <Text as="p" tone="subdued">{t("Email identity set")}</Text>
                     </InlineStack>
                     <InlineStack gap="200" blockAlign="center">
                       <Text as="span">{config.currency ? "✅" : "⬜"}</Text>
-                      <Text as="p" tone="subdued">Currency set</Text>
+                      <Text as="p" tone="subdued">{t("Currency set")}</Text>
                     </InlineStack>
                   </BlockStack>
                   {!config.onboardingCompleted && (
                     <Form method="POST">
                       <input type="hidden" name="intent" value="complete_onboarding" />
                       <Button variant="secondary" submit fullWidth loading={saving}>
-                        Mark setup as complete
+                        {t("Mark setup as complete")}
                       </Button>
                     </Form>
                   )}

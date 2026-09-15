@@ -190,7 +190,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       );
     }
 
-    /* ── The catalogue of rentable products ─────────────────────────────── */
+    /* ── The catalog of rentable products ─────────────────────────────── */
     case "list_rental_products": {
       const products = await db.rentalProduct.findMany({
         where: {

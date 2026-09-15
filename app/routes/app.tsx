@@ -3,6 +3,8 @@ import { json } from "@remix-run/node";
 import { Link, Outlet, useLoaderData, useRouteError } from "@remix-run/react";
 import { boundary } from "@shopify/shopify-app-remix/server";
 import { AppProvider } from "@shopify/shopify-app-remix/react";
+import { normalizeLocale, polarisLocaleCode, getDict, isRtl } from "../i18n";
+import { I18nProvider, useT } from "../i18n/context";
 import { NavMenu } from "@shopify/app-bridge-react";
 import polarisStyles from "@shopify/polaris/build/esm/styles.css?url";
 import mikoStyles from "../styles/miko-theme.css?url";
@@ -15,6 +17,21 @@ export const links = () => [
   { rel: "stylesheet", href: polarisStyles },
   { rel: "stylesheet", href: mikoStyles },
 ];
+
+// Load the Polaris locale dictionary for a given Polaris locale code. Static
+// cases so Vite bundles each; Arabic + unknowns fall back to English (our own
+// strings still render in Arabic, and dir=rtl flips the layout).
+async function loadPolarisTranslations(code: string) {
+  switch (code) {
+    case "de": return (await import("@shopify/polaris/locales/de.json")).default;
+    case "es": return (await import("@shopify/polaris/locales/es.json")).default;
+    case "it": return (await import("@shopify/polaris/locales/it.json")).default;
+    case "fr": return (await import("@shopify/polaris/locales/fr.json")).default;
+    case "ja": return (await import("@shopify/polaris/locales/ja.json")).default;
+    case "zh-CN": return (await import("@shopify/polaris/locales/zh-CN.json")).default;
+    default: return (await import("@shopify/polaris/locales/en.json")).default;
+  }
+}
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const { admin, session, billing } = await authenticate.admin(request);
@@ -77,29 +94,48 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     ensureShopCurrency(admin, session.shop),
   ]);
 
-  return json({ apiKey: process.env.SHOPIFY_API_KEY || "" });
+  // Shopify sends the merchant's chosen admin language in the `locale` param.
+  const locale = normalizeLocale(new URL(request.url).searchParams.get("locale"));
+  const polarisTranslations = await loadPolarisTranslations(polarisLocaleCode(locale));
+
+  return json({ apiKey: process.env.SHOPIFY_API_KEY || "", locale, polarisTranslations });
 };
 
 export default function App() {
-  const { apiKey } = useLoaderData<typeof loader>();
+  const { apiKey, locale, polarisTranslations } = useLoaderData<typeof loader>();
 
   return (
-    <AppProvider isEmbeddedApp apiKey={apiKey}>
+    // isEmbeddedApp={false} only suppresses AppProvider's own app-bridge.js
+    // injection -- the script now loads first-in-head from root.tsx, and a
+    // second copy must never be rendered. The app is still embedded.
+    <AppProvider isEmbeddedApp={false} apiKey={apiKey} i18n={polarisTranslations}>
+      <I18nProvider locale={locale} dict={getDict(locale)}>
+        <AppShell locale={locale} />
+      </I18nProvider>
+    </AppProvider>
+  );
+}
+
+// Inner shell so hooks (useT) run inside the I18nProvider.
+function AppShell({ locale }: { locale: string }) {
+  const t = useT();
+  return (
+    <>
       <NavMenu>
-        <Link to="/app" rel="home">Dashboard</Link>
-        <Link to="/app/products">Rental Products</Link>
-        <Link to="/app/bookings">Bookings</Link>
-        <Link to="/app/calendar">Calendar</Link>
-        <Link to="/app/analytics">Analytics</Link>
-        <Link to="/app/emails">Emails</Link>
-        <Link to="/app/pricing">Pricing</Link>
-        <Link to="/app/settings">Settings</Link>
-        <Link to="/app/help">Help</Link>
+        <Link to="/app" rel="home">{t("Dashboard")}</Link>
+        <Link to="/app/products">{t("Rental Products")}</Link>
+        <Link to="/app/bookings">{t("Bookings")}</Link>
+        <Link to="/app/calendar">{t("Calendar")}</Link>
+        <Link to="/app/analytics">{t("Analytics")}</Link>
+        <Link to="/app/emails">{t("Emails")}</Link>
+        <Link to="/app/pricing">{t("Pricing")}</Link>
+        <Link to="/app/settings">{t("Settings")}</Link>
+        <Link to="/app/help">{t("Help")}</Link>
       </NavMenu>
-      <div style={{ paddingBottom: "3rem" }}>
+      <div dir={isRtl(locale as any) ? "rtl" : "ltr"} style={{ paddingBottom: "3rem" }}>
         <Outlet />
       </div>
-    </AppProvider>
+    </>
   );
 }
 

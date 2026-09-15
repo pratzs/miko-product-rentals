@@ -2,7 +2,7 @@
  * Syncs the Shopify variant list onto our RentalVariant table for a given
  * rental product. Idempotent: safe to call on every save / activate.
  *
- * Behaviour:
+ * Behavior:
  *  - For products with only one variant named "Default Title", we set
  *    hasVariants=false on the parent and create no RentalVariant rows.
  *    The widget treats these as single-variant rentals just like before.

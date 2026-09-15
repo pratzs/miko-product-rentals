@@ -26,6 +26,7 @@ import { db } from "../db.server";
 import { setRentalMetafield, ensureRentalVariantsCanOversell } from "../utils/product-metafields.server";
 import { syncRentalProductVariants } from "../utils/variant-sync.server";
 import { useState } from "react";
+import { useT } from "../i18n/context";
 
 export const loader = async ({ request, params }: LoaderFunctionArgs) => {
   const { session } = await authenticate.admin(request);
@@ -212,6 +213,7 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
 };
 
 export default function ProductConfigPage() {
+  const t = useT();
   const { product, currency } = useLoaderData<typeof loader>();
   const actionData = useActionData<typeof action>();
   const navigation = useNavigation();
@@ -233,8 +235,8 @@ export default function ProductConfigPage() {
   return (
     <Page
       title={product.title}
-      subtitle="Configure how this product is rented"
-      backAction={{ content: "Rental Products", url: "/app/products" }}
+      subtitle={t("Configure how this product is rented")}
+      backAction={{ content: t("Rental Products"), url: "/app/products" }}
       primaryAction={
         <Form method="POST">
           <input type="hidden" name="intent" value="save" />
@@ -248,12 +250,12 @@ export default function ProductConfigPage() {
           <input type="hidden" name="autoReleaseDeposit" value={autoReleaseDeposit.toString()} />
           <input type="hidden" name="allowRentalWhenSoldOut" value={allowRentalWhenSoldOut.toString()} />
           <input type="hidden" name="rentalNotes" value={rentalNotes} />
-          <Button variant="primary" submit loading={saving}>Save settings</Button>
+          <Button variant="primary" submit loading={saving}>{t("Save settings")}</Button>
         </Form>
       }
       secondaryActions={[
         {
-          content: product.isActive ? "Deactivate" : "Activate",
+          content: product.isActive ? t("Deactivate") : t("Activate"),
           onAction: () => {
             const fd = new FormData();
             fd.set("intent", "toggle_active");
@@ -281,12 +283,19 @@ export default function ProductConfigPage() {
                   <InlineStack gap="200" blockAlign="center">
                     <Text as="h2" variant="headingLg">{product.title}</Text>
                     <Badge tone={product.isActive ? "success" : "attention"}>
-                      {product.isActive ? "Active" : "Inactive"}
+                      {product.isActive ? t("Active") : t("Inactive")}
                     </Badge>
                   </InlineStack>
                   <Text as="p" tone="subdued" variant="bodySm">
-                    {product.totalBookings} total booking{product.totalBookings !== 1 ? "s" : ""} &bull;{" "}
-                    {product.activeBookings} currently active
+                    {product.totalBookings === 1
+                      ? t("{total} total booking • {active} currently active", {
+                          total: product.totalBookings,
+                          active: product.activeBookings,
+                        })
+                      : t("{total} total bookings • {active} currently active", {
+                          total: product.totalBookings,
+                          active: product.activeBookings,
+                        })}
                   </Text>
                 </BlockStack>
               </InlineStack>
@@ -296,18 +305,16 @@ export default function ProductConfigPage() {
             <Card>
               <BlockStack gap="400">
                 <BlockStack gap="100">
-                  <Text as="h2" variant="headingMd">Rental pricing</Text>
+                  <Text as="h2" variant="headingMd">{t("Rental pricing")}</Text>
                   <Text as="p" tone="subdued">
-                    Set how much customers pay to rent this item. Daily rate is required.
-                    Weekly and monthly rates are optional - when offered, customers automatically
-                    get the best rate for their chosen dates.
+                    {t("Set how much customers pay to rent this item. Daily rate is required. Weekly and monthly rates are optional - when offered, customers automatically get the best rate for their chosen dates.")}
                   </Text>
                 </BlockStack>
                 <Divider />
                 <InlineStack gap="400" wrap>
                   <Box minWidth="180px">
                     <TextField
-                      label="Price per day"
+                      label={t("Price per day")}
                       type="number"
                       value={pricePerDay}
                       onChange={setPricePerDay}
@@ -315,12 +322,12 @@ export default function ProductConfigPage() {
                       min={0}
                       step={0.01}
                       autoComplete="off"
-                      helpText="Required"
+                      helpText={t("Required")}
                     />
                   </Box>
                   <Box minWidth="180px">
                     <TextField
-                      label="Price per week"
+                      label={t("Price per week")}
                       type="number"
                       value={pricePerWeek}
                       onChange={setPricePerWeek}
@@ -328,12 +335,12 @@ export default function ProductConfigPage() {
                       min={0}
                       step={0.01}
                       autoComplete="off"
-                      helpText="Optional. Leave at 0 to skip this rate."
+                      helpText={t("Optional. Leave at 0 to skip this rate.")}
                     />
                   </Box>
                   <Box minWidth="180px">
                     <TextField
-                      label="Price per month"
+                      label={t("Price per month")}
                       type="number"
                       value={pricePerMonth}
                       onChange={setPricePerMonth}
@@ -341,7 +348,7 @@ export default function ProductConfigPage() {
                       min={0}
                       step={0.01}
                       autoComplete="off"
-                      helpText="Optional. Leave at 0 to skip this rate."
+                      helpText={t("Optional. Leave at 0 to skip this rate.")}
                     />
                   </Box>
                 </InlineStack>
@@ -352,17 +359,15 @@ export default function ProductConfigPage() {
             <Card>
               <BlockStack gap="400">
                 <BlockStack gap="100">
-                  <Text as="h2" variant="headingMd">Security deposit</Text>
+                  <Text as="h2" variant="headingMd">{t("Security deposit")}</Text>
                   <Text as="p" tone="subdued">
-                    A deposit is an extra amount collected at checkout that is held until
-                    the item is returned in good condition. Leave at 0 if you do not want
-                    to collect a deposit.
+                    {t("A deposit is an extra amount collected at checkout that is held until the item is returned in good condition. Leave at 0 if you do not want to collect a deposit.")}
                   </Text>
                 </BlockStack>
                 <Divider />
                 <Box maxWidth="220px">
                   <TextField
-                    label="Deposit amount"
+                    label={t("Deposit amount")}
                     type="number"
                     value={depositAmount}
                     onChange={setDepositAmount}
@@ -370,21 +375,21 @@ export default function ProductConfigPage() {
                     min={0}
                     step={0.01}
                     autoComplete="off"
-                    helpText="0 = no deposit"
+                    helpText={t("0 = no deposit")}
                   />
                 </Box>
                 <Checkbox
-                  label="Automatically mark deposit as released when the booking is marked as returned"
+                  label={t("Automatically mark deposit as released when the booking is marked as returned")}
                   checked={autoReleaseDeposit}
                   onChange={setAutoReleaseDeposit}
-                  helpText="You will still need to process the actual refund through Shopify separately."
+                  helpText={t("You will still need to process the actual refund through Shopify separately.")}
                 />
                 <Divider />
                 <Checkbox
-                  label="Allow rental even when Shopify shows product as sold out"
+                  label={t("Allow rental even when Shopify shows product as sold out")}
                   checked={allowRentalWhenSoldOut}
                   onChange={setAllowRentalWhenSoldOut}
-                  helpText="When on (recommended), the app overrides Shopify's inventory so customers can always add a rental to cart. Miko's calendar is the availability source of truth. Turn off only if you also want Shopify stock to gate rentals."
+                  helpText={t("When on (recommended), the app overrides Shopify's inventory so customers can always add a rental to cart. Miko's calendar is the availability source of truth. Turn off only if you also want Shopify stock to gate rentals.")}
                 />
               </BlockStack>
             </Card>
@@ -393,45 +398,44 @@ export default function ProductConfigPage() {
             <Card>
               <BlockStack gap="400">
                 <BlockStack gap="100">
-                  <Text as="h2" variant="headingMd">Inventory and duration</Text>
+                  <Text as="h2" variant="headingMd">{t("Inventory and duration")}</Text>
                   <Text as="p" tone="subdued">
-                    How many physical units do you have available to rent out at the same time?
-                    You can also set minimum and maximum rental lengths.
+                    {t("How many physical units do you have available to rent out at the same time? You can also set minimum and maximum rental lengths.")}
                   </Text>
                 </BlockStack>
                 <Divider />
                 <InlineStack gap="400" wrap>
                   <Box minWidth="160px">
                     <TextField
-                      label="Units available"
+                      label={t("Units available")}
                       type="number"
                       value={totalUnits}
                       onChange={setTotalUnits}
                       min={1}
                       autoComplete="off"
-                      helpText="How many can be out at the same time"
+                      helpText={t("How many can be out at the same time")}
                     />
                   </Box>
                   <Box minWidth="160px">
                     <TextField
-                      label="Minimum rental days"
+                      label={t("Minimum rental days")}
                       type="number"
                       value={minRentalDays}
                       onChange={setMinRentalDays}
                       min={1}
                       autoComplete="off"
-                      helpText="Shortest booking allowed"
+                      helpText={t("Shortest booking allowed")}
                     />
                   </Box>
                   <Box minWidth="160px">
                     <TextField
-                      label="Maximum rental days"
+                      label={t("Maximum rental days")}
                       type="number"
                       value={maxRentalDays}
                       onChange={setMaxRentalDays}
                       min={0}
                       autoComplete="off"
-                      helpText="0 = no maximum"
+                      helpText={t("0 = no maximum")}
                     />
                   </Box>
                 </InlineStack>
@@ -442,20 +446,19 @@ export default function ProductConfigPage() {
             <Card>
               <BlockStack gap="400">
                 <BlockStack gap="100">
-                  <Text as="h2" variant="headingMd">Customer-facing notes</Text>
+                  <Text as="h2" variant="headingMd">{t("Customer-facing notes")}</Text>
                   <Text as="p" tone="subdued">
-                    Any extra instructions shown to the customer on the product page - for example,
-                    pickup location, what is included, or care instructions.
+                    {t("Any extra instructions shown to the customer on the product page - for example, pickup location, what is included, or care instructions.")}
                   </Text>
                 </BlockStack>
                 <Divider />
                 <TextField
-                  label="Rental notes"
+                  label={t("Rental notes")}
                   value={rentalNotes}
                   onChange={setRentalNotes}
                   multiline={4}
                   autoComplete="off"
-                  placeholder="e.g. Collect from our store at 123 Main Street between 9am-5pm. Helmet and lock included."
+                  placeholder={t("e.g. Collect from our store at 123 Main Street between 9am-5pm. Helmet and lock included.")}
                 />
               </BlockStack>
             </Card>
@@ -472,15 +475,13 @@ export default function ProductConfigPage() {
             {!product.isActive && (
               <Card>
                 <BlockStack gap="400">
-                  <Text as="h2" variant="headingMd" tone="critical">Remove product</Text>
+                  <Text as="h2" variant="headingMd" tone="critical">{t("Remove product")}</Text>
                   <Text as="p" tone="subdued">
-                    This removes the rental configuration from this product. The product itself
-                    stays in your Shopify store - only the rental settings are deleted.
-                    You cannot do this while the product is active.
+                    {t("This removes the rental configuration from this product. The product itself stays in your Shopify store - only the rental settings are deleted. You cannot do this while the product is active.")}
                   </Text>
                   <Form method="POST">
                     <input type="hidden" name="intent" value="delete" />
-                    <Button tone="critical" submit>Remove rental product</Button>
+                    <Button tone="critical" submit>{t("Remove rental product")}</Button>
                   </Form>
                 </BlockStack>
               </Card>
@@ -493,23 +494,23 @@ export default function ProductConfigPage() {
           <BlockStack gap="400">
             <Card>
               <BlockStack gap="300">
-                <Text as="h2" variant="headingMd">How it works</Text>
+                <Text as="h2" variant="headingMd">{t("How it works")}</Text>
                 <BlockStack gap="200">
                   <InlineStack gap="200" blockAlign="start">
                     <Text as="span" variant="bodyMd" fontWeight="bold">1.</Text>
-                    <Text as="p" tone="subdued">Customer picks their rental dates on your product page</Text>
+                    <Text as="p" tone="subdued">{t("Customer picks their rental dates on your product page")}</Text>
                   </InlineStack>
                   <InlineStack gap="200" blockAlign="start">
                     <Text as="span" variant="bodyMd" fontWeight="bold">2.</Text>
-                    <Text as="p" tone="subdued">Price and deposit are calculated automatically</Text>
+                    <Text as="p" tone="subdued">{t("Price and deposit are calculated automatically")}</Text>
                   </InlineStack>
                   <InlineStack gap="200" blockAlign="start">
                     <Text as="span" variant="bodyMd" fontWeight="bold">3.</Text>
-                    <Text as="p" tone="subdued">Customer pays through your normal Shopify checkout</Text>
+                    <Text as="p" tone="subdued">{t("Customer pays through your normal Shopify checkout")}</Text>
                   </InlineStack>
                   <InlineStack gap="200" blockAlign="start">
                     <Text as="span" variant="bodyMd" fontWeight="bold">4.</Text>
-                    <Text as="p" tone="subdued">Booking appears here so you can manage pickup, returns, and deposits</Text>
+                    <Text as="p" tone="subdued">{t("Booking appears here so you can manage pickup, returns, and deposits")}</Text>
                   </InlineStack>
                 </BlockStack>
               </BlockStack>
@@ -517,18 +518,18 @@ export default function ProductConfigPage() {
 
             <Card>
               <BlockStack gap="300">
-                <Text as="h2" variant="headingMd">Quick actions</Text>
+                <Text as="h2" variant="headingMd">{t("Quick actions")}</Text>
                 <Button
                   fullWidth
                   onClick={() => navigate(`/app/bookings?productId=${product.id}`)}
                 >
-                  View bookings for this product
+                  {t("View bookings for this product")}
                 </Button>
                 <Button
                   fullWidth
                   onClick={() => navigate(`/app/calendar?productId=${product.id}`)}
                 >
-                  View availability calendar
+                  {t("View availability calendar")}
                 </Button>
               </BlockStack>
             </Card>
@@ -562,6 +563,7 @@ function VariantsCard({
   variants: VariantRow[];
   currency: string;
 }) {
+  const t = useT();
   const submit = useSubmit();
   const navigation = useNavigation();
   const syncing = navigation.formData?.get("intent") === "sync_variants";
@@ -577,14 +579,14 @@ function VariantsCard({
       <BlockStack gap="400">
         <InlineStack align="space-between" blockAlign="center" wrap={false}>
           <BlockStack gap="100">
-            <Text as="h2" variant="headingMd">Variants</Text>
+            <Text as="h2" variant="headingMd">{t("Variants")}</Text>
             <Text as="p" tone="subdued">
               {hasVariants
-                ? "This product has multiple variants. Configure rental pricing and units for each one."
-                : "If this product has variants in Shopify, click Sync variants to pull them in and price each one individually."}
+                ? t("This product has multiple variants. Configure rental pricing and units for each one.")
+                : t("If this product has variants in Shopify, click Sync variants to pull them in and price each one individually.")}
             </Text>
           </BlockStack>
-          <Button onClick={onSync} loading={syncing}>Sync variants</Button>
+          <Button onClick={onSync} loading={syncing}>{t("Sync variants")}</Button>
         </InlineStack>
         {hasVariants && variants.length > 0 && (
           <>
@@ -615,6 +617,7 @@ function VariantRowEditor({
   variant: VariantRow;
   currency: string;
 }) {
+  const t = useT();
   const submit = useSubmit();
   const navigation = useNavigation();
   const saving =
@@ -654,11 +657,11 @@ function VariantRowEditor({
           <InlineStack gap="200" blockAlign="center">
             <Text as="h3" variant="headingSm">{variant.title}</Text>
             <Badge tone={isActive ? "success" : undefined}>
-              {isActive ? "Active" : "Inactive"}
+              {isActive ? t("Active") : t("Inactive")}
             </Badge>
           </InlineStack>
           <Checkbox
-            label="Available for rental"
+            label={t("Available for rental")}
             labelHidden
             checked={isActive}
             onChange={setIsActive}
@@ -667,7 +670,7 @@ function VariantRowEditor({
         <InlineStack gap="300" wrap>
           <Box minWidth="140px">
             <TextField
-              label="Price per day"
+              label={t("Price per day")}
               type="number"
               value={pricePerDay}
               onChange={setPricePerDay}
@@ -679,7 +682,7 @@ function VariantRowEditor({
           </Box>
           <Box minWidth="140px">
             <TextField
-              label="Per week"
+              label={t("Per week")}
               type="number"
               value={pricePerWeek}
               onChange={setPricePerWeek}
@@ -691,7 +694,7 @@ function VariantRowEditor({
           </Box>
           <Box minWidth="140px">
             <TextField
-              label="Per month"
+              label={t("Per month")}
               type="number"
               value={pricePerMonth}
               onChange={setPricePerMonth}
@@ -703,7 +706,7 @@ function VariantRowEditor({
           </Box>
           <Box minWidth="140px">
             <TextField
-              label="Deposit"
+              label={t("Deposit")}
               type="number"
               value={depositAmount}
               onChange={setDepositAmount}
@@ -715,7 +718,7 @@ function VariantRowEditor({
           </Box>
           <Box minWidth="120px">
             <TextField
-              label="Units available"
+              label={t("Units available")}
               type="number"
               value={totalUnits}
               onChange={setTotalUnits}
@@ -726,7 +729,7 @@ function VariantRowEditor({
         </InlineStack>
         <InlineStack>
           <Button onClick={onSave} loading={saving} variant="primary">
-            Save variant
+            {t("Save variant")}
           </Button>
         </InlineStack>
       </BlockStack>
