@@ -1,4 +1,5 @@
 import { useRef, useState, useEffect, useCallback } from "react";
+import { useT } from "../i18n/context";
 
 /**
  * Shared "more from Miko" cross-sell section. Copy this file as-is into
@@ -58,7 +59,7 @@ const MIKO_APPS: MikoApp[] = [
   },
   {
     key: "b2b",
-    name: "Miko B2B Wholesale House",
+    name: "Miko B2B Wholesale Pricing",
     pitch: "Wholesale pricing, volume tiers, and storefront applications on autopilot.",
     color: "#8B6BFF",
     icon: "/cross-sell/miko-b2b-mark.png",
@@ -75,7 +76,7 @@ const MIKO_APPS: MikoApp[] = [
   {
     key: "resizer",
     name: "Miko Bulk Image Resizer",
-    pitch: "Batch-resize and compress product images without leaving your catalogue.",
+    pitch: "Batch-resize and compress product images without leaving your catalog.",
     color: "#DB2777",
     icon: "/cross-sell/miko-resizer-mark.png",
     url: "https://apps.shopify.com/miko-bulk-image-resizer",
@@ -109,6 +110,7 @@ function Arrow({ dir }: { dir: "left" | "right" }) {
 }
 
 export function CrossSellSection({ currentApp }: { currentApp: MikoApp["key"] }) {
+  const t = useT();
   const apps = MIKO_APPS.filter((a) => a.key !== currentApp);
   const trackRef = useRef<HTMLDivElement>(null);
   const [active, setActive] = useState(0);
@@ -208,16 +210,16 @@ export function CrossSellSection({ currentApp }: { currentApp: MikoApp["key"] })
         >
           <div style={{ minWidth: 0 }}>
             <div style={{ fontSize: 17, fontWeight: 700, color: "#0F172A", letterSpacing: "-0.01em" }}>
-              More from Miko
+              {t("More from Miko")}
             </div>
             <div style={{ fontSize: 13, color: "#64748B", marginTop: 3 }}>
-              Built by the same team, made to work well together.
+              {t("Built by the same team, made to work well together.")}
             </div>
           </div>
           <div style={{ display: "flex", gap: 8 }}>
             <button
               type="button"
-              aria-label="Previous"
+              aria-label={t("Previous")}
               onClick={() => scrollToIndex(active - 1)}
               disabled={atStart}
               style={arrowBtn(atStart)}
@@ -226,7 +228,7 @@ export function CrossSellSection({ currentApp }: { currentApp: MikoApp["key"] })
             </button>
             <button
               type="button"
-              aria-label="Next"
+              aria-label={t("Next")}
               onClick={() => scrollToIndex(active + 1)}
               disabled={atEnd}
               style={arrowBtn(atEnd)}
@@ -309,7 +311,7 @@ export function CrossSellSection({ currentApp }: { currentApp: MikoApp["key"] })
                   flex: 1,
                 }}
               >
-                {app.pitch}
+                {t(app.pitch)}
               </div>
 
               <a
@@ -330,7 +332,7 @@ export function CrossSellSection({ currentApp }: { currentApp: MikoApp["key"] })
                   borderRadius: 9,
                 }}
               >
-                View on the App Store
+                {t("View on the App Store")}
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
                   <path d="M7 17L17 7M17 7H8M17 7v9" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
@@ -348,7 +350,7 @@ export function CrossSellSection({ currentApp }: { currentApp: MikoApp["key"] })
                 <button
                   key={i}
                   type="button"
-                  aria-label={`Go to slide ${i + 1}`}
+                  aria-label={t("Go to slide {n}", { n: i + 1 })}
                   onClick={() => scrollToIndex(i)}
                   style={{
                     width: on ? 22 : 8,

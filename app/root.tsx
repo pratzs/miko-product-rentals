@@ -1,12 +1,12 @@
 import type { LoaderFunctionArgs, HeadersFunction } from "@remix-run/node";
 import { json } from "@remix-run/node";
-import { Links, Meta, Outlet, Scripts, ScrollRestoration, useRouteError } from "@remix-run/react";
+import { Links, Meta, Outlet, Scripts, ScrollRestoration, useLoaderData, useRouteError } from "@remix-run/react";
 import { addDocumentResponseHeaders } from "./shopify.server";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const responseHeaders = new Headers();
   addDocumentResponseHeaders(request, responseHeaders);
-  return json(null, { headers: responseHeaders });
+  return json({ apiKey: process.env.SHOPIFY_API_KEY || "" }, { headers: responseHeaders });
 };
 
 export const headers: HeadersFunction = ({ loaderHeaders }) => {
@@ -14,11 +14,19 @@ export const headers: HeadersFunction = ({ loaderHeaders }) => {
 };
 
 export default function App() {
+  const { apiKey } = useLoaderData<typeof loader>();
   return (
     <html lang="en">
       <head>
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width,initial-scale=1" />
+                {/* App Bridge must be the FIRST script in the document head for its
+            web-vitals collection to measure correctly (a Built for Shopify
+            criterion). The AppProvider in routes/app.tsx used to inject this
+            tag mid-body; it now has isEmbeddedApp={false} so the script is
+            never loaded twice. */}
+        <meta name="shopify-api-key" content={apiKey} />
+        <script src="https://cdn.shopify.com/shopifycloud/app-bridge.js" data-api-key={apiKey} />
         <Meta />
         <Links />
       </head>

@@ -1,5 +1,6 @@
 import { useFetcher } from "@remix-run/react";
 import { Banner } from "@shopify/polaris";
+import { useT } from "../i18n/context";
 
 /** One-time App Store review ask, shown only after the shop's first-value
  * milestone (see review-prompt.server.ts). Any interaction, clicking through,
@@ -13,6 +14,7 @@ export function ReviewPrompt({
   title: string;
   message: string;
 }) {
+  const t = useT();
   const fetcher = useFetcher();
   const dismiss = () =>
     fetcher.submit({ intent: "review_prompt_dismiss" }, { method: "post" });
@@ -26,13 +28,13 @@ export function ReviewPrompt({
       title={title}
       tone="success"
       action={{
-        content: "Leave a review",
+        content: t("Leave a review"),
         onAction: () => {
           window.open(reviewUrl, "_blank", "noopener,noreferrer");
           dismiss();
         },
       }}
-      secondaryAction={{ content: "No thanks", onAction: dismiss }}
+      secondaryAction={{ content: t("No thanks"), onAction: dismiss }}
       onDismiss={dismiss}
     >
       <p>{message}</p>

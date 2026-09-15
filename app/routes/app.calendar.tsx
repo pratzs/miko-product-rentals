@@ -18,6 +18,7 @@ import { db } from "../db.server";
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, getDay, isSameDay, isSameMonth, addMonths, subMonths, isToday } from "date-fns";
 import { useState } from "react";
 import { useNavigate as useNav } from "@remix-run/react";
+import { useT } from "../i18n/context";
 
 const STATUS_COLORS: Record<string, string> = {
   confirmed:    "#b3d4ff",
@@ -72,6 +73,7 @@ export default function CalendarPage() {
   const { bookings, products, year, month } = useLoaderData<typeof loader>();
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
+  const t = useT();
 
   const currentDate = new Date(year, month - 1);
   const days = eachDayOfInterval({
@@ -103,26 +105,26 @@ export default function CalendarPage() {
 
   return (
     <Page
-      title="Availability Calendar"
-      subtitle="See all rental bookings at a glance. Click any booking to view details."
+      title={t("Availability Calendar")}
+      subtitle={t("See all rental bookings at a glance. Click any booking to view details.")}
     >
       <BlockStack gap="500">
         {/* Controls */}
         <Card>
           <InlineStack align="space-between" blockAlign="center">
             <InlineStack gap="300" blockAlign="center">
-              <Button onClick={() => changeMonth(-1)}>← Previous</Button>
+              <Button onClick={() => changeMonth(-1)}>{t("← Previous")}</Button>
               <Text as="h2" variant="headingLg">
                 {format(currentDate, "MMMM yyyy")}
               </Text>
-              <Button onClick={() => changeMonth(1)}>Next →</Button>
+              <Button onClick={() => changeMonth(1)}>{t("Next →")}</Button>
             </InlineStack>
             <Box minWidth="220px">
               <Select
-                label="Filter by product"
+                label={t("Filter by product")}
                 labelInline
                 options={[
-                  { label: "All products", value: "" },
+                  { label: t("All products"), value: "" },
                   ...products.map((p) => ({ label: p.title, value: p.id })),
                 ]}
                 value={productFilter}
@@ -154,7 +156,7 @@ export default function CalendarPage() {
                 <div style={{ width: 14, height: 14, borderRadius: 3, backgroundColor: color }} />
               </Box>
               <Text as="span" variant="bodySm" tone="subdued">
-                {status.charAt(0).toUpperCase() + status.slice(1)}
+                {t(status.charAt(0).toUpperCase() + status.slice(1))}
               </Text>
             </InlineStack>
           ))}
@@ -165,7 +167,7 @@ export default function CalendarPage() {
           <Box padding="400">
             {/* Day headers */}
             <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: "4px", marginBottom: "4px" }}>
-              {["Sun","Mon","Tue","Wed","Thu","Fri","Sat"].map((d) => (
+              {[t("Sun"), t("Mon"), t("Tue"), t("Wed"), t("Thu"), t("Fri"), t("Sat")].map((d) => (
                 <div key={d} style={{ textAlign: "center", padding: "8px 4px" }}>
                   <Text as="span" variant="bodySm" tone="subdued" fontWeight="semibold">{d}</Text>
                 </div>
@@ -228,7 +230,7 @@ export default function CalendarPage() {
                       ))}
                       {dayBookings.length > 3 && (
                         <Text as="p" variant="bodySm" tone="subdued">
-                          +{dayBookings.length - 3} more
+                          {t("+{n} more", { n: dayBookings.length - 3 })}
                         </Text>
                       )}
                     </BlockStack>

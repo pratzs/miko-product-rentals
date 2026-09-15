@@ -23,6 +23,7 @@ import { format } from "date-fns";
 import { formatCurrency } from "../utils/pricing";
 import { useState, useCallback } from "react";
 import { Banner } from "@shopify/polaris";
+import { useT } from "../i18n/context";
 
 const STATUS_BADGE: Record<string, { tone: any; label: string }> = {
   pending:      { tone: "attention", label: "Pending payment" },
@@ -30,7 +31,7 @@ const STATUS_BADGE: Record<string, { tone: any; label: string }> = {
   active:       { tone: "success",   label: "Out on rental" },
   returned:     { tone: "success",   label: "Returned" },
   overdue:      { tone: "critical",  label: "Overdue" },
-  cancelled:    { tone: "subdued",   label: "Cancelled" },
+  cancelled:    { tone: "subdued",   label: "Canceled" },
   needs_review: { tone: "warning",   label: "Needs review" },
 };
 
@@ -96,6 +97,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 export default function BookingsPage() {
   const { bookings, products, currency, counts } = useLoaderData<typeof loader>();
   const navigate = useNavigate();
+  const t = useT();
   const [searchParams, setSearchParams] = useSearchParams();
   const [queryValue, setQueryValue] = useState(searchParams.get("q") || "");
   const statusFilter = searchParams.get("status") || "";
@@ -133,15 +135,15 @@ export default function BookingsPage() {
     format(new Date(b.endDate), "d MMM yyyy"),
     `${b.rentalDays}d`,
     formatCurrency(b.totalCharged, currency),
-    <Badge tone={STATUS_BADGE[b.status]?.tone}>{STATUS_BADGE[b.status]?.label}</Badge>,
+    <Badge tone={STATUS_BADGE[b.status]?.tone}>{t(STATUS_BADGE[b.status]?.label ?? "")}</Badge>,
   ]);
 
   const statusTabs = [
-    { label: "All", value: "", count: counts.all },
-    { label: "Needs review", value: "needs_review", count: counts.needs_review },
-    { label: "Active", value: "active", count: counts.active },
-    { label: "Overdue", value: "overdue", count: counts.overdue },
-    { label: "Confirmed", value: "confirmed", count: counts.confirmed },
+    { label: t("All"), value: "", count: counts.all },
+    { label: t("Needs review"), value: "needs_review", count: counts.needs_review },
+    { label: t("Active"), value: "active", count: counts.active },
+    { label: t("Overdue"), value: "overdue", count: counts.overdue },
+    { label: t("Confirmed"), value: "confirmed", count: counts.confirmed },
   ];
 
   const syncedCount = parseInt(searchParams.get("synced") || "0");
@@ -151,12 +153,12 @@ export default function BookingsPage() {
 
   return (
     <Page
-      title="Bookings"
-      subtitle="Every rental booking across all your products"
+      title={t("Bookings")}
+      subtitle={t("Every rental booking across all your products")}
       secondaryActions={[
         {
-          content: "Sync from Shopify",
-          helpText: "Recover bookings from recent Shopify orders that may have been missed",
+          content: t("Sync from Shopify"),
+          helpText: t("Recover bookings from recent Shopify orders that may have been missed"),
         },
       ]}
     >
@@ -164,7 +166,7 @@ export default function BookingsPage() {
         {showSyncBanner && (
           <Banner
             tone={flaggedCount > 0 ? "warning" : "success"}
-            title="Sync complete"
+            title={t("Sync complete")}
             onDismiss={() => {
               const p = new URLSearchParams(searchParams);
               p.delete("synced");
@@ -174,9 +176,24 @@ export default function BookingsPage() {
             }}
           >
             <p>
-              {syncedCount > 0 && `Created ${syncedCount} new booking${syncedCount > 1 ? "s" : ""}. `}
-              {upgradedCount > 0 && `Upgraded ${upgradedCount} pending booking${upgradedCount > 1 ? "s" : ""} to confirmed. `}
-              {flaggedCount > 0 && `${flaggedCount} booking${flaggedCount > 1 ? "s were" : " was"} flagged for review (overbooking risk).`}
+              {syncedCount > 0 && (
+                <>
+                  {syncedCount > 1
+                    ? t("Created {n} new bookings.", { n: syncedCount })
+                    : t("Created {n} new booking.", { n: syncedCount })}{" "}
+                </>
+              )}
+              {upgradedCount > 0 && (
+                <>
+                  {upgradedCount > 1
+                    ? t("Upgraded {n} pending bookings to confirmed.", { n: upgradedCount })
+                    : t("Upgraded {n} pending booking to confirmed.", { n: upgradedCount })}{" "}
+                </>
+              )}
+              {flaggedCount > 0 &&
+                (flaggedCount > 1
+                  ? t("{n} bookings were flagged for review (overbooking risk).", { n: flaggedCount })
+                  : t("{n} booking was flagged for review (overbooking risk).", { n: flaggedCount }))}
             </p>
           </Banner>
         )}
@@ -184,7 +201,7 @@ export default function BookingsPage() {
         <Form method="POST" action="/app/sync-orders">
           <input type="hidden" name="returnTo" value="/app/bookings" />
           <Button submit variant="plain">
-            Sync from Shopify (recover missing bookings)
+            {t("Sync from Shopify (recover missing bookings)")}
           </Button>
         </Form>
 
@@ -206,19 +223,19 @@ export default function BookingsPage() {
           <Box padding="400">
             <Filters
               queryValue={queryValue}
-              queryPlaceholder="Search by customer name, email, or order number"
+              queryPlaceholder={t("Search by customer name, email, or order number")}
               onQueryChange={handleSearch}
               onQueryClear={() => handleSearch("")}
               filters={[
                 {
                   key: "productId",
-                  label: "Product",
+                  label: t("Product"),
                   filter: (
                     <ChoiceList
-                      title="Product"
+                      title={t("Product")}
                       titleHidden
                       choices={[
-                        { label: "All products", value: "" },
+                        { label: t("All products"), value: "" },
                         ...products.map((p) => ({ label: p.title, value: p.id })),
                       ]}
                       selected={[searchParams.get("productId") || ""]}
@@ -233,14 +250,14 @@ export default function BookingsPage() {
 
           {bookings.length === 0 ? (
             <Box padding="800">
-              <EmptyState heading="No bookings match your filters" image="">
-                <p>Try adjusting the filters or search term.</p>
+              <EmptyState heading={t("No bookings match your filters")} image="">
+                <p>{t("Try adjusting the filters or search term.")}</p>
               </EmptyState>
             </Box>
           ) : (
             <DataTable
               columnContentTypes={["text","text","text","text","text","text","numeric","text"]}
-              headings={["Order","Customer","Product","Start date","Return by","Duration","Charged","Status"]}
+              headings={[t("Order"), t("Customer"), t("Product"), t("Start date"), t("Return by"), t("Duration"), t("Charged"), t("Status")]}
               rows={rows}
               hoverable
             />

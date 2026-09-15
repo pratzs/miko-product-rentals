@@ -67,6 +67,7 @@ import {
   type HtmlBlock,
   type BrandSettings,
 } from "../utils/email-templates";
+import { useT } from "../i18n/context";
 
 function uid(): string {
   return Math.random().toString(36).slice(2, 9);
@@ -280,24 +281,28 @@ function blockTypeLabel(type: EmailBlock["type"]): string {
   return labels[type] ?? type;
 }
 
-function blockPreview(block: EmailBlock, brand?: BrandSettings): string {
+function blockPreview(
+  block: EmailBlock,
+  t: (key: string, vars?: Record<string, string | number>) => string,
+  brand?: BrandSettings,
+): string {
   switch (block.type) {
     case "header":
-      if (block.logoUrl) return "Custom logo (overrides brand)";
-      if (brand?.logoUrl) return "Brand logo";
-      return "Brand name (no logo set)";
+      if (block.logoUrl) return t("Custom logo (overrides brand)");
+      if (brand?.logoUrl) return t("Brand logo");
+      return t("Brand name (no logo set)");
     case "text":
       return block.content.replace(/\*\*/g, "").slice(0, 60) + (block.content.length > 60 ? "…" : "");
     case "details":
-      return block.title || "Booking summary table";
+      return block.title || t("Booking summary table");
     case "button":
-      return block.text || "Button";
+      return block.text || t("Button");
     case "spacer":
-      return `${block.height}px gap`;
+      return t("{n}px gap", { n: block.height });
     case "divider":
-      return "Horizontal rule";
+      return t("Horizontal rule");
     case "html":
-      return "Raw HTML";
+      return t("Raw HTML");
     default:
       return "";
   }
@@ -353,6 +358,7 @@ function SortableBlockRow({
   onDelete,
   brand,
 }: SortableBlockRowProps) {
+  const t = useT();
   const { attributes, listeners, setNodeRef, transform, transition } =
     useSortable({ id: block.id });
 
@@ -380,10 +386,10 @@ function SortableBlockRow({
             </div>
             <BlockStack gap="050">
               <Text as="p" variant="bodyMd" fontWeight="semibold">
-                {blockTypeLabel(block.type)}
+                {t(blockTypeLabel(block.type))}
               </Text>
               <Text as="p" variant="bodySm" tone="subdued">
-                {blockPreview(block, brand)}
+                {blockPreview(block, t, brand)}
               </Text>
             </BlockStack>
           </InlineStack>
@@ -392,14 +398,14 @@ function SortableBlockRow({
               icon={EditIcon}
               onClick={() => onSelect(block.id)}
               variant="plain"
-              accessibilityLabel="Edit block"
+              accessibilityLabel={t("Edit block")}
             />
             <Button
               icon={DeleteIcon}
               onClick={() => onDelete(block.id)}
               variant="plain"
               tone="critical"
-              accessibilityLabel="Delete block"
+              accessibilityLabel={t("Delete block")}
             />
           </InlineStack>
         </InlineStack>
@@ -420,44 +426,45 @@ interface BlockEditorProps {
 }
 
 function BlockEditor({ block, onChange, onClose, onDelete }: BlockEditorProps) {
+  const t = useT();
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   function update(key: string, value: unknown) {
     onChange({ ...(block as unknown as Record<string, unknown>), [key]: value } as unknown as EmailBlock);
   }
 
   const fontWeightOptions = [
-    { label: "Normal", value: "normal" },
-    { label: "Bold", value: "bold" },
+    { label: t("Normal"), value: "normal" },
+    { label: t("Bold"), value: "bold" },
   ];
 
   const textAlignOptions = [
-    { label: "Left", value: "left" },
-    { label: "Center", value: "center" },
-    { label: "Right", value: "right" },
+    { label: t("Left"), value: "left" },
+    { label: t("Center"), value: "center" },
+    { label: t("Right"), value: "right" },
   ];
 
   return (
     <Card>
       <BlockStack gap="400">
         <Text as="h3" variant="headingMd">
-          Edit {blockTypeLabel(block.type)} block
+          {t("Edit {block} block", { block: t(blockTypeLabel(block.type)) })}
         </Text>
 
         {block.type === "header" && (
           <FormLayout>
             <TextField
-              label="Logo URL (overrides brand logo)"
+              label={t("Logo URL (overrides brand logo)")}
               value={block.logoUrl}
               onChange={(v) => update("logoUrl", v)}
               autoComplete="off"
-              helpText="Leave blank to use the logo from Brand settings (recommended). Only set this if you want a different logo just for this template."
+              helpText={t("Leave blank to use the logo from Brand settings (recommended). Only set this if you want a different logo just for this template.")}
             />
             <TextField
-              label="Background colour"
+              label={t("Background color")}
               value={block.backgroundColor}
               onChange={(v) => update("backgroundColor", v)}
               autoComplete="off"
-              helpText="Hex code e.g. #ffffff"
+              helpText={t("Hex code e.g. #ffffff")}
             />
           </FormLayout>
         )}
@@ -465,22 +472,22 @@ function BlockEditor({ block, onChange, onClose, onDelete }: BlockEditorProps) {
         {block.type === "text" && (
           <FormLayout>
             <TextField
-              label="Content"
+              label={t("Content")}
               value={block.content}
               onChange={(v) => update("content", v)}
               multiline={4}
               autoComplete="off"
-              helpText="Use **text** for bold. Use {{variable}} placeholders."
+              helpText={t("Use **text** for bold. Use {{variable}} placeholders.")}
             />
             <RangeSlider
-              label={`Font size: ${block.fontSize}px`}
+              label={t("Font size: {n}px", { n: block.fontSize })}
               min={12}
               max={32}
               value={block.fontSize}
               onChange={(v) => update("fontSize", v as number)}
             />
             <Select
-              label="Font weight"
+              label={t("Font weight")}
               options={fontWeightOptions}
               value={block.fontWeight}
               onChange={(v) =>
@@ -488,7 +495,7 @@ function BlockEditor({ block, onChange, onClose, onDelete }: BlockEditorProps) {
               }
             />
             <Select
-              label="Text alignment"
+              label={t("Text alignment")}
               options={textAlignOptions}
               value={block.textAlign}
               onChange={(v) =>
@@ -496,21 +503,21 @@ function BlockEditor({ block, onChange, onClose, onDelete }: BlockEditorProps) {
               }
             />
             <TextField
-              label="Colour"
+              label={t("Color")}
               value={block.color}
               onChange={(v) => update("color", v)}
               autoComplete="off"
-              helpText="Hex code e.g. #333333"
+              helpText={t("Hex code e.g. #333333")}
             />
             <RangeSlider
-              label={`Padding top: ${block.paddingTop}px`}
+              label={t("Padding top: {n}px", { n: block.paddingTop })}
               min={0}
               max={80}
               value={block.paddingTop}
               onChange={(v) => update("paddingTop", v as number)}
             />
             <RangeSlider
-              label={`Padding bottom: ${block.paddingBottom}px`}
+              label={t("Padding bottom: {n}px", { n: block.paddingBottom })}
               min={0}
               max={80}
               value={block.paddingBottom}
@@ -522,17 +529,17 @@ function BlockEditor({ block, onChange, onClose, onDelete }: BlockEditorProps) {
         {block.type === "details" && (
           <FormLayout>
             <TextField
-              label="Section title"
+              label={t("Section title")}
               value={block.title}
               onChange={(v) => update("title", v)}
               autoComplete="off"
             />
             <TextField
-              label="Background colour"
+              label={t("Background color")}
               value={block.backgroundColor}
               onChange={(v) => update("backgroundColor", v)}
               autoComplete="off"
-              helpText="Hex code e.g. #f9f9f9"
+              helpText={t("Hex code e.g. #f9f9f9")}
             />
           </FormLayout>
         )}
@@ -540,38 +547,38 @@ function BlockEditor({ block, onChange, onClose, onDelete }: BlockEditorProps) {
         {block.type === "button" && (
           <FormLayout>
             <TextField
-              label="Button text"
+              label={t("Button text")}
               value={block.text}
               onChange={(v) => update("text", v)}
               autoComplete="off"
             />
             <TextField
-              label="URL"
+              label={t("URL")}
               value={block.url}
               onChange={(v) => update("url", v)}
               autoComplete="off"
               placeholder="https://yourstore.com"
             />
             <TextField
-              label="Background colour"
+              label={t("Background color")}
               value={block.backgroundColor}
               onChange={(v) => update("backgroundColor", v)}
               autoComplete="off"
-              helpText="Hex code e.g. #1a1a1a"
+              helpText={t("Hex code e.g. #1a1a1a")}
             />
             <TextField
-              label="Text colour"
+              label={t("Text color")}
               value={block.textColor}
               onChange={(v) => update("textColor", v)}
               autoComplete="off"
-              helpText="Hex code e.g. #ffffff"
+              helpText={t("Hex code e.g. #ffffff")}
             />
           </FormLayout>
         )}
 
         {block.type === "spacer" && (
           <RangeSlider
-            label={`Height: ${block.height}px`}
+            label={t("Height: {n}px", { n: block.height })}
             min={8}
             max={80}
             value={block.height}
@@ -581,36 +588,36 @@ function BlockEditor({ block, onChange, onClose, onDelete }: BlockEditorProps) {
 
         {block.type === "divider" && (
           <TextField
-            label="Colour"
+            label={t("Color")}
             value={block.color}
             onChange={(v) => update("color", v)}
             autoComplete="off"
-            helpText="Hex code e.g. #e5e5e5"
+            helpText={t("Hex code e.g. #e5e5e5")}
           />
         )}
 
         {block.type === "html" && (
           <TextField
-            label="HTML content"
+            label={t("HTML content")}
             value={block.content}
             onChange={(v) => update("content", v)}
             multiline={10}
             autoComplete="off"
-            helpText="Raw HTML is rendered as-is. Use with caution."
+            helpText={t("Raw HTML is rendered as-is. Use with caution.")}
           />
         )}
 
         <Divider />
         <InlineStack gap="300">
           <Button onClick={onClose} variant="secondary">
-            Done
+            {t("Done")}
           </Button>
           <Button
             tone="critical"
             onClick={() => onDelete(block.id)}
             variant="plain"
           >
-            Remove block
+            {t("Remove block")}
           </Button>
         </InlineStack>
       </BlockStack>
@@ -641,6 +648,7 @@ function EmailPreview({
   onDeviceChange,
   previewOverrides,
 }: EmailPreviewProps) {
+  const t = useT();
   const sampleVars = { ...PREVIEW_SAMPLE_VARS, ...previewOverrides };
   const renderedSubject = substituteVariables(subject, sampleVars);
   const renderedHtml = substituteVariables(html, sampleVars);
@@ -651,8 +659,8 @@ function EmailPreview({
       <Box padding="300" borderBlockEndWidth="025" borderColor="border">
         <InlineStack align="space-between" blockAlign="center" wrap={false}>
           <InlineStack gap="200" blockAlign="center">
-            <Text as="p" variant="bodyMd" fontWeight="semibold">Live preview</Text>
-            <Badge tone="info">Sample data</Badge>
+            <Text as="p" variant="bodyMd" fontWeight="semibold">{t("Live preview")}</Text>
+            <Badge tone="info">{t("Sample data")}</Badge>
           </InlineStack>
           <InlineStack gap="100">
             <Button
@@ -660,14 +668,14 @@ function EmailPreview({
               pressed={device === "desktop"}
               onClick={() => onDeviceChange("desktop")}
             >
-              Desktop
+              {t("Desktop")}
             </Button>
             <Button
               size="slim"
               pressed={device === "mobile"}
               onClick={() => onDeviceChange("mobile")}
             >
-              Mobile
+              {t("Mobile")}
             </Button>
           </InlineStack>
         </InlineStack>
@@ -680,13 +688,13 @@ function EmailPreview({
             <Text as="p" variant="bodySm" fontWeight="semibold">
               {fromName}
             </Text>
-            <Text as="p" variant="bodySm" tone="subdued">now</Text>
+            <Text as="p" variant="bodySm" tone="subdued">{t("now")}</Text>
           </InlineStack>
           <Text as="p" variant="bodyMd" fontWeight="medium">
-            {renderedSubject || "(no subject)"}
+            {renderedSubject || t("(no subject)")}
           </Text>
           <Text as="p" variant="bodySm" tone="subdued">
-            to {toEmail || "customer@example.com"}
+            {t("to")} {toEmail || "customer@example.com"}
           </Text>
         </BlockStack>
       </Box>
@@ -704,7 +712,7 @@ function EmailPreview({
           }}
         >
           <iframe
-            title="Email preview"
+            title={t("Email preview")}
             srcDoc={renderedHtml}
             style={{
               width: iframeWidth,
@@ -746,6 +754,7 @@ const ADD_BLOCK_TYPES: EmailBlock["type"][] = [
 
 export default function EmailEditorPage() {
   const { template, brand, merchantEmail, previewOverrides } = useLoaderData<typeof loader>();
+  const t = useT();
   const saveFetcher = useFetcher<typeof action>();
   const testFetcher = useFetcher<typeof action>();
 
@@ -851,16 +860,16 @@ export default function EmailEditorPage() {
 
   return (
     <Page
-      title={templateName || "New template"}
-      backAction={{ content: "Email Templates", url: "/app/emails" }}
+      title={templateName || t("New template")}
+      backAction={{ content: t("Email Templates"), url: "/app/emails" }}
       primaryAction={{
-        content: "Save",
+        content: t("Save"),
         onAction: handleSave,
         loading: isSubmitting,
       }}
       secondaryActions={[
         {
-          content: "Send test",
+          content: t("Send test"),
           onAction: handleSendTest,
           loading: isSendingTest,
         },
@@ -883,11 +892,11 @@ export default function EmailEditorPage() {
         {showTestEmailField && (
           <Card>
             <BlockStack gap="300">
-              <Text as="p" variant="bodyMd">Send a test email</Text>
+              <Text as="p" variant="bodyMd">{t("Send a test email")}</Text>
               <InlineStack gap="300" blockAlign="end">
                 <Box minWidth="280px">
                   <TextField
-                    label="Send to"
+                    label={t("Send to")}
                     value={testEmail}
                     onChange={setTestEmail}
                     type="email"
@@ -900,9 +909,9 @@ export default function EmailEditorPage() {
                   onClick={handleSendTest}
                   loading={isSendingTest}
                 >
-                  Send now
+                  {t("Send now")}
                 </Button>
-                <Button onClick={() => setShowTestEmailField(false)}>Cancel</Button>
+                <Button onClick={() => setShowTestEmailField(false)}>{t("Cancel")}</Button>
               </InlineStack>
             </BlockStack>
           </Card>
@@ -915,33 +924,33 @@ export default function EmailEditorPage() {
               {/* Template details */}
               <Card>
                 <BlockStack gap="400">
-                  <Text as="h2" variant="headingMd">Template details</Text>
+                  <Text as="h2" variant="headingMd">{t("Template details")}</Text>
                   <FormLayout>
                     <TextField
-                      label="Template name"
+                      label={t("Template name")}
                       value={templateName}
                       onChange={(v) => { setTemplateName(v); setIsDirty(true); }}
                       autoComplete="off"
                     />
                     <Select
-                      label="Email type"
-                      options={TYPE_OPTIONS}
+                      label={t("Email type")}
+                      options={TYPE_OPTIONS.map((o) => ({ ...o, label: t(o.label) }))}
                       value={templateType}
                       onChange={(v) => { setTemplateType(v); setIsDirty(true); }}
-                      helpText="Controls when this template is used for automated sends."
+                      helpText={t("Controls when this template is used for automated sends.")}
                     />
                     <TextField
-                      label="Subject line"
+                      label={t("Subject line")}
                       value={subject}
                       onChange={(v) => { setSubject(v); setIsDirty(true); }}
                       autoComplete="off"
-                      helpText="Supports {{variable}} placeholders."
+                      helpText={t("Supports {{variable}} placeholders.")}
                     />
 
                     {/* Variable chips */}
                     <BlockStack gap="200">
                       <Text as="p" variant="bodySm" tone="subdued">
-                        Click a variable to copy it to your clipboard.
+                        {t("Click a variable to copy it to your clipboard.")}
                       </Text>
                       <InlineStack gap="200" wrap>
                         {TEMPLATE_VARIABLES.map((v) => (
@@ -953,7 +962,7 @@ export default function EmailEditorPage() {
                                 .catch(() => {});
                             }}
                           >
-                            {v.label}
+                            {t(v.label)}
                           </Tag>
                         ))}
                       </InlineStack>
@@ -966,12 +975,12 @@ export default function EmailEditorPage() {
               <Card padding="0">
                 <Box padding="400" borderBlockEndWidth="025" borderColor="border">
                   <InlineStack align="space-between" blockAlign="center">
-                    <Text as="h2" variant="headingMd">Email content</Text>
+                    <Text as="h2" variant="headingMd">{t("Email content")}</Text>
                     <Button
                       variant="plain"
                       onClick={() => setShowHtmlSource((v) => !v)}
                     >
-                      {showHtmlSource ? "Hide HTML" : "View HTML source"}
+                      {showHtmlSource ? t("Hide HTML") : t("View HTML source")}
                     </Button>
                   </InlineStack>
                 </Box>
@@ -981,7 +990,7 @@ export default function EmailEditorPage() {
                     <Box padding="600">
                       <BlockStack gap="300" inlineAlign="center">
                         <Text as="p" tone="subdued" alignment="center">
-                          No blocks yet. Add your first block below.
+                          {t("No blocks yet. Add your first block below.")}
                         </Text>
                       </BlockStack>
                     </Box>
@@ -1018,13 +1027,13 @@ export default function EmailEditorPage() {
                           onClick={() => setAddBlockOpen(true)}
                           fullWidth
                         >
-                          + Add block
+                          {t("+ Add block")}
                         </Button>
                       }
                     >
                       <ActionList
                         items={ADD_BLOCK_TYPES.map((type) => ({
-                          content: blockTypeLabel(type),
+                          content: t(blockTypeLabel(type)),
                           onAction: () => handleAddBlock(type),
                         }))}
                       />
@@ -1051,7 +1060,7 @@ export default function EmailEditorPage() {
                 <Card>
                   <BlockStack gap="300">
                     <InlineStack align="space-between">
-                      <Text as="h3" variant="headingSm">Compiled HTML</Text>
+                      <Text as="h3" variant="headingSm">{t("Compiled HTML")}</Text>
                       <Button
                         size="slim"
                         onClick={() => {
@@ -1060,11 +1069,11 @@ export default function EmailEditorPage() {
                             .catch(() => {});
                         }}
                       >
-                        Copy
+                        {t("Copy")}
                       </Button>
                     </InlineStack>
                     <TextField
-                      label="Compiled HTML"
+                      label={t("Compiled HTML")}
                       labelHidden
                       value={compiledHtml()}
                       multiline={12}
@@ -1084,7 +1093,7 @@ export default function EmailEditorPage() {
               <EmailPreview
                 html={compiledHtml()}
                 subject={subject}
-                fromName={brand.name || "Your Shop"}
+                fromName={brand.name || t("Your Shop")}
                 toEmail={PREVIEW_SAMPLE_VARS.customer_email}
                 device={previewDevice}
                 onDeviceChange={setPreviewDevice}

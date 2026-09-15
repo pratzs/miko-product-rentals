@@ -20,6 +20,7 @@ import { db } from "../db.server";
 import { format, differenceInDays } from "date-fns";
 import { formatCurrency } from "../utils/pricing";
 import { useState } from "react";
+import { useT } from "../i18n/context";
 
 export const loader = async ({ request, params }: LoaderFunctionArgs) => {
   const { session } = await authenticate.admin(request);
@@ -207,7 +208,8 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
       data: { status: "returned", returnedAt: new Date() },
     });
 
-    let extraMessage = "";
+    let extraKey = "";
+    let extraParams: Record<string, string> = {};
     if (hasDeposit && booking.shopifyOrderId) {
       // Always auto-refund the deposit unless the merchant explicitly forfeited it.
       const result = await refundBookingDeposit(admin, booking);
@@ -216,9 +218,11 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
           where: { id: booking.id },
           data: { depositStatus: "released" },
         });
-        extraMessage = ` Deposit of ${formatCurrency(booking.depositAmount, config?.currency || "USD")} was refunded to the customer.`;
+        extraKey = " Deposit of {amount} was refunded to the customer.";
+        extraParams = { amount: formatCurrency(booking.depositAmount, config?.currency || "USD") };
       } else {
-        extraMessage = ` Could not auto-refund the deposit (${result.error}). Open Deposit management to refund manually.`;
+        extraKey = " Could not auto-refund the deposit ({error}). Open Deposit management to refund manually.";
+        extraParams = { error: String(result.error) };
       }
     } else if (hasDeposit) {
       // No Shopify order linked (e.g. legacy / manually created booking).
@@ -227,10 +231,18 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
         where: { id: booking.id },
         data: { depositStatus: "released" },
       });
-      extraMessage = " Deposit marked as released. Refund the customer manually in Shopify if needed.";
+      extraKey = " Deposit marked as released. Refund the customer manually in Shopify if needed.";
     }
 
-    return json({ success: true, message: `Booking marked as returned.${extraMessage}` });
+    // The banner is translated at the RENDER site: the English text is the
+    // catalog key and the values travel separately, so a merchant on a
+    // German admin gets a German confirmation instead of English prose.
+    return json({
+      success: true,
+      message: "Booking marked as returned.",
+      extraKey,
+      extraParams,
+    });
   }
 
   if (intent === "mark_active") {
@@ -254,7 +266,7 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
       where: { id: booking.id },
       data: { status: "cancelled", cancelledAt: new Date() },
     });
-    return json({ success: true, message: "Booking cancelled." });
+    return json({ success: true, message: "Booking canceled." });
   }
 
   if (intent === "update_deposit") {
@@ -279,7 +291,7 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
 
     const result = await refundBookingDeposit(admin, booking);
     if (!result.ok) {
-      return json({ error: `Refund failed: ${result.error}.` }, { status: 400 });
+      return json({ error: "Refund failed: {error}.", errorParams: { error: String(result.error) } }, { status: 400 });
     }
     await db.rentalBooking.update({
       where: { id: booking.id },
@@ -287,7 +299,8 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
     });
     return json({
       success: true,
-      message: `Deposit of ${formatCurrency(booking.depositAmount, config?.currency || "USD")} refunded to the customer.`,
+      message: "Deposit of {amount} refunded to the customer.",
+      messageParams: { amount: formatCurrency(booking.depositAmount, config?.currency || "USD") },
     });
   }
 
@@ -366,8 +379,9 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
     return json({
       success: true,
       message: draftOrderAdminUrl
-        ? `Late fee of ${formatCurrency(lateFeeTotal, currency)} recorded. A draft order has been created — open it in Shopify to send the payment link to the customer.`
-        : `Late fee of ${formatCurrency(lateFeeTotal, currency)} recorded. Create a manual invoice in Shopify to charge the customer.`,
+        ? "Late fee of {amount} recorded. A draft order has been created, open it in Shopify to send the payment link to the customer."
+        : "Late fee of {amount} recorded. Create a manual invoice in Shopify to charge the customer.",
+      messageParams: { amount: formatCurrency(lateFeeTotal, currency) },
       draftOrderUrl: draftOrderAdminUrl,
     });
   }
@@ -390,7 +404,7 @@ const STATUS_BADGE: Record<string, { tone: any; label: string }> = {
   active:       { tone: "success",   label: "Out on rental" },
   returned:     { tone: "success",   label: "Returned" },
   overdue:      { tone: "critical",  label: "Overdue, not returned" },
-  cancelled:    { tone: "subdued",   label: "Cancelled" },
+  cancelled:    { tone: "subdued",   label: "Canceled" },
   needs_review: { tone: "warning",   label: "Needs review, overbooked" },
 };
 
@@ -406,6 +420,7 @@ export default function BookingDetailPage() {
   const actionData = useActionData<typeof action>();
   const navigation = useNavigation();
   const navigate = useNavigate();
+  const t = useT();
   const submitting = navigation.state === "submitting";
 
   const [notes, setNotes] = useState(booking.merchantNotes);
@@ -417,45 +432,60 @@ export default function BookingDetailPage() {
 
   return (
     <Page
-      title={booking.orderName || `Booking ${booking.id.slice(-8).toUpperCase()}`}
+      title={booking.orderName || t("Booking {id}", { id: booking.id.slice(-8).toUpperCase() })}
       subtitle={`${booking.productTitle} - ${booking.customerName}`}
-      backAction={{ content: "Bookings", url: "/app/bookings" }}
+      backAction={{ content: t("Bookings"), url: "/app/bookings" }}
     >
       <Layout>
         <Layout.Section>
           <BlockStack gap="500">
             {actionData && "error" in actionData && (
-              <Banner tone="critical" title={actionData.error} />
+              <Banner tone="critical" title={t(actionData.error, (actionData as any).errorParams)} />
             )}
             {actionData && "message" in actionData && (
-              <Banner tone="success" title={(actionData as any).message}>
+              <Banner
+                tone="success"
+                title={
+                  t((actionData as any).message, (actionData as any).messageParams) +
+                  ((actionData as any).extraKey
+                    ? t((actionData as any).extraKey, (actionData as any).extraParams)
+                    : "")
+                }
+              >
                 {(actionData as any).draftOrderUrl && (
                   <Button
                     url={(actionData as any).draftOrderUrl}
                     target="_blank"
                     variant="plain"
                   >
-                    Open draft order in Shopify to send payment link
+                    {t("Open draft order in Shopify to send payment link")}
                   </Button>
                 )}
               </Banner>
             )}
 
             {booking.status === "overdue" && (
-              <Banner tone="critical" title={`This rental is ${daysOverdue} day${daysOverdue > 1 ? "s" : ""} overdue`}>
+              <Banner
+                tone="critical"
+                title={
+                  daysOverdue > 1
+                    ? t("This rental is {n} days overdue", { n: daysOverdue })
+                    : t("This rental is {n} day overdue", { n: daysOverdue })
+                }
+              >
                 <p>
                   {lateFeePerDay > 0
-                    ? `A late fee of ${formatCurrency(lateFeePerDay, currency)} per day applies.`
-                    : "Contact the customer to arrange return."}
+                    ? t("A late fee of {amount} per day applies.", { amount: formatCurrency(lateFeePerDay, currency) })
+                    : t("Contact the customer to arrange return.")}
                 </p>
               </Banner>
             )}
 
             {booking.status === "needs_review" && (
-              <Banner tone="warning" title="This booking needs your review">
+              <Banner tone="warning" title={t("This booking needs your review")}>
                 <p>
                   {booking.merchantNotes ||
-                    "Capacity conflict at the time the order came in. Resolve by contacting the customer or adjusting another booking."}
+                    t("Capacity conflict at the time the order came in. Resolve by contacting the customer or adjusting another booking.")}
                 </p>
               </Banner>
             )}
@@ -467,35 +497,35 @@ export default function BookingDetailPage() {
                   <BlockStack gap="100">
                     <Text as="h2" variant="headingLg">{booking.productTitle}</Text>
                     {booking.variantTitle && (
-                      <Text as="p" tone="subdued">Variant: {booking.variantTitle}</Text>
+                      <Text as="p" tone="subdued">{t("Variant: {title}", { title: booking.variantTitle })}</Text>
                     )}
                     <Text as="p" tone="subdued">{booking.orderName}</Text>
                   </BlockStack>
                   <Badge tone={STATUS_BADGE[booking.status]?.tone}>
-                    {STATUS_BADGE[booking.status]?.label}
+                    {t(STATUS_BADGE[booking.status]?.label ?? "")}
                   </Badge>
                 </InlineStack>
                 <Divider />
                 <InlineStack gap="600" wrap>
                   <BlockStack gap="050">
-                    <Text as="p" variant="bodySm" tone="subdued">Rental starts</Text>
+                    <Text as="p" variant="bodySm" tone="subdued">{t("Rental starts")}</Text>
                     <Text as="p" variant="bodyMd" fontWeight="medium">
                       {format(new Date(booking.startDate), "EEEE, d MMMM yyyy")}
                     </Text>
                   </BlockStack>
                   <BlockStack gap="050">
-                    <Text as="p" variant="bodySm" tone="subdued">Returns by</Text>
+                    <Text as="p" variant="bodySm" tone="subdued">{t("Returns by")}</Text>
                     <Text as="p" variant="bodyMd" fontWeight="medium">
                       {format(new Date(booking.endDate), "EEEE, d MMMM yyyy")}
                     </Text>
                   </BlockStack>
                   <BlockStack gap="050">
-                    <Text as="p" variant="bodySm" tone="subdued">Duration</Text>
-                    <Text as="p" variant="bodyMd">{booking.rentalDays} days</Text>
+                    <Text as="p" variant="bodySm" tone="subdued">{t("Duration")}</Text>
+                    <Text as="p" variant="bodyMd">{t("{n} days", { n: booking.rentalDays })}</Text>
                   </BlockStack>
                   {booking.returnedAt && (
                     <BlockStack gap="050">
-                      <Text as="p" variant="bodySm" tone="subdued">Returned on</Text>
+                      <Text as="p" variant="bodySm" tone="subdued">{t("Returned on")}</Text>
                       <Text as="p" variant="bodyMd">
                         {format(new Date(booking.returnedAt), "d MMM yyyy")}
                       </Text>
@@ -508,19 +538,21 @@ export default function BookingDetailPage() {
             {/* Financial summary */}
             <Card>
               <BlockStack gap="400">
-                <Text as="h2" variant="headingMd">Payment summary</Text>
+                <Text as="h2" variant="headingMd">{t("Payment summary")}</Text>
                 <Divider />
                 <BlockStack gap="200">
                   <InlineStack align="space-between">
-                    <Text as="p" tone="subdued">Rental fee</Text>
+                    <Text as="p" tone="subdued">{t("Rental fee")}</Text>
                     <Text as="p">{formatCurrency(booking.rentalPrice, currency)}</Text>
                   </InlineStack>
                   {booking.depositAmount > 0 && (
                     <InlineStack align="space-between">
                       <InlineStack gap="200" blockAlign="center">
-                        <Text as="p" tone="subdued">Deposit</Text>
+                        <Text as="p" tone="subdued">{t("Deposit")}</Text>
                         <Badge tone={DEPOSIT_BADGE[booking.depositStatus]?.tone || "subdued"}>
-                          {DEPOSIT_BADGE[booking.depositStatus]?.label || booking.depositStatus}
+                          {DEPOSIT_BADGE[booking.depositStatus]?.label
+                            ? t(DEPOSIT_BADGE[booking.depositStatus].label)
+                            : booking.depositStatus}
                         </Badge>
                       </InlineStack>
                       <Text as="p">{formatCurrency(booking.depositAmount, currency)}</Text>
@@ -528,13 +560,13 @@ export default function BookingDetailPage() {
                   )}
                   {booking.lateFeeCharged > 0 && (
                     <InlineStack align="space-between">
-                      <Text as="p" tone="subdued">Late fee charged</Text>
+                      <Text as="p" tone="subdued">{t("Late fee charged")}</Text>
                       <Text as="p" tone="critical">{formatCurrency(booking.lateFeeCharged, currency)}</Text>
                     </InlineStack>
                   )}
                   <Divider />
                   <InlineStack align="space-between">
-                    <Text as="p" variant="bodyMd" fontWeight="semibold">Total charged at checkout</Text>
+                    <Text as="p" variant="bodyMd" fontWeight="semibold">{t("Total charged at checkout")}</Text>
                     <Text as="p" variant="bodyMd" fontWeight="semibold">
                       {formatCurrency(booking.totalCharged, currency)}
                     </Text>
@@ -545,35 +577,40 @@ export default function BookingDetailPage() {
                   <>
                     <Divider />
                     <BlockStack gap="300">
-                      <Text as="h3" variant="headingSm">Deposit management</Text>
+                      <Text as="h3" variant="headingSm">{t("Deposit management")}</Text>
                       {booking.depositStatus === "released" ? (
-                        <Banner tone="success" title={`Deposit of ${formatCurrency(booking.depositAmount, currency)} has been released to the customer.`} />
+                        <Banner
+                          tone="success"
+                          title={t("Deposit of {amount} has been released to the customer.", {
+                            amount: formatCurrency(booking.depositAmount, currency),
+                          })}
+                        />
                       ) : booking.depositStatus === "forfeited" ? (
-                        <Banner tone="critical" title="Deposit forfeited">
-                          <p>The deposit has been kept and not refunded to the customer.</p>
+                        <Banner tone="critical" title={t("Deposit forfeited")}>
+                          <p>{t("The deposit has been kept and not refunded to the customer.")}</p>
                         </Banner>
                       ) : (
                         <BlockStack gap="300">
                           <Text as="p" tone="subdued">
-                            The {formatCurrency(booking.depositAmount, currency)} deposit is currently held. Refund it directly to the customer's original payment method, or mark it forfeited if the item was damaged or lost.
+                            {t("The {amount} deposit is currently held. Refund it directly to the customer's original payment method, or mark it forfeited if the item was damaged or lost.", { amount: formatCurrency(booking.depositAmount, currency) })}
                           </Text>
                           <InlineStack gap="200" wrap>
                             <Form method="POST">
                               <input type="hidden" name="intent" value="refund_deposit" />
                               <Button submit loading={submitting} variant="primary">
-                                Refund {formatCurrency(booking.depositAmount, currency)} to customer
+                                {t("Refund {amount} to customer", { amount: formatCurrency(booking.depositAmount, currency) })}
                               </Button>
                             </Form>
                             <Form method="POST">
                               <input type="hidden" name="intent" value="update_deposit" />
                               <input type="hidden" name="depositStatus" value="forfeited" />
                               <Button submit loading={submitting} tone="critical" variant="plain">
-                                Mark forfeited (keep deposit)
+                                {t("Mark forfeited (keep deposit)")}
                               </Button>
                             </Form>
                           </InlineStack>
                           <Text as="p" variant="bodySm" tone="subdued">
-                            Refunds use the customer's original payment method through Shopify. The customer will be notified by email.
+                            {t("Refunds use the customer's original payment method through Shopify. The customer will be notified by email.")}
                           </Text>
                         </BlockStack>
                       )}
@@ -587,30 +624,42 @@ export default function BookingDetailPage() {
             {(booking.status === "overdue" || daysOverdue > 0) && lateFeePerDay > 0 && (
               <Card>
                 <BlockStack gap="400">
-                  <Text as="h2" variant="headingMd">Late fees</Text>
+                  <Text as="h2" variant="headingMd">{t("Late fees")}</Text>
                   <Text as="p" tone="subdued">
-                    This rental is {daysOverdue} day{daysOverdue > 1 ? "s" : ""} overdue.
-                    At {formatCurrency(lateFeePerDay, currency)}/day, the total late fee is{" "}
+                    {daysOverdue > 1
+                      ? t("This rental is {n} days overdue. At {fee}/day, the total late fee is", {
+                          n: daysOverdue,
+                          fee: formatCurrency(lateFeePerDay, currency),
+                        })
+                      : t("This rental is {n} day overdue. At {fee}/day, the total late fee is", {
+                          n: daysOverdue,
+                          fee: formatCurrency(lateFeePerDay, currency),
+                        })}{" "}
                     <strong>{formatCurrency(lateFeePerDay * daysOverdue, currency)}</strong>.
                   </Text>
                   {booking.lateFeeCharged > 0 ? (
-                    <Banner tone="success" title={`Late fee of ${formatCurrency(booking.lateFeeCharged, currency)} has been recorded.`}>
+                    <Banner
+                      tone="success"
+                      title={t("Late fee of {amount} has been recorded.", {
+                        amount: formatCurrency(booking.lateFeeCharged, currency),
+                      })}
+                    >
                       {booking.lateFeeInvoiceUrl ? (
                         <BlockStack gap="200">
-                          <p>A draft order was created in Shopify. Open it to review and send the payment link to the customer.</p>
+                          <p>{t("A draft order was created in Shopify. Open it to review and send the payment link to the customer.")}</p>
                           <Button url={booking.lateFeeInvoiceUrl} target="_blank" variant="plain">
-                            Open draft order in Shopify →
+                            {t("Open draft order in Shopify →")}
                           </Button>
                         </BlockStack>
                       ) : (
-                        <p>Create a draft order or invoice in Shopify to charge this to the customer.</p>
+                        <p>{t("Create a draft order or invoice in Shopify to charge this to the customer.")}</p>
                       )}
                     </Banner>
                   ) : (
                     <Form method="POST">
                       <input type="hidden" name="intent" value="charge_late_fee" />
                       <Button tone="critical" submit loading={submitting}>
-                        Record late fee ({formatCurrency(lateFeePerDay * daysOverdue, currency)})
+                        {t("Record late fee ({amount})", { amount: formatCurrency(lateFeePerDay * daysOverdue, currency) })}
                       </Button>
                     </Form>
                   )}
@@ -621,21 +670,21 @@ export default function BookingDetailPage() {
             {/* Merchant notes */}
             <Card>
               <BlockStack gap="400">
-                <Text as="h2" variant="headingMd">Internal notes</Text>
-                <Text as="p" tone="subdued">Only you can see these notes. They are never shown to the customer.</Text>
+                <Text as="h2" variant="headingMd">{t("Internal notes")}</Text>
+                <Text as="p" tone="subdued">{t("Only you can see these notes. They are never shown to the customer.")}</Text>
                 <TextField
-                  label="Notes"
+                  label={t("Notes")}
                   labelHidden
                   value={notes}
                   onChange={setNotes}
                   multiline={4}
                   autoComplete="off"
-                  placeholder="Add any notes about this booking, pickup, return condition, etc."
+                  placeholder={t("Add any notes about this booking, pickup, return condition, etc.")}
                 />
                 <Form method="POST">
                   <input type="hidden" name="intent" value="save_notes" />
                   <input type="hidden" name="merchantNotes" value={notes} />
-                  <Button submit loading={submitting} size="slim">Save notes</Button>
+                  <Button submit loading={submitting} size="slim">{t("Save notes")}</Button>
                 </Form>
               </BlockStack>
             </Card>
@@ -649,7 +698,7 @@ export default function BookingDetailPage() {
             {/* Customer info */}
             <Card>
               <BlockStack gap="300">
-                <Text as="h2" variant="headingMd">Customer</Text>
+                <Text as="h2" variant="headingMd">{t("Customer")}</Text>
                 <BlockStack gap="100">
                   <Text as="p" fontWeight="medium">{booking.customerName}</Text>
                   <Text as="p" tone="subdued">{booking.customerEmail}</Text>
@@ -664,13 +713,17 @@ export default function BookingDetailPage() {
                     if (!booking.customerEmail) return;
                     // Pre-fill the booking context so the merchant doesn't
                     // have to re-type any of it.
-                    const subject = `Regarding your rental ${booking.orderName || ""}`.trim();
+                    const subject = t("Regarding your rental {order}", { order: booking.orderName || "" }).trim();
                     const startStr = format(new Date(booking.startDate), "d MMM yyyy");
                     const endStr = format(new Date(booking.endDate), "d MMM yyyy");
                     const body = [
-                      `Hi ${booking.customerName.split(" ")[0] || "there"},`,
+                      t("Hi {name},", { name: booking.customerName.split(" ")[0] || t("there") }),
                       "",
-                      `Reaching out about your booking for ${booking.productTitle} (${startStr} to ${endStr}).`,
+                      t("Reaching out about your booking for {product} ({start} to {end}).", {
+                        product: booking.productTitle,
+                        start: startStr,
+                        end: endStr,
+                      }),
                       "",
                       "",
                     ].join("\n");
@@ -691,7 +744,7 @@ export default function BookingDetailPage() {
                     }
                   }}
                 >
-                  Email customer
+                  {t("Email customer")}
                 </Button>
               </BlockStack>
             </Card>
@@ -700,13 +753,13 @@ export default function BookingDetailPage() {
             {(canMarkActive || canMarkReturned || canMarkOverdue || canCancel) ? (
               <Card>
                 <BlockStack gap="300">
-                  <Text as="h2" variant="headingMd">Actions</Text>
+                  <Text as="h2" variant="headingMd">{t("Actions")}</Text>
 
                   {canMarkActive && (
                     <Form method="POST">
                       <input type="hidden" name="intent" value="mark_active" />
                       <Button fullWidth submit loading={submitting} variant="primary">
-                        Mark as started (item handed over)
+                        {t("Mark as started (item handed over)")}
                       </Button>
                     </Form>
                   )}
@@ -715,7 +768,7 @@ export default function BookingDetailPage() {
                     <Form method="POST">
                       <input type="hidden" name="intent" value="mark_returned" />
                       <Button fullWidth submit loading={submitting} variant="primary">
-                        Mark as returned
+                        {t("Mark as returned")}
                       </Button>
                     </Form>
                   )}
@@ -724,7 +777,7 @@ export default function BookingDetailPage() {
                     <Form method="POST">
                       <input type="hidden" name="intent" value="mark_overdue" />
                       <Button fullWidth submit loading={submitting} tone="critical">
-                        Mark as overdue
+                        {t("Mark as overdue")}
                       </Button>
                     </Form>
                   )}
@@ -733,7 +786,7 @@ export default function BookingDetailPage() {
                     <Form method="POST">
                       <input type="hidden" name="intent" value="cancel" />
                       <Button fullWidth submit loading={submitting} variant="plain" tone="critical">
-                        Cancel booking
+                        {t("Cancel booking")}
                       </Button>
                     </Form>
                   )}
@@ -742,13 +795,13 @@ export default function BookingDetailPage() {
             ) : (
               <Card>
                 <BlockStack gap="200">
-                  <Text as="h2" variant="headingMd">Actions</Text>
+                  <Text as="h2" variant="headingMd">{t("Actions")}</Text>
                   <Text as="p" tone="subdued">
                     {booking.status === "returned"
-                      ? "This rental has been returned and the booking is complete. No further actions are needed."
+                      ? t("This rental has been returned and the booking is complete. No further actions are needed.")
                       : booking.status === "cancelled"
-                      ? "This booking was cancelled. No further actions are available."
-                      : "No actions are available for this booking right now."}
+                      ? t("This booking was canceled. No further actions are available.")
+                      : t("No actions are available for this booking right now.")}
                   </Text>
                 </BlockStack>
               </Card>
@@ -757,19 +810,19 @@ export default function BookingDetailPage() {
             {/* Booking metadata */}
             <Card>
               <BlockStack gap="300">
-                <Text as="h2" variant="headingMd">Details</Text>
+                <Text as="h2" variant="headingMd">{t("Details")}</Text>
                 <BlockStack gap="100">
                   <InlineStack align="space-between">
-                    <Text as="p" tone="subdued">Booked on</Text>
+                    <Text as="p" tone="subdued">{t("Booked on")}</Text>
                     <Text as="p">{format(new Date(booking.createdAt), "d MMM yyyy")}</Text>
                   </InlineStack>
                   <InlineStack align="space-between">
-                    <Text as="p" tone="subdued">Booking ID</Text>
+                    <Text as="p" tone="subdued">{t("Booking ID")}</Text>
                     <Text as="p">{booking.id.slice(-8).toUpperCase()}</Text>
                   </InlineStack>
                   {booking.shopifyOrderId && (
                     <InlineStack align="space-between">
-                      <Text as="p" tone="subdued">Shopify order</Text>
+                      <Text as="p" tone="subdued">{t("Shopify order")}</Text>
                       <Text as="p">{booking.orderName}</Text>
                     </InlineStack>
                   )}

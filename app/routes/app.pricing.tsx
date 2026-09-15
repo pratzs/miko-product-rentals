@@ -20,6 +20,7 @@ import { useState } from "react";
 import { authenticate } from "../shopify.server";
 import { db } from "../db.server";
 import { PLANS, checkRentalLimit, getPlan } from "../utils/plans";
+import { useT } from "../i18n/context";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const { session, billing } = await authenticate.admin(request);
@@ -67,6 +68,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 export default function PricingPage() {
   const { currentPlan, plans, usage } = useLoaderData<typeof loader>();
   const shopify = useAppBridge();
+  const t = useT();
   const [loading, setLoading] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const currentPlanDetails = getPlan(currentPlan);
@@ -76,7 +78,7 @@ export default function PricingPage() {
     try {
       const tokenPromise = shopify.idToken();
       const timeout = new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error("This is taking longer than expected. Please refresh the page and try again.")), 8000),
+        setTimeout(() => reject(new Error(t("This is taking longer than expected. Please refresh the page and try again."))), 8000),
       );
       const token = await Promise.race([tokenPromise, timeout]);
       const resp = await fetch(`/app/subscribe?plan=${plan}`, {
@@ -89,7 +91,7 @@ export default function PricingPage() {
       }
     } catch (err) {
       console.error("[billing] subscribe failed:", err);
-      setError(err instanceof Error ? err.message : "Something went wrong. Please refresh and try again.");
+      setError(err instanceof Error ? err.message : t("Something went wrong. Please refresh and try again."));
     } finally {
       setLoading(null);
     }
@@ -97,14 +99,14 @@ export default function PricingPage() {
 
   async function handleCancel() {
     const confirmed = window.confirm(
-      "Downgrade to the Free plan? You can upgrade again any time.",
+      t("Downgrade to the Free plan? You can upgrade again any time."),
     );
     if (!confirmed) return;
     setLoading("cancel");
     try {
       const tokenPromise = shopify.idToken();
       const timeout = new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error("This is taking longer than expected. Please refresh the page and try again.")), 8000),
+        setTimeout(() => reject(new Error(t("This is taking longer than expected. Please refresh the page and try again."))), 8000),
       );
       const token = await Promise.race([tokenPromise, timeout]);
       await fetch("/app/cancel", {
@@ -114,7 +116,7 @@ export default function PricingPage() {
       window.location.reload();
     } catch (err) {
       console.error("[billing] cancel failed:", err);
-      setError(err instanceof Error ? err.message : "Something went wrong. Please refresh and try again.");
+      setError(err instanceof Error ? err.message : t("Something went wrong. Please refresh and try again."));
     } finally {
       setLoading(null);
     }
@@ -153,8 +155,8 @@ export default function PricingPage() {
 
   return (
     <Page
-      title="Plans & Pricing"
-      subtitle="Choose the plan that fits your rental business."
+      title={t("Plans & Pricing")}
+      subtitle={t("Choose the plan that fits your rental business.")}
     >
       <BlockStack gap="600">
         {error && (
@@ -166,10 +168,12 @@ export default function PricingPage() {
         {currentPlan !== "free" && (
           <Banner tone="success">
             <Text as="p">
-              You&apos;re on the <strong>{currentPlanDetails.name}</strong> plan -{" "}
-              {currentPlanDetails.rentalLimit} rentals/month.{" "}
+              {t("You're on the {plan} plan: {limit} rentals/month.", {
+                plan: t(currentPlanDetails.name),
+                limit: currentPlanDetails.rentalLimit,
+              })}{" "}
               {usage.resetDate
-                ? `Resets on ${new Date(usage.resetDate).toLocaleDateString("en-NZ", { day: "numeric", month: "long" })}.`
+                ? t("Resets on {date}.", { date: new Date(usage.resetDate).toLocaleDateString("en-NZ", { day: "numeric", month: "long" }) })
                 : ""}
             </Text>
           </Banner>
@@ -182,24 +186,24 @@ export default function PricingPage() {
               <BlockStack gap="400">
                 <BlockStack gap="100">
                   <Text as="h2" variant="headingLg">
-                    Free
+                    {t("Free")}
                   </Text>
                   <Text as="p" variant="headingXl">
                     $0
                   </Text>
                   <Text as="p" tone="subdued">
-                    Forever free
+                    {t("Forever free")}
                   </Text>
                 </BlockStack>
                 <Divider />
                 <List type="bullet">
                   {planFeatures.free.map((f) => (
-                    <List.Item key={f}>{f}</List.Item>
+                    <List.Item key={f}>{t(f)}</List.Item>
                   ))}
                 </List>
                 <BlockStack gap="200">
                   <Text as="p" tone="subdued">
-                    {usage.current} of {plans.free.rentalLimit} lifetime rentals used
+                    {t("{used} of {limit} lifetime rentals used", { used: usage.current, limit: plans.free.rentalLimit })}
                   </Text>
                   <ProgressBar
                     progress={Math.min(
@@ -213,10 +217,10 @@ export default function PricingPage() {
                   />
                 </BlockStack>
                 {currentPlan === "free" ? (
-                  <Button disabled>Current plan</Button>
+                  <Button disabled>{t("Current plan")}</Button>
                 ) : (
                   <Button variant="secondary" loading={loading === "cancel"} onClick={handleCancel}>
-                    Downgrade to Free
+                    {t("Downgrade to Free")}
                   </Button>
                 )}
               </BlockStack>
@@ -228,25 +232,24 @@ export default function PricingPage() {
               <BlockStack gap="400">
                 <BlockStack gap="100">
                   <Text as="h2" variant="headingLg">
-                    Starter
+                    {t("Starter")}
                   </Text>
                   <Text as="p" variant="headingXl">
                     $19.95
                   </Text>
                   <Text as="p" tone="subdued">
-                    per month
+                    {t("per month")}
                   </Text>
                 </BlockStack>
                 <Divider />
                 <List type="bullet">
                   {planFeatures.starter.map((f) => (
-                    <List.Item key={f}>{f}</List.Item>
+                    <List.Item key={f}>{t(f)}</List.Item>
                   ))}
                 </List>
                 <BlockStack gap="200">
                   <Text as="p" tone="subdued">
-                    {currentPlan === "starter" ? usage.current : 0} of{" "}
-                    {plans.starter.rentalLimit} rentals this month
+                    {t("{used} of {limit} rentals this month", { used: currentPlan === "starter" ? usage.current : 0, limit: plans.starter.rentalLimit })}
                   </Text>
                   <ProgressBar
                     progress={Math.min(
@@ -260,10 +263,10 @@ export default function PricingPage() {
                   />
                 </BlockStack>
                 {currentPlan === "starter" ? (
-                  <Button disabled>Current plan</Button>
+                  <Button disabled>{t("Current plan")}</Button>
                 ) : (
                   <Button variant="primary" loading={loading === "starter"} disabled={submitting} onClick={() => handleSubscribe("starter")}>
-                    {currentPlan === "free" ? "Upgrade to Starter" : "Switch to Starter"}
+                    {currentPlan === "free" ? t("Upgrade to Starter") : t("Switch to Starter")}
                   </Button>
                 )}
               </BlockStack>
@@ -276,10 +279,10 @@ export default function PricingPage() {
               <BlockStack gap="400">
                 <InlineStack align="space-between">
                   <Text as="h2" variant="headingLg">
-                    Growth
+                    {t("Growth")}
                   </Text>
                   {popularPlan === "growth" && (
-                    <Badge tone="attention">Popular</Badge>
+                    <Badge tone="attention">{t("Popular")}</Badge>
                   )}
                 </InlineStack>
                 <BlockStack gap="100">
@@ -287,7 +290,7 @@ export default function PricingPage() {
                     $49.95
                   </Text>
                   <Text as="p" tone="subdued">
-                    per month
+                    {t("per month")}
                   </Text>
                 </BlockStack>
                 <Divider />
@@ -296,19 +299,18 @@ export default function PricingPage() {
                     f.includes("coming soon") ? (
                       <List.Item key={f}>
                         <InlineStack gap="200" blockAlign="center">
-                          <Text as="span">{f.replace(" (coming soon)", "")}</Text>
-                          <Badge tone="new">Coming soon</Badge>
+                          <Text as="span">{t(f.replace(" (coming soon)", ""))}</Text>
+                          <Badge tone="new">{t("Coming soon")}</Badge>
                         </InlineStack>
                       </List.Item>
                     ) : (
-                      <List.Item key={f}>{f}</List.Item>
+                      <List.Item key={f}>{t(f)}</List.Item>
                     ),
                   )}
                 </List>
                 <BlockStack gap="200">
                   <Text as="p" tone="subdued">
-                    {currentPlan === "growth" ? usage.current : 0} of{" "}
-                    {plans.growth.rentalLimit} rentals this month
+                    {t("{used} of {limit} rentals this month", { used: currentPlan === "growth" ? usage.current : 0, limit: plans.growth.rentalLimit })}
                   </Text>
                   <ProgressBar
                     progress={Math.min(
@@ -322,10 +324,10 @@ export default function PricingPage() {
                   />
                 </BlockStack>
                 {currentPlan === "growth" ? (
-                  <Button disabled>Current plan</Button>
+                  <Button disabled>{t("Current plan")}</Button>
                 ) : (
                   <Button variant="primary" loading={loading === "growth"} disabled={submitting} onClick={() => handleSubscribe("growth")}>
-                    {currentPlan === "pro" ? "Switch to Growth" : "Upgrade to Growth"}
+                    {currentPlan === "pro" ? t("Switch to Growth") : t("Upgrade to Growth")}
                   </Button>
                 )}
               </BlockStack>
@@ -337,13 +339,13 @@ export default function PricingPage() {
               <BlockStack gap="400">
                 <BlockStack gap="100">
                   <Text as="h2" variant="headingLg">
-                    Pro
+                    {t("Pro")}
                   </Text>
                   <Text as="p" variant="headingXl">
                     $89.95
                   </Text>
                   <Text as="p" tone="subdued">
-                    per month
+                    {t("per month")}
                   </Text>
                 </BlockStack>
                 <Divider />
@@ -352,19 +354,18 @@ export default function PricingPage() {
                     f.includes("coming soon") ? (
                       <List.Item key={f}>
                         <InlineStack gap="200" blockAlign="center">
-                          <Text as="span">{f.replace(" (coming soon)", "")}</Text>
-                          <Badge tone="new">Coming soon</Badge>
+                          <Text as="span">{t(f.replace(" (coming soon)", ""))}</Text>
+                          <Badge tone="new">{t("Coming soon")}</Badge>
                         </InlineStack>
                       </List.Item>
                     ) : (
-                      <List.Item key={f}>{f}</List.Item>
+                      <List.Item key={f}>{t(f)}</List.Item>
                     ),
                   )}
                 </List>
                 <BlockStack gap="200">
                   <Text as="p" tone="subdued">
-                    {currentPlan === "pro" ? usage.current : 0} of{" "}
-                    {plans.pro.rentalLimit} rentals this month
+                    {t("{used} of {limit} rentals this month", { used: currentPlan === "pro" ? usage.current : 0, limit: plans.pro.rentalLimit })}
                   </Text>
                   <ProgressBar
                     progress={Math.min(
@@ -378,10 +379,10 @@ export default function PricingPage() {
                   />
                 </BlockStack>
                 {currentPlan === "pro" ? (
-                  <Button disabled>Current plan</Button>
+                  <Button disabled>{t("Current plan")}</Button>
                 ) : (
                   <Button variant="primary" loading={loading === "pro"} disabled={submitting} onClick={() => handleSubscribe("pro")}>
-                    Upgrade to Pro
+                    {t("Upgrade to Pro")}
                   </Button>
                 )}
               </BlockStack>

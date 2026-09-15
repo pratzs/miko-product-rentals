@@ -76,7 +76,7 @@ let definitionEnsured = false;
  *
  * When the product is deactivated we leave the policy alone - merchants may
  * still want to sell it normally, and we don't want to surprise them by
- * changing inventory behaviour on deactivation.
+ * changing inventory behavior on deactivation.
  */
 export async function ensureRentalVariantsCanOversell(
   admin: AdminClient,
@@ -230,7 +230,7 @@ export async function setRentalMetafield(
     }
   } catch (err) {
     // Never fail the parent flow if metafield write errors out - the merchant
-    // can still use the app, just without the auto-hide behaviour.
+    // can still use the app, just without the auto-hide behavior.
     console.error(`[metafield] Unexpected error setting is_rental on ${productGid}:`, err);
   }
 }
