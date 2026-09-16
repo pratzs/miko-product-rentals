@@ -747,5 +747,8 @@
   "{{rental_price}}": "{{rental_price}}",
   "{{shop_name}}": "{{shop_name}}",
   "{{start_date}}": "{{start_date}}",
-  "← Previous": "← Previous"
+  "← Previous": "← Previous",
+  "No customer can book yet: the calendar is not on your product page": "No customer can book yet: the calendar is not on your product page",
+  "Add the booking calendar": "Add the booking calendar",
+  "Your rental products are priced and switched on, but the Miko booking calendar has never appeared on your storefront, so there is no way for a shopper to pick dates or check out. It has to be added to your product template once. This takes about a minute and the banner clears itself the first time the calendar loads.": "Your rental products are priced and switched on, but the Miko booking calendar has never appeared on your storefront, so there is no way for a shopper to pick dates or check out. It has to be added to your product template once. This takes about a minute and the banner clears itself the first time the calendar loads."
 }

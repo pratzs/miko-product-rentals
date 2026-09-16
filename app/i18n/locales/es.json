@@ -747,5 +747,8 @@
   "{{rental_price}}": "{{rental_price}}",
   "{{shop_name}}": "{{shop_name}}",
   "{{start_date}}": "{{start_date}}",
-  "← Previous": "← Anterior"
+  "← Previous": "← Anterior",
+  "No customer can book yet: the calendar is not on your product page": "Todavía nadie puede reservar: el calendario no está en su página de producto",
+  "Add the booking calendar": "Añadir el calendario de reservas",
+  "Your rental products are priced and switched on, but the Miko booking calendar has never appeared on your storefront, so there is no way for a shopper to pick dates or check out. It has to be added to your product template once. This takes about a minute and the banner clears itself the first time the calendar loads.": "Sus productos de alquiler tienen precio y están activos, pero el calendario de reservas de Miko nunca ha aparecido en su tienda, así que ningún comprador puede elegir fechas ni finalizar la compra. Hay que añadirlo una vez a su plantilla de producto. Lleva alrededor de un minuto y este aviso desaparece solo la primera vez que el calendario se carga."
 }

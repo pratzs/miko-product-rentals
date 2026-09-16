@@ -192,7 +192,18 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     }
   }
 
+  // The mirror image of the dry-run nudge, and the more damaging state: the
+  // merchant has priced and activated rental products, but the booking calendar
+  // has NEVER rendered on their storefront, so no shopper can book and nothing
+  // tells them. Measured 2026-09-17: 4 of 11 external merchants sat in exactly
+  // this state, one of them paying for the Pro plan. `widgetSeenAt` is set by
+  // the storefront block's own ping, so "never" is a real signal, not an
+  // inference.
+  const calendarMissing =
+    liveProducts > 0 && !config?.widgetSeenAt && totalBookingsCount === 0;
+
   return json({
+    calendarMissing,
     dryRun,
     showReviewPrompt,
     shop,
@@ -281,6 +292,7 @@ export default function Dashboard() {
     reinstalledFromPaid,
     showReviewPrompt,
     dryRun,
+    calendarMissing,
   } = useLoaderData<typeof loader>();
   const navigate = useNavigate();
   const t = useT();
@@ -550,6 +562,21 @@ export default function Dashboard() {
               </InlineStack>
             </BlockStack>
           </Card>
+        )}
+
+        {calendarMissing && (
+          <Banner
+            tone="critical"
+            title={t("No customer can book yet: the calendar is not on your product page")}
+            action={{
+              content: t("Add the booking calendar"),
+              onAction: () => window.open(themeEditorUrl, "_top"),
+            }}
+          >
+            <p>
+              {t("Your rental products are priced and switched on, but the Miko booking calendar has never appeared on your storefront, so there is no way for a shopper to pick dates or check out. It has to be added to your product template once. This takes about a minute and the banner clears itself the first time the calendar loads.")}
+            </p>
+          </Banner>
         )}
 
         {dryRun && (

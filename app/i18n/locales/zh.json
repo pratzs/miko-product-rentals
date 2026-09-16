@@ -747,5 +747,8 @@
   "{{rental_price}}": "{{rental_price}}",
   "{{shop_name}}": "{{shop_name}}",
   "{{start_date}}": "{{start_date}}",
-  "← Previous": "← 上一步"
+  "← Previous": "← 上一步",
+  "No customer can book yet: the calendar is not on your product page": "目前还无法预订：商品页面上没有日历",
+  "Add the booking calendar": "添加预订日历",
+  "Your rental products are priced and switched on, but the Miko booking calendar has never appeared on your storefront, so there is no way for a shopper to pick dates or check out. It has to be added to your product template once. This takes about a minute and the banner clears itself the first time the calendar loads.": "您的租赁商品已设置价格并已启用，但 Miko 预订日历从未在您的店铺中显示过，因此顾客无法选择日期或结账。需要将它添加到商品模板中一次。大约一分钟即可完成，日历首次加载后此提示会自动消失。"
 }

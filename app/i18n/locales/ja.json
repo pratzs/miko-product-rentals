@@ -747,5 +747,8 @@
   "{{rental_price}}": "{{rental_price}}",
   "{{shop_name}}": "{{shop_name}}",
   "{{start_date}}": "{{start_date}}",
-  "← Previous": "← 前へ"
+  "← Previous": "← 前へ",
+  "No customer can book yet: the calendar is not on your product page": "まだ誰も予約できません: 商品ページにカレンダーがありません",
+  "Add the booking calendar": "予約カレンダーを追加",
+  "Your rental products are priced and switched on, but the Miko booking calendar has never appeared on your storefront, so there is no way for a shopper to pick dates or check out. It has to be added to your product template once. This takes about a minute and the banner clears itself the first time the calendar loads.": "レンタル商品の価格設定は完了し有効になっていますが、Miko の予約カレンダーがストアに一度も表示されていないため、買い物客は日付を選ぶこともチェックアウトすることもできません。商品テンプレートに一度追加する必要があります。1 分ほどで完了し、カレンダーが初めて読み込まれるとこの通知は自動的に消えます。"
 }

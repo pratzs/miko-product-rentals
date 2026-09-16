@@ -747,5 +747,8 @@
   "{{rental_price}}": "{{rental_price}}",
   "{{shop_name}}": "{{shop_name}}",
   "{{start_date}}": "{{start_date}}",
-  "← Previous": "← السابق"
+  "← Previous": "← السابق",
+  "No customer can book yet: the calendar is not on your product page": "لا يمكن لأي عميل الحجز بعد: التقويم غير موجود في صفحة المنتج",
+  "Add the booking calendar": "إضافة تقويم الحجز",
+  "Your rental products are priced and switched on, but the Miko booking calendar has never appeared on your storefront, so there is no way for a shopper to pick dates or check out. It has to be added to your product template once. This takes about a minute and the banner clears itself the first time the calendar loads.": "منتجات التأجير لديك مسعّرة ومفعّلة، لكن تقويم الحجز من Miko لم يظهر في متجرك مطلقًا، لذا لا يستطيع أي متسوق اختيار التواريخ أو إتمام الشراء. يجب إضافته مرة واحدة إلى قالب المنتج. يستغرق ذلك دقيقة تقريبًا، وسيختفي هذا التنبيه تلقائيًا عند تحميل التقويم لأول مرة."
 }
