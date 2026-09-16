@@ -48,6 +48,31 @@ const shopify = shopifyApp({
       shopify.registerWebhooks({ session });
       const { admin } = await shopify.unauthenticated.admin(session.shop);
       await ensureCartTransformActivated(admin, session.shop);
+
+      // A Partner development store gets the top plan free, settled at install
+      // rather than in the app loader: Remix runs parent and child loaders in
+      // parallel, so a grant written by app.tsx is not visible to the child
+      // route rendering the gated screen on that same first render.
+      try {
+        const { settleDevStoreGrant } = await import("./dev-store.server");
+        const cfg = await db.shopConfig.findUnique({ where: { shop: session.shop } });
+        if (cfg) {
+          const target = await settleDevStoreGrant(admin, session.shop, {
+            hasSubscription: false /* no subscription state in this app */,
+            currentPlan: cfg.planName,
+            cachedIsDev: cfg.isDevelopmentStore,
+          });
+          if (target) {
+            await db.shopConfig.update({
+              where: { shop: session.shop },
+              data: { planName: target },
+            });
+            console.log(`[afterAuth] ${session.shop}: dev-store grant -> ${target}`);
+          }
+        }
+      } catch (err) {
+        console.warn("[afterAuth] dev-store grant skipped:", err);
+      }
       await ensureRentalMetafieldDefinition(admin);
       await ensureShopName(admin, session.shop);
       await ensureShopCurrency(admin, session.shop);

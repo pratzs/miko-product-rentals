@@ -33,6 +33,11 @@ model ShopConfig {
   shop                String   @unique
   accessToken         String   @default("")
   planName            String   @default("free")
+  // True when Shopify reports ShopPlan.partnerDevelopment. A Partner dev store
+  // cannot take real orders, so it was never going to pay: grant the top plan so
+  // affiliates can evaluate the real product. Re-checked on every app load and on
+  // shop/update, so a store that converts to a paid plan loses the grant.
+  isDevelopmentStore      Boolean   @default(false)
   currency            String   @default("USD")
   // True once we have successfully read the shop's real currency from Shopify.
   // The default above is a guess, and an unseeded row is indistinguishable from
