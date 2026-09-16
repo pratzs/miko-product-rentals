@@ -10,6 +10,7 @@ import polarisStyles from "@shopify/polaris/build/esm/styles.css?url";
 import mikoStyles from "../styles/miko-theme.css?url";
 import { authenticate } from "../shopify.server";
 import { db } from "../db.server";
+import { DEV_STORE_PLAN, fetchIsDevelopmentStore } from "../dev-store.server";
 import { ensureShopName, ensureShopCurrency } from "../utils/shop-info.server";
 import { PLANS } from "../utils/plans";
 
@@ -70,7 +71,21 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       const subName = (check.appSubscriptions?.[0]?.name ?? "").toLowerCase();
       resolved = subName in PLANS ? subName : null;
     } else {
-      resolved = "free";
+      // No active payment. Before demoting to free, check whether this is a
+      // Partner development store, which we deliberately grant the top plan.
+      // Without this the grant made at install would be wiped on the very next
+      // page load by the line below, and the affiliate would be back on free.
+      const isDev = await fetchIsDevelopmentStore(admin);
+      if (isDev !== null && isDev !== shopConfig.isDevelopmentStore) {
+        await db.shopConfig.update({
+          where: { shop: session.shop },
+          data: { isDevelopmentStore: isDev },
+        });
+      }
+      // null means the lookup failed: fall back to the cached flag rather than
+      // demoting an affiliate mid-evaluation on a transient API error.
+      const treatAsDev = isDev ?? shopConfig.isDevelopmentStore;
+      resolved = treatAsDev ? DEV_STORE_PLAN : "free";
     }
 
     if (resolved && resolved !== shopConfig.planName) {

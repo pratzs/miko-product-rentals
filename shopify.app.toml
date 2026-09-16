@@ -31,6 +31,13 @@ api_version = "2026-04"
   uri = "/webhooks/app/scopes_update"
   topics = ["app/scopes_update"]
 
+  # Revocation half of the development-store free grant (see dev-store.server.ts).
+  # Fires when the shop's plan changes, which is how a Partner dev store that
+  # converts to a real paid store loses the free top plan straight away.
+  [[webhooks.subscriptions]]
+  uri = "/webhooks/shop/update"
+  topics = ["shop/update"]
+
   [[webhooks.subscriptions]]
   uri = "/webhooks/app_subscriptions/update"
   topics = ["app_subscriptions/update"]
