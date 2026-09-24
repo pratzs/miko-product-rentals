@@ -52,73 +52,91 @@
       '.cart-item', '.cart__row', '.cart-items__row', '.cart-drawer__item',
       '.drawer-cart-item', '.line-item', '.cart-line',
       'tr[class*="cart"]', 'li[class*="cart"]', 'div[class*="cart-item"]',
+      '[data-cart-item-key]', '[data-line-key]', '[class*="cart-items__row"]', '[class*="line-item"]',
+      '[class*="cart__item"]', '[class*="CartItem"]', '[class*="cart-drawer-item"]', 'cart-item', 'line-item',
     ].join(',');
 
+    // Quantity controls, recognised by what they ARE rather than one theme's class names, so the lock
+    // holds on Dawn/Rise (quantity-input), Horizon/Atelier (quantity-selector-component, updates[]),
+    // and vintage or custom themes alike (verified 2026-09-24).
     var QTY_SELECTORS = [
-      'input[name*="quantity"]',
-      'button[name*="quantity"]',
-      'button[name*="minus"]',
-      'button[name*="plus"]',
-      '.quantity',
-      '.qty',
-      '.cart__quantity',
-      '.cart-item__qty',
-      '.drawer-cart-item__qty',
-      'quantity-input',
-      'quantity-popover',
-      'quantity-popover-container',
-      '[data-quantity-selector]',
-      'plus-button',
-      'minus-button',
+      'input[type="number"]', 'input[name^="updates"]', 'input[name*="quantity" i]', 'select[name*="quantity" i]',
+      'button[name*="minus" i]', 'button[name*="plus" i]', 'button[aria-label*="increase" i]', 'button[aria-label*="decrease" i]',
+      'button[aria-label*="quantity" i]', '[data-quantity-selector]', '[data-qty]',
+      'quantity-input', 'quantity-popover', 'quantity-selector-component', 'plus-button', 'minus-button',
+      '.quantity', '.qty', '[class*="quantity-selector"]', '[class*="quantity__"]', '[class*="cart__quantity"]',
+      '[class*="cart-item__qty"]', '[class*="cart-item__quantity"]', '[class*="drawer-cart-item__qty"]', '[class*="qty-selector"]',
+      '[class*="js-qty"]', 'button[aria-label*="reduce" i]', 'button[aria-label*="add one" i]', 'button[aria-label*="subtract" i]',
     ].join(',');
+
+    // Remove controls must ALWAYS stay usable. On Dawn-family themes Remove lives inside the same
+    // wrapper as the quantity selector; hiding the wrapper hid Remove (support ticket 2026-09-24).
+    var REMOVE_SELECTORS = [
+      'cart-remove-button', 'a[href*="/cart/change"]', 'a[href*="quantity=0"]', '[name="remove"]',
+      '[data-remove]', '[data-cart-remove]', '[class*="remove"]', '[class*="delete"]',
+      'button[aria-label*="remove" i]', 'a[aria-label*="remove" i]', 'button[aria-label*="delete" i]', '[id*="Remove"]',
+    ].join(',');
+
+    // Rental lines are known from Shopify's own cart data, so detection does not depend on the
+    // theme printing line properties (many drawers do not).
+    var rentalKeys = [], rentalIdx = [];
+    function refreshCart() {
+      return fetch((window.Shopify && Shopify.routes && Shopify.routes.root || '/') + 'cart.js', { credentials: 'same-origin' })
+        .then(function (r) { return r.json(); })
+        .then(function (c) {
+          rentalKeys = []; rentalIdx = [];
+          (c.items || []).forEach(function (it, i) {
+            if (it.properties && it.properties._miko_data) { rentalKeys.push(it.key); rentalIdx.push(i + 1); }
+          });
+        }).catch(function () {});
+    }
 
     function isRentalLine(el) {
       var text = el.textContent || '';
-      // Visible rental properties from the widget's hidden cart form.
-      return text.indexOf('Rental start') !== -1 ||
-             text.indexOf('Rental duration') !== -1 ||
-             text.indexOf('Return by') !== -1;
+      if (text.indexOf('Rental start') !== -1 || text.indexOf('Rental duration') !== -1 || text.indexOf('Return by') !== -1) return true;
+      var html = el.innerHTML || '';
+      for (var k = 0; k < rentalKeys.length; k++) {
+        if (el.getAttribute('data-key') === rentalKeys[k] || html.indexOf(rentalKeys[k]) !== -1) return true;
+      }
+      for (var n = 0; n < rentalIdx.length; n++) {
+        var i = rentalIdx[n];
+        if (el.getAttribute('data-index') === String(i) || el.getAttribute('data-line') === String(i) ||
+            html.indexOf('line=' + i + '&') !== -1 || html.indexOf('/onLineItemRemove/' + i + '"') !== -1 ||
+            html.indexOf('data-index="' + i + '"') !== -1) return true;
+      }
+      return false;
     }
 
-    // Remove controls must ALWAYS stay usable. On many themes (Dawn and its family) the Remove
-    // button lives inside the same wrapper as the quantity selector, so hiding the wrapper also
-    // hid Remove and a booked rental could not be taken out of the cart (support ticket 2026-09-24).
-    var REMOVE_SELECTORS = [
-      'cart-remove-button', 'a[href*="/cart/change"]', 'a[href*="quantity=0"]',
-      '[name="remove"]', '[data-remove]', '[data-cart-remove]', '[class*="remove"]',
-      'button[aria-label*="emove"]', 'a[aria-label*="emove"]', '[id*="Remove"]',
-    ].join(',');
+    function lockLine(line) {
+      var controls = line.querySelectorAll(QTY_SELECTORS);
+      for (var j = 0; j < controls.length; j++) {
+        var c = controls[j];
+        if (c.matches(REMOVE_SELECTORS) || c.closest('a,button') && c.closest('a,button').matches(REMOVE_SELECTORS)) continue;
+        if (c.querySelector(REMOVE_SELECTORS)) continue;   // a wrapper that also holds Remove: its inner parts are handled on their own
+        c.style.setProperty('display', 'none', 'important');
+      }
+      var removes = line.querySelectorAll(REMOVE_SELECTORS);
+      for (var r = 0; r < removes.length; r++) {
+        var el = removes[r];
+        while (el && el !== line) { if (el.style && el.style.display === 'none') el.style.removeProperty('display'); el = el.parentElement; }
+      }
+    }
 
     function hideRentalQty() {
       var lines = document.querySelectorAll(LINE_SELECTORS);
       for (var i = 0; i < lines.length; i++) {
         if (!isRentalLine(lines[i])) continue;
-        var controls = lines[i].querySelectorAll(QTY_SELECTORS);
-        for (var j = 0; j < controls.length; j++) {
-          var c = controls[j];
-          if (c.matches(REMOVE_SELECTORS)) continue;
-          if (c.querySelector(REMOVE_SELECTORS)) {
-            // A wrapper that also holds Remove: hide only the quantity parts inside it.
-            var parts = c.querySelectorAll('input[name*="quantity"], button[name*="minus"], button[name*="plus"], quantity-input, quantity-popover, plus-button, minus-button, [data-quantity-selector]');
-            for (var k = 0; k < parts.length; k++) {
-              if (!parts[k].querySelector(REMOVE_SELECTORS)) parts[k].style.display = 'none';
-            }
-            continue;
-          }
-          c.style.display = 'none';
-        }
-        // Belt and braces: anything that removes the line is shown, whatever hid it.
-        var removes = lines[i].querySelectorAll(REMOVE_SELECTORS);
-        for (var r = 0; r < removes.length; r++) {
-          if (removes[r].style.display === 'none') removes[r].style.display = '';
-        }
+        // Lock only the innermost matching line element, never a whole cart container.
+        if (lines[i].querySelector(LINE_SELECTORS) && [].some.call(lines[i].querySelectorAll(LINE_SELECTORS), isRentalLine)) continue;
+        lockLine(lines[i]);
       }
     }
 
+    function run() { hideRentalQty(); refreshCart().then(hideRentalQty); }
     if (document.readyState === 'loading') {
-      document.addEventListener('DOMContentLoaded', hideRentalQty);
+      document.addEventListener('DOMContentLoaded', run);
     } else {
-      hideRentalQty();
+      run();
     }
 
     // Themes mount cart drawers asynchronously. MutationObserver catches the
@@ -132,7 +150,7 @@
 
     // Some themes fire cart events when the drawer is opened or refreshed.
     ['cart:refresh', 'cart:open', 'cart:updated', 'cart:change'].forEach(function (evt) {
-      document.addEventListener(evt, hideRentalQty);
+      document.addEventListener(evt, run);
     });
   })();
 </script>
