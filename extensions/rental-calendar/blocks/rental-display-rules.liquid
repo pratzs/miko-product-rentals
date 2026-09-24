@@ -80,13 +80,37 @@
              text.indexOf('Return by') !== -1;
     }
 
+    // Remove controls must ALWAYS stay usable. On many themes (Dawn and its family) the Remove
+    // button lives inside the same wrapper as the quantity selector, so hiding the wrapper also
+    // hid Remove and a booked rental could not be taken out of the cart (support ticket 2026-09-24).
+    var REMOVE_SELECTORS = [
+      'cart-remove-button', 'a[href*="/cart/change"]', 'a[href*="quantity=0"]',
+      '[name="remove"]', '[data-remove]', '[data-cart-remove]', '[class*="remove"]',
+      'button[aria-label*="emove"]', 'a[aria-label*="emove"]', '[id*="Remove"]',
+    ].join(',');
+
     function hideRentalQty() {
       var lines = document.querySelectorAll(LINE_SELECTORS);
       for (var i = 0; i < lines.length; i++) {
         if (!isRentalLine(lines[i])) continue;
         var controls = lines[i].querySelectorAll(QTY_SELECTORS);
         for (var j = 0; j < controls.length; j++) {
-          controls[j].style.display = 'none';
+          var c = controls[j];
+          if (c.matches(REMOVE_SELECTORS)) continue;
+          if (c.querySelector(REMOVE_SELECTORS)) {
+            // A wrapper that also holds Remove: hide only the quantity parts inside it.
+            var parts = c.querySelectorAll('input[name*="quantity"], button[name*="minus"], button[name*="plus"], quantity-input, quantity-popover, plus-button, minus-button, [data-quantity-selector]');
+            for (var k = 0; k < parts.length; k++) {
+              if (!parts[k].querySelector(REMOVE_SELECTORS)) parts[k].style.display = 'none';
+            }
+            continue;
+          }
+          c.style.display = 'none';
+        }
+        // Belt and braces: anything that removes the line is shown, whatever hid it.
+        var removes = lines[i].querySelectorAll(REMOVE_SELECTORS);
+        for (var r = 0; r < removes.length; r++) {
+          if (removes[r].style.display === 'none') removes[r].style.display = '';
         }
       }
     }
