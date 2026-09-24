@@ -1,1 +1,34 @@
-{}
+{
+  "calendar": {
+    "heading": "Choose your rental dates",
+    "rental_start": "Rental start",
+    "return_by": "Return by",
+    "units_to_rent": "Units to rent",
+    "decrease_units": "Decrease units",
+    "increase_units": "Increase units",
+    "units_available": "{available} of {total} available",
+    "security_deposit": "Security deposit (refundable)",
+    "total_at_checkout": "Total at checkout",
+    "cart_note": "Your cart may show the product's regular price. The rental amount above is what you'll actually be charged at checkout.",
+    "powered_by": "Powered by",
+    "select_dates": "Select dates to continue",
+    "checking": "Checking availability...",
+    "not_available": "These dates are not available.",
+    "check_failed": "Unable to check availability right now. Please try again.",
+    "book_now": "Book now - {price}",
+    "rental_fee_days": "Rental fee ({days})",
+    "day_one": "{count} day",
+    "day_other": "{count} days",
+    "none": "None",
+    "adding": "Adding to cart...",
+    "add_failed": "Could not add to cart. Please try again.",
+    "generic_error": "Something went wrong. Please try again.",
+    "redirecting": "Redirecting to checkout...",
+    "checkout_failed": "Could not complete checkout. Please try again.",
+    "prop_start": "Rental start",
+    "prop_return": "Return by",
+    "prop_duration": "Rental duration",
+    "prop_price": "Rental price",
+    "prop_deposit": "Deposit"
+  }
+}

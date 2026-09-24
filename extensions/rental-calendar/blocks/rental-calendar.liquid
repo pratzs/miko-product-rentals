@@ -128,27 +128,27 @@
         <path d="M2 8h16" stroke="currentColor" stroke-width="1.5"/>
         <path d="M6 2v3M14 2v3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
       </svg>
-      <span>{{ block.settings.heading | default: 'Choose your rental dates' }}</span>
+      <span>{%- assign miko_heading = 'calendar.heading' | t -%}{{ block.settings.heading | default: miko_heading }}</span>
     </div>
 
     <div class="miko-date-row">
       <div class="miko-date-field">
-        <label for="miko-start-date">Rental start</label>
+        <label for="miko-start-date">{{ 'calendar.rental_start' | t }}</label>
         <input type="date" id="miko-start-date" class="miko-date-input" />
       </div>
       <div class="miko-date-arrow">→</div>
       <div class="miko-date-field">
-        <label for="miko-end-date">Return by</label>
+        <label for="miko-end-date">{{ 'calendar.return_by' | t }}</label>
         <input type="date" id="miko-end-date" class="miko-date-input" />
       </div>
     </div>
 
     <div id="miko-unit-row" class="miko-unit-row miko-msg--hidden">
-      <label for="miko-units" class="miko-unit-label">Units to rent</label>
+      <label for="miko-units" class="miko-unit-label">{{ 'calendar.units_to_rent' | t }}</label>
       <div class="miko-unit-control">
-        <button type="button" id="miko-unit-minus" class="miko-unit-btn" aria-label="Decrease units">−</button>
+        <button type="button" id="miko-unit-minus" class="miko-unit-btn" aria-label="{{ 'calendar.decrease_units' | t }}">−</button>
         <input type="number" id="miko-units" class="miko-unit-input" value="1" min="1" step="1" />
-        <button type="button" id="miko-unit-plus" class="miko-unit-btn" aria-label="Increase units">+</button>
+        <button type="button" id="miko-unit-plus" class="miko-unit-btn" aria-label="{{ 'calendar.increase_units' | t }}">+</button>
       </div>
       <span id="miko-unit-available" class="miko-unit-available"></span>
     </div>
@@ -161,24 +161,24 @@
         <span id="miko-rental-price" class="miko-price"></span>
       </div>
       <div id="miko-deposit-row" class="miko-pricing-row miko-pricing-row--sub miko-msg--hidden">
-        <span>Security deposit (refundable)</span>
+        <span>{{ 'calendar.security_deposit' | t }}</span>
         <span id="miko-deposit-price"></span>
       </div>
       <div class="miko-pricing-row miko-pricing-row--total">
-        <span>Total at checkout</span>
+        <span>{{ 'calendar.total_at_checkout' | t }}</span>
         <span id="miko-total-price"></span>
       </div>
-      <p class="miko-cart-note">Your cart may show the product's regular price. The rental amount above is what you'll actually be charged at checkout.</p>
+      <p class="miko-cart-note">{{ 'calendar.cart_note' | t }}</p>
     </div>
 
     <div id="miko-notes" class="miko-notes miko-msg--hidden"></div>
 
     <button id="miko-add-to-cart" class="miko-btn miko-btn--disabled" disabled>
-      Select dates to continue
+      {{ 'calendar.select_dates' | t }}
     </button>
 
     <p class="miko-powered">
-      Powered by <a href="https://apps.shopify.com/miko-product-rentals" target="_blank" rel="noopener">Miko Rentals</a>
+      {{ 'calendar.powered_by' | t }} <a href="https://apps.shopify.com/miko-product-rentals" target="_blank" rel="noopener">Miko Rentals</a>
     </p>
   </div>
 
@@ -188,7 +188,7 @@
     the key starts with an underscore. The Cart Transform Function reads
     `_miko_total_price` to set the actual checkout price.
   {%- endcomment -%}
-  <form id="miko-cart-form" style="display:none;" action="/cart/add" method="post" enctype="multipart/form-data">
+  <form id="miko-cart-form" style="display:none;" action="{{ routes.cart_add_url }}" method="post" enctype="multipart/form-data">
     <input type="hidden" name="id" id="miko-variant-id" value="{{ product.selected_or_first_available_variant.id }}" />
     {%- comment -%}
       Cart quantity mirrors the number of units. The Cart Transform Function
@@ -197,11 +197,11 @@
     {%- endcomment -%}
     <input type="hidden" name="quantity" id="miko-cart-quantity" value="1" />
     {%- comment -%}Visible in cart and order emails{%- endcomment -%}
-    <input type="hidden" name="properties[Rental start]" id="miko-prop-start-display" value="" />
-    <input type="hidden" name="properties[Return by]" id="miko-prop-end-display" value="" />
-    <input type="hidden" name="properties[Rental duration]" id="miko-prop-duration" value="" />
-    <input type="hidden" name="properties[Rental price]" id="miko-prop-price" value="" />
-    <input type="hidden" name="properties[Deposit]" id="miko-prop-deposit" value="" />
+    <input type="hidden" name="properties[{{ 'calendar.prop_start' | t }}]" id="miko-prop-start-display" value="" />
+    <input type="hidden" name="properties[{{ 'calendar.prop_return' | t }}]" id="miko-prop-end-display" value="" />
+    <input type="hidden" name="properties[{{ 'calendar.prop_duration' | t }}]" id="miko-prop-duration" value="" />
+    <input type="hidden" name="properties[{{ 'calendar.prop_price' | t }}]" id="miko-prop-price" value="" />
+    <input type="hidden" name="properties[{{ 'calendar.prop_deposit' | t }}]" id="miko-prop-deposit" value="" />
     {%- comment -%}
       Single consolidated private property read by the Cart Transform Function
       and the orders/paid webhook. Keeps the admin order page tidy - only one
@@ -211,6 +211,7 @@
   </form>
 </div>
 
+<script type="application/json" id="miko-i18n">{"select_dates":{{ 'calendar.select_dates' | t | json }},"checking":{{ 'calendar.checking' | t | json }},"not_available":{{ 'calendar.not_available' | t | json }},"check_failed":{{ 'calendar.check_failed' | t | json }},"book_now":{{ 'calendar.book_now' | t | json }},"rental_fee_days":{{ 'calendar.rental_fee_days' | t | json }},"day_one":{{ 'calendar.day_one' | t | json }},"day_other":{{ 'calendar.day_other' | t | json }},"none":{{ 'calendar.none' | t | json }},"adding":{{ 'calendar.adding' | t | json }},"add_failed":{{ 'calendar.add_failed' | t | json }},"generic_error":{{ 'calendar.generic_error' | t | json }},"redirecting":{{ 'calendar.redirecting' | t | json }},"checkout_failed":{{ 'calendar.checkout_failed' | t | json }},"units_available":{{ 'calendar.units_available' | t | json }},"locale":{{ request.locale.iso_code | json }}}</script>
 <script src="{{ 'rental-calendar.js' | asset_url }}" defer></script>
 
 {%- endunless -%}
