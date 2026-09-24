@@ -79,6 +79,8 @@
 
     // Rental lines are known from Shopify's own cart data, so detection does not depend on the
     // theme printing line properties (many drawers do not).
+    // The cart labels in the store's language (locales/*.json), e.g. レンタル開始日 on a Japanese store.
+    var LABELS = [{{ 'calendar.prop_start' | t | json }}, {{ 'calendar.prop_duration' | t | json }}, {{ 'calendar.prop_return' | t | json }}];
     var rentalKeys = [], rentalIdx = [];
     function refreshCart() {
       return fetch((window.Shopify && Shopify.routes && Shopify.routes.root || '/') + 'cart.js', { credentials: 'same-origin' })
@@ -94,6 +96,7 @@
     function isRentalLine(el) {
       var text = el.textContent || '';
       if (text.indexOf('Rental start') !== -1 || text.indexOf('Rental duration') !== -1 || text.indexOf('Return by') !== -1) return true;
+      for (var l = 0; l < LABELS.length; l++) { if (LABELS[l] && text.indexOf(LABELS[l]) !== -1) return true; }
       var html = el.innerHTML || '';
       for (var k = 0; k < rentalKeys.length; k++) {
         if (el.getAttribute('data-key') === rentalKeys[k] || html.indexOf(rentalKeys[k]) !== -1) return true;

@@ -18,6 +18,26 @@
   const appUrl = (widget.dataset.appUrl || "").replace(/\/$/, "");
   const currency = widget.dataset.currency || "USD";
 
+  // Storefront strings come from the extension's locale files (locales/*.json) via the block's
+  // #miko-i18n JSON, so the widget speaks the store's language. English is the fallback.
+  const I18N = (() => { try { return JSON.parse(document.getElementById("miko-i18n").textContent); } catch { return {}; } })();
+  const EN = {
+    select_dates: t("select_dates"), checking: t("checking"),
+    not_available: "These dates are not available.", check_failed: t("check_failed"),
+    book_now: "Book now - {price}", rental_fee_days: "Rental fee ({days})", day_one: "{count} day", day_other: "{count} days",
+    none: t("none"), adding: t("adding"), add_failed: t("add_failed"),
+    generic_error: t("generic_error"), redirecting: t("redirecting"),
+    checkout_failed: t("checkout_failed"), units_available: "{available} of {total} available",
+  };
+  function t(key, vars) {
+    let s = (typeof I18N[key] === "string" && I18N[key] && I18N[key].indexOf("translation missing") === -1) ? I18N[key] : EN[key] || key;
+    Object.keys(vars || {}).forEach((k) => { s = s.split("{" + k + "}").join(String(vars[k])); });
+    return s;
+  }
+  const isEnglish = !I18N.locale || /^en/i.test(I18N.locale);
+  const pageLocale = (document.documentElement.lang || I18N.locale || "").trim() || undefined;
+  const daysLabel = (n) => t(n === 1 ? "day_one" : "day_other", { count: n });
+
   if (!appUrl) {
     console.warn("[Miko Rentals] App URL not configured.");
     return;
@@ -190,7 +210,7 @@
   }
 
   async function checkPricing(startDate, endDate) {
-    showMsg("Checking availability...", "loading");
+    showMsg(t("checking"), "loading");
     disableBtn();
 
     const units = getUnits();
@@ -203,7 +223,7 @@
       const data = await res.json();
 
       if (!res.ok || data.error) {
-        showMsg(data.error || "These dates are not available.", "error");
+        showMsg(isEnglish && data.error ? data.error : t("not_available"), "error");
         resetPricing();
         return;
       }
@@ -211,11 +231,11 @@
       hideMsg();
       currentPricing = data;
       showPricing(data);
-      enableBtn(`Book now - ${formatCurrency(data.totalDue, data.currency || currency)}`);
+      enableBtn(t("book_now", { price: formatCurrency(data.totalDue, data.currency || currency) }));
 
       // Show remaining inventory hint
       if (totalUnits > 1 && typeof data.unitsAvailable === "number") {
-        unitAvailableEl.textContent = `${data.unitsAvailable} of ${totalUnits} available`;
+        unitAvailableEl.textContent = t("units_available", { available: data.unitsAvailable, total: totalUnits });
       }
 
       if (data.rentalNotes) {
@@ -225,13 +245,13 @@
         notesEl.classList.add("miko-msg--hidden");
       }
     } catch {
-      showMsg("Unable to check availability right now. Please try again.", "error");
+      showMsg(t("check_failed"), "error");
       resetPricing();
     }
   }
 
   function showPricing(data) {
-    breakdownLabel.textContent = data.breakdown || `Rental fee (${data.rentalDays} days)`;
+    breakdownLabel.textContent = (isEnglish && data.breakdown) || (isEnglish ? `Rental fee (${data.rentalDays} days)` : t("rental_fee_days", { days: daysLabel(data.rentalDays) }));
     rentalPriceEl.textContent = formatCurrency(data.rentalPrice, data.currency || currency);
     totalPriceEl.textContent = formatCurrency(data.totalDue, data.currency || currency);
 
@@ -269,7 +289,7 @@
   }
 
   function disableBtn() {
-    addBtn.textContent = "Select dates to continue";
+    addBtn.textContent = t("select_dates");
     addBtn.disabled = true;
     addBtn.classList.add("miko-btn--disabled");
   }
@@ -288,13 +308,13 @@
     document.getElementById("miko-prop-start-display").value = formatDateDisplay(startDate);
     document.getElementById("miko-prop-end-display").value = formatDateDisplay(endDate);
     document.getElementById("miko-prop-duration").value =
-      `${currentPricing.rentalDays} day${currentPricing.rentalDays !== 1 ? "s" : ""}`;
+      daysLabel(currentPricing.rentalDays);
     document.getElementById("miko-prop-price").value =
       formatCurrency(currentPricing.rentalPrice, currentPricing.currency || currency);
     document.getElementById("miko-prop-deposit").value =
       currentPricing.depositAmount > 0
         ? formatCurrency(currentPricing.depositAmount, currentPricing.currency || currency)
-        : "None";
+        : t("none");
 
     // Compact form keeps the admin order-line view tidy. Short keys map:
     //   p  = product numeric ID (gid:// stripped, prepended on read)
@@ -316,11 +336,11 @@
       pu: currentPricing.perUnitPrice.toFixed(2),
     });
 
-    addBtn.textContent = "Adding to cart...";
+    addBtn.textContent = t("adding");
     addBtn.classList.add("miko-btn--loading");
     addBtn.disabled = true;
 
-    const bookLabel = `Book now - ${formatCurrency(currentPricing.totalDue, currentPricing.currency || currency)}`;
+    const bookLabel = t("book_now", { price: formatCurrency(currentPricing.totalDue, currentPricing.currency || currency) });
 
     try {
       // Force the freshest variant id into the cart form right before submit so
@@ -353,17 +373,17 @@
       if (isSoldOut) {
         await tryDraftOrderCheckout(bookLabel);
       } else {
-        showMsg(err.description || "Could not add to cart. Please try again.", "error");
+        showMsg(err.description || t("add_failed"), "error");
         enableBtn(bookLabel);
       }
     } catch {
-      showMsg("Something went wrong. Please try again.", "error");
+      showMsg(t("generic_error"), "error");
       enableBtn(bookLabel);
     }
   }
 
   async function tryDraftOrderCheckout(bookLabel) {
-    addBtn.textContent = "Redirecting to checkout...";
+    addBtn.textContent = t("redirecting");
     addBtn.classList.add("miko-btn--loading");
     addBtn.disabled = true;
 
@@ -389,11 +409,11 @@
           currency: currentPricing.currency || currency,
           startDisplay: formatDateDisplay(startDate),
           endDisplay: formatDateDisplay(endDate),
-          durationDisplay: `${currentPricing.rentalDays} day${currentPricing.rentalDays !== 1 ? "s" : ""}`,
+          durationDisplay: daysLabel(currentPricing.rentalDays),
           rentalPriceDisplay: formatCurrency(currentPricing.rentalPrice, currentPricing.currency || currency),
           depositDisplay: currentPricing.depositAmount > 0
             ? formatCurrency(currentPricing.depositAmount, currentPricing.currency || currency)
-            : "None",
+            : t("none"),
         }),
       });
 
@@ -401,11 +421,11 @@
       if (data.checkoutUrl) {
         window.location.href = data.checkoutUrl;
       } else {
-        showMsg(data.error || "Could not complete checkout. Please try again.", "error");
+        showMsg(data.error || t("checkout_failed"), "error");
         enableBtn(bookLabel);
       }
     } catch {
-      showMsg("Something went wrong. Please try again.", "error");
+      showMsg(t("generic_error"), "error");
       enableBtn(bookLabel);
     }
   }
@@ -488,7 +508,7 @@
 
   function formatDateDisplay(isoDate) {
     try {
-      return new Date(isoDate + "T00:00:00").toLocaleDateString(undefined, {
+      return new Date(isoDate + "T00:00:00").toLocaleDateString(pageLocale, {
         day: "numeric",
         month: "long",
         year: "numeric",
