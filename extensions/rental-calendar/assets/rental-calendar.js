@@ -410,16 +410,20 @@
     }
   }
 
+  // Each currency keeps its own minor units (JPY and KRW have none, USD and NZD have 2), formatted
+  // in the store's language so a Japanese shop shows "￥100", not "JP¥100.00" (ticket 2026-09-24).
+  // Machine values sent to the cart (r, d, pu) stay fixed at 2 decimals for the Cart Transform.
   function formatCurrency(amount, currencyCode) {
+    const code = currencyCode || "USD";
+    const locale = (document.documentElement.lang || "").trim() || undefined;
     try {
-      return new Intl.NumberFormat(undefined, {
-        style: "currency",
-        currency: currencyCode || "USD",
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
-      }).format(amount);
+      return new Intl.NumberFormat(locale, { style: "currency", currency: code }).format(amount);
     } catch {
-      return `${currencyCode} ${amount.toFixed(2)}`;
+      try {
+        return new Intl.NumberFormat(undefined, { style: "currency", currency: code }).format(amount);
+      } catch {
+        return `${code} ${amount.toFixed(2)}`;
+      }
     }
   }
 
