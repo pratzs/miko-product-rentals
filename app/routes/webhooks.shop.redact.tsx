@@ -1,20 +1,21 @@
 import type { ActionFunctionArgs } from "@remix-run/node";
-import { json } from "@remix-run/node";
 import { authenticate } from "../shopify.server";
 import { db } from "../db.server";
+import { redactShop, safeErr } from "../utils/gdpr.server";
 
-// GDPR: Delete all data for a shop 48 hours after uninstall.
+// GDPR: shop/redact, sent 48 hours after uninstall. Deletes every row this app
+// holds for the shop (all shop-scoped models, in FK order, in one transaction).
+// See redactShop() for the model list. Returns 500 on failure so Shopify retries.
 export const action = async ({ request }: ActionFunctionArgs) => {
-  const { shop } = await authenticate.webhook(request);
+  const { topic, shop } = await authenticate.webhook(request);
 
-  await db.$transaction([
-    db.emailLog.deleteMany({ where: { shop } }),
-    db.rentalBooking.deleteMany({ where: { shop } }),
-    db.rentalProduct.deleteMany({ where: { shop } }),
-    db.blockedDate.deleteMany({ where: { shop } }),
-    db.shopConfig.deleteMany({ where: { shop } }),
-    db.session.deleteMany({ where: { shop } }),
-  ]);
+  try {
+    const counts = await redactShop(db, shop);
+    console.log(`[webhook] ${topic} for ${shop}: deleted ${JSON.stringify(counts)}`);
+  } catch (err) {
+    console.error(`[webhook] ${topic} for ${shop} failed: ${safeErr(err)}`);
+    return new Response(null, { status: 500 });
+  }
 
-  return json({ ok: true });
+  return new Response(null, { status: 200 });
 };
