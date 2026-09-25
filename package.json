@@ -15,6 +15,7 @@
     "lint": "eslint --cache --cache-location ./node_modules/.cache/eslint .",
     "shopify": "shopify",
     "test:buycontrols": "node tests/rental-buy-controls.test.mjs",
+    "test:carttransform": "node tests/cart-transform-all-plans.test.mjs",
     "prisma": "prisma",
     "vite": "vite"
   },
