@@ -14,6 +14,8 @@ function run(input) {
   for (const line of input.cart.lines) {
     const raw = line.mikoData?.value;
     if (!raw) continue;
+    const variantId = line.merchandise?.id;
+    if (!variantId) continue;
     let perUnit = NaN;
     let lockedUnits = NaN;
     try {
@@ -30,15 +32,22 @@ function run(input) {
     const bookingTotal = effectiveLockedUnits * perUnit;
     const scaledPerUnit = bookingTotal / line.quantity;
     operations.push({
-      update: {
+      expand: {
         cartLineId: line.id,
-        price: {
-          adjustment: {
-            fixedPricePerUnit: {
-              amount: scaledPerUnit.toFixed(2)
-            }
+        expandedCartItems: [
+          {
+            merchandiseId: variantId,
+            quantity: 1,
+            price: {
+              adjustment: {
+                fixedPricePerUnit: {
+                  amount: scaledPerUnit.toFixed(2)
+                }
+              }
+            },
+            attributes: [{ key: "_miko_data", value: raw }]
           }
-        }
+        ]
       }
     });
   }
