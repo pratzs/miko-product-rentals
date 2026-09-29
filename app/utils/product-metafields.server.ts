@@ -93,7 +93,6 @@ export async function ensureRentalVariantsCanOversell(
               nodes {
                 id
                 inventoryPolicy
-                inventoryManagement
                 inventoryItem { id }
               }
             }
@@ -105,7 +104,7 @@ export async function ensureRentalVariantsCanOversell(
       data?: {
         product?: {
           variants: {
-            nodes: Array<{ id: string; inventoryPolicy: string; inventoryManagement: string; inventoryItem: { id: string } }>;
+            nodes: Array<{ id: string; inventoryPolicy: string; inventoryItem: { id: string } }>;
           };
         };
       };
@@ -113,18 +112,15 @@ export async function ensureRentalVariantsCanOversell(
     const variants = data.data?.product?.variants?.nodes ?? [];
     if (variants.length === 0) return;
 
-    // Step 1: set inventoryPolicy → CONTINUE and, for 3rd-party fulfilled
-    // variants, also switch inventoryManagement → SHOPIFY. Third-party
-    // fulfillment services control their own availability and ignore
-    // inventoryPolicy; taking over inventory management lets our CONTINUE
-    // policy actually take effect. Fulfillment routing (who ships the order)
-    // is driven by fulfillmentServiceId, not inventoryManagement, so orders
-    // still go to the right place.
+    // Step 1: set inventoryPolicy → CONTINUE. (ProductVariant.inventoryManagement
+    // no longer exists in the Admin API; selecting it made this whole query fail
+    // with undefinedField, so no variant was ever flipped. Third-party fulfilled
+    // variants are covered by the tracked=false step below instead.)
     const bulkRes = await admin.graphql(
       `#graphql
         mutation FlipVariantPoliciesBulk($productId: ID!, $variants: [ProductVariantsBulkInput!]!) {
           productVariantsBulkUpdate(productId: $productId, variants: $variants) {
-            productVariants { id inventoryPolicy inventoryManagement }
+            productVariants { id inventoryPolicy }
             userErrors { field message code }
           }
         }`,
@@ -134,7 +130,6 @@ export async function ensureRentalVariantsCanOversell(
           variants: variants.map((v) => ({
             id: v.id,
             inventoryPolicy: "CONTINUE",
-            ...(v.inventoryManagement !== "SHOPIFY" ? { inventoryManagement: "SHOPIFY" } : {}),
           })),
         },
       },
