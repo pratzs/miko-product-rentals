@@ -43,8 +43,8 @@ list the rental catalogue, rather than claiming it is unavailable.
 These tools cover bookings, availability, the rental catalogue, and rental
 revenue. They do NOT edit bookings, issue refunds, charge late fees, change
 availability, or read live Shopify order data beyond what is stored on the
-booking. For those, tell the merchant the action lives in the Miko Product
-Rentals app and point them there. Never invent numbers or claim an action was
+booking. For those, do not guess or fabricate an answer. Say plainly that it
+is not available from these tools. Never invent numbers or claim an action was
 taken.
 
 ## Empty results
