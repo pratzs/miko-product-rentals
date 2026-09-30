@@ -20,6 +20,7 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
+import { addDays, format } from "date-fns";
 import {
   Page,
   Layout,
@@ -220,13 +221,15 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
     }
 
     const compiledHtml = compileBlocksToHtml(blocks, brand, subject);
+    const sampleStart = addDays(new Date(), 7);
+    const sampleEnd = addDays(sampleStart, 5);
     const testVars: Record<string, string> = {
       customer_name: "Jane Smith",
       customer_email: toEmail,
       product_title: "Sample Product",
       order_name: "#1001",
-      start_date: "June 20, 2025",
-      end_date: "June 25, 2025",
+      start_date: format(sampleStart, "PPP"),
+      end_date: format(sampleEnd, "PPP"),
       rental_days: "5",
       rental_price: "$99.00",
       deposit_amount: "$50.00",
