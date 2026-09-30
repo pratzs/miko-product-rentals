@@ -224,6 +224,12 @@
   border-radius: 8px;
 }
 
+/* Hidden until the availability call reports more than one unit (JS removes the class). Must come after
+   .miko-unit-row, whose display:flex otherwise overrides .miko-msg--hidden. */
+.miko-unit-row.miko-msg--hidden {
+  display: none;
+}
+
 .miko-unit-label {
   font-size: 14px;
   font-weight: 500;
