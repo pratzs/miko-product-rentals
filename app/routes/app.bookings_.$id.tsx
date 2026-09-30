@@ -432,6 +432,7 @@ export default function BookingDetailPage() {
 
   return (
     <Page
+      fullWidth
       title={booking.orderName || t("Booking {id}", { id: booking.id.slice(-8).toUpperCase() })}
       subtitle={`${booking.productTitle} - ${booking.customerName}`}
       backAction={{ content: t("Bookings"), url: "/app/bookings" }}

@@ -860,6 +860,7 @@ export default function EmailEditorPage() {
 
   return (
     <Page
+      fullWidth
       title={templateName || t("New template")}
       backAction={{ content: t("Email Templates"), url: "/app/emails" }}
       primaryAction={{

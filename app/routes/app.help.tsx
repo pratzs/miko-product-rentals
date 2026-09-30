@@ -61,27 +61,26 @@ interface StepCardProps {
 function StepCard({ number, icon, title, body, cta }: StepCardProps) {
   return (
     <Box
-      padding="500"
+      padding="400"
       borderRadius="300"
       background="bg-surface"
-      borderColor="border"
+      borderColor="border-secondary"
       borderWidth="025"
     >
       <BlockStack gap="300">
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
           <div
             style={{
-              width: 36,
-              height: 36,
-              borderRadius: 10,
-              background: "linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)",
-              color: "#ffffff",
+              width: 28,
+              height: 28,
+              borderRadius: 8,
+              background: "#f1f1f1",
+              color: "#303030",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              fontWeight: 700,
-              fontSize: 15,
-              boxShadow: "0 2px 8px rgba(99, 102, 241, 0.25)",
+              fontWeight: 650,
+              fontSize: 13,
               flexShrink: 0,
             }}
           >
@@ -128,12 +127,12 @@ function JourneyStep({ number, title, body }: JourneyStepProps) {
             width: 32,
             height: 32,
             borderRadius: 16,
-            background: "#f4f3ff",
-            color: "#6366f1",
+            background: "#f1f1f1",
+            color: "#303030",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            fontWeight: 700,
+            fontWeight: 650,
             fontSize: 13,
           }}
         >
@@ -151,31 +150,17 @@ function JourneyStep({ number, title, body }: JourneyStepProps) {
 interface SectionHeaderProps {
   icon: React.FunctionComponent<React.SVGProps<SVGSVGElement>>;
   title: string;
-  tone?: "magic" | "success" | "warning" | "critical" | "info" | "subdued";
-  iconBg?: string;
 }
 
-function SectionHeader({ icon, title, tone = "magic", iconBg = "#f4f3ff" }: SectionHeaderProps) {
+/** Native admin section heading: a neutral icon chip and the title. */
+function SectionHeader({ icon, title }: SectionHeaderProps) {
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-      <div
-        style={{
-          width: 32,
-          height: 32,
-          borderRadius: 8,
-          background: iconBg,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          flexShrink: 0,
-        }}
-      >
-        <div style={{ width: 18, height: 18, display: "flex", alignItems: "center", justifyContent: "center" }}>
-          <Icon source={icon} tone={tone} />
-        </div>
-      </div>
+    <InlineStack gap="200" blockAlign="center" wrap={false}>
+      <Box background="bg-fill-secondary" borderRadius="200" padding="100">
+        <Icon source={icon} tone="subdued" />
+      </Box>
       <Text as="h2" variant="headingMd">{title}</Text>
-    </div>
+    </InlineStack>
   );
 }
 
@@ -190,7 +175,7 @@ function Scenario({ question, answer }: ScenarioProps) {
       <BlockStack gap="200">
         <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
           <div style={{ width: 20, height: 20, marginTop: 2, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-            <Icon source={QuestionCircleIcon} tone="magic" />
+            <Icon source={QuestionCircleIcon} tone="subdued" />
           </div>
           <Text as="h3" variant="headingSm">{question}</Text>
         </div>
@@ -234,6 +219,7 @@ export default function HelpPage() {
 
   return (
     <Page
+      fullWidth
       title={t("Help center")}
       subtitle={t("Everything you need to launch and run rentals with confidence.")}
     >
@@ -255,45 +241,36 @@ export default function HelpPage() {
         </Layout.Section>
         <Layout.Section>
           <BlockStack gap="600">
-            {/* Hero */}
-            <Box
-              padding="600"
-              borderRadius="400"
-              background="bg-surface"
-              borderColor="border"
-              borderWidth="025"
-            >
-              <div
-                style={{
-                  background: "linear-gradient(135deg, #f4f3ff 0%, #ede9fe 50%, #f0f9ff 100%)",
-                  borderRadius: 12,
-                  padding: 24,
-                  margin: -8,
-                }}
-              >
+            {/* Hero: the brand navy header, as on the dashboard. */}
+            <div className="miko-gradient-bg" style={{ borderRadius: 12, padding: "24px 28px" }}>
+              <div style={{ position: "relative", zIndex: 1 }}>
                 <BlockStack gap="400">
                   <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
                     <div
                       style={{
-                        width: 48,
-                        height: 48,
-                        borderRadius: 12,
-                        background: "#ffffff",
+                        width: 44,
+                        height: 44,
+                        borderRadius: 10,
+                        background: "rgba(255,255,255,0.12)",
                         display: "flex",
                         alignItems: "center",
                         justifyContent: "center",
-                        boxShadow: "0 2px 8px rgba(99, 102, 241, 0.15)",
                         flexShrink: 0,
+                        color: "#ffffff",
                       }}
                     >
                       <div style={{ width: 22, height: 22, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                        <Icon source={MagicIcon} tone="magic" />
+                        <Icon source={MagicIcon} tone="inherit" />
                       </div>
                     </div>
                     <BlockStack gap="100">
-                      <Text as="h2" variant="headingLg">{t("Welcome to Miko")}</Text>
-                      <Text as="p" tone="subdued">
-                        {t("Get your first rental product live in about 5 minutes. We will walk you through every step.")}
+                      <Text as="h2" variant="headingLg">
+                        <span style={{ color: "#ffffff" }}>{t("Welcome to Miko")}</span>
+                      </Text>
+                      <Text as="p">
+                        <span style={{ color: "rgba(255,255,255,0.85)" }}>
+                          {t("Get your first rental product live in about 5 minutes. We will walk you through every step.")}
+                        </span>
                       </Text>
                     </BlockStack>
                   </div>
@@ -315,21 +292,20 @@ export default function HelpPage() {
                     <Button
                       icon={EmailIcon}
                       onClick={() => openMailto(t("Miko support request"))}
-                      variant="plain"
                     >
                       {t("Email support")}
                     </Button>
                   </InlineStack>
                 </BlockStack>
               </div>
-            </Box>
+            </div>
 
             {/* Quick Start */}
             <Card>
               <BlockStack gap="500">
                 <InlineStack gap="300" align="space-between" blockAlign="center">
                   <BlockStack gap="200">
-                    <SectionHeader icon={CheckCircleIcon} title={t("Quick start")} tone="success" iconBg="#ecfdf5" />
+                    <SectionHeader icon={CheckCircleIcon} title={t("Quick start")} />
                     <Text as="p" tone="subdued">
                       {t("Follow these in order. The dashboard checklist ticks each one off as you go.")}
                     </Text>
@@ -522,7 +498,7 @@ export default function HelpPage() {
             {/* Multi-unit + overbooking */}
             <Card>
               <BlockStack gap="400">
-                <SectionHeader icon={AlertCircleIcon} title={t("Multi unit rentals and overbooking protection")} tone="warning" iconBg="#fffbeb" />
+                <SectionHeader icon={AlertCircleIcon} title={t("Multi unit rentals and overbooking protection")} />
                 <Text as="p">
                   {t("Set")} <strong>{t("Total units available")}</strong> {t("on each product to how many physical copies you have on hand. When a product has more than one unit, customers see a quantity picker on the storefront, and the calendar only blocks dates when every unit is booked.")}
                 </Text>
@@ -632,7 +608,7 @@ export default function HelpPage() {
             {/* Late fees */}
             <Card>
               <BlockStack gap="400">
-                <SectionHeader icon={ClockIcon} title={t("How late fees work")} tone="critical" iconBg="#fef2f2" />
+                <SectionHeader icon={ClockIcon} title={t("How late fees work")} />
                 <Text as="p">
                   {t("Set the")} <strong>{t("Late fee per day")}</strong> {t("and a")} <strong>{t("Grace period")}</strong> {t("in Settings. After a rental's return date passes, Miko automatically marks it as Overdue and sends the customer an overdue notice showing your late fee rate.")}
                 </Text>
@@ -666,7 +642,7 @@ export default function HelpPage() {
 
             <Card>
               <BlockStack gap="300">
-                <SectionHeader icon={ChatIcon} title={t("Talk to a human")} tone="success" iconBg="#ecfdf5" />
+                <SectionHeader icon={ChatIcon} title={t("Talk to a human")} />
                 <Text as="p" tone="subdued">
                   {t("Stuck on something? Email our team and we will get back to you within one business day.")}
                 </Text>
@@ -699,7 +675,7 @@ export default function HelpPage() {
 
             <Card>
               <BlockStack gap="300">
-                <SectionHeader icon={LockIcon} title={t("Privacy and your data")} tone="subdued" iconBg="#f3f4f6" />
+                <SectionHeader icon={LockIcon} title={t("Privacy and your data")} />
                 <Text as="p" tone="subdued">
                   {t("Miko only stores the data you create through the app: rental products, bookings, settings, and email templates. Customer data is limited to the name, email, and phone attached to orders.")}
                 </Text>

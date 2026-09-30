@@ -153,6 +153,7 @@ export default function BookingsPage() {
 
   return (
     <Page
+      fullWidth
       title={t("Bookings")}
       subtitle={t("Every rental booking across all your products")}
       secondaryActions={[

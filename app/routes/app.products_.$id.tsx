@@ -234,6 +234,7 @@ export default function ProductConfigPage() {
 
   return (
     <Page
+      fullWidth
       title={product.title}
       subtitle={t("Configure how this product is rented")}
       backAction={{ content: t("Rental Products"), url: "/app/products" }}

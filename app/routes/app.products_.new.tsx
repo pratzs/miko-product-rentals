@@ -102,6 +102,7 @@ export default function NewProductPage() {
 
   return (
     <Page
+      fullWidth
       title={t("Add Rental Product")}
       subtitle={t("Choose a product from your store to enable for rental.")}
       backAction={{ content: t("Rental Products"), url: "/app/products" }}

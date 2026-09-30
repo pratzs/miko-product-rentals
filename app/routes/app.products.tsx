@@ -169,6 +169,7 @@ export default function ProductsPage() {
 
   return (
     <Page
+      fullWidth
       title={t("Rental Products")}
       subtitle={t("Choose which products in your store can be rented. Each product gets its own pricing, availability calendar, and deposit settings.")}
       primaryAction={{

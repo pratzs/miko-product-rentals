@@ -357,8 +357,7 @@ export default function Dashboard() {
         stats.confirmedBookings > 0
           ? t("{n} more confirmed, not yet started", { n: stats.confirmedBookings })
           : t("Items currently with customers"),
-      accent: "#10b981",
-      accentBg: "#ecfdf5",
+      tone: "subdued" as const,
       icon: CalendarIcon,
     },
     {
@@ -370,16 +369,14 @@ export default function Dashboard() {
               amount: formatCurrency(stats.pendingPaymentValue, currency),
             })
           : t("All recent orders are paid"),
-      accent: stats.pendingPaymentBookings > 0 ? "#f59e0b" : "#9ca3af",
-      accentBg: stats.pendingPaymentBookings > 0 ? "#fffbeb" : "#f3f4f6",
+      tone: stats.pendingPaymentBookings > 0 ? ("caution" as const) : ("subdued" as const),
       icon: CreditCardIcon,
     },
     {
       label: t("Overdue returns"),
       value: stats.overdueBookings.toString(),
       sublabel: stats.overdueBookings > 0 ? t("Past the return date") : t("Everything on track"),
-      accent: stats.overdueBookings > 0 ? "#ef4444" : "#9ca3af",
-      accentBg: stats.overdueBookings > 0 ? "#fef2f2" : "#f3f4f6",
+      tone: stats.overdueBookings > 0 ? ("critical" as const) : ("subdued" as const),
       icon: ClockIcon,
     },
     {
@@ -391,8 +388,7 @@ export default function Dashboard() {
             ? t("Owed back across {n} bookings", { n: stats.depositsHeldCount })
             : t("Owed back across {n} booking", { n: stats.depositsHeldCount })
           : t("No deposits outstanding"),
-      accent: "#6366f1",
-      accentBg: "#eef2ff",
+      tone: "subdued" as const,
       icon: CashDollarIcon,
     },
     {
@@ -401,16 +397,14 @@ export default function Dashboard() {
       sublabel: t("{amount} all time (rental fees only)", {
         amount: formatCurrency(stats.totalRevenue, currency),
       }),
-      accent: "#0ea5e9",
-      accentBg: "#f0f9ff",
+      tone: "subdued" as const,
       icon: CashDollarIcon,
     },
     {
       label: t("Rental products"),
       value: stats.totalProducts.toString(),
       sublabel: t("{n} total bookings", { n: stats.totalBookings }),
-      accent: "#8b5cf6",
-      accentBg: "#f5f3ff",
+      tone: "subdued" as const,
       icon: ProductIcon,
     },
   ];
@@ -432,6 +426,7 @@ export default function Dashboard() {
 
   return (
     <Page
+      fullWidth
       title={t("Dashboard")}
       subtitle={t("Welcome to Miko Product Rentals")}
       primaryAction={
@@ -444,7 +439,7 @@ export default function Dashboard() {
         {/* Hero */}
         <div
           className="miko-gradient-bg"
-          style={{ borderRadius: 16, padding: "28px 32px", display: "flex", alignItems: "center", gap: 32 }}
+          style={{ borderRadius: 12, padding: "28px 32px", display: "flex", alignItems: "center", gap: 32 }}
         >
           <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 14 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -678,28 +673,14 @@ export default function Dashboard() {
         <InlineGrid columns={{ xs: 1, sm: 2, md: 3 }} gap="400">
           {statCards.map((card) => (
             <Card key={card.label}>
-              <BlockStack gap="300">
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <BlockStack gap="200">
+                <InlineStack gap="200" blockAlign="center" wrap={false}>
+                  <Box background="bg-fill-secondary" borderRadius="200" padding="100">
+                    <Icon source={card.icon} tone={card.tone} />
+                  </Box>
                   <Text as="p" variant="bodyMd" tone="subdued">{card.label}</Text>
-                  <div
-                    style={{
-                      width: 32,
-                      height: 32,
-                      borderRadius: 8,
-                      background: card.accentBg,
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      color: card.accent,
-                      flexShrink: 0,
-                    }}
-                  >
-                    <div style={{ width: 18, height: 18, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                      <Icon source={card.icon} />
-                    </div>
-                  </div>
-                </div>
-                <Text as="p" variant="headingXl" fontWeight="bold">{card.value}</Text>
+                </InlineStack>
+                <Text as="p" variant="headingLg">{card.value}</Text>
                 <Text as="p" variant="bodySm" tone="subdued">{card.sublabel}</Text>
               </BlockStack>
             </Card>

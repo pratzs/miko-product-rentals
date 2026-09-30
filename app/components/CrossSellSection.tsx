@@ -8,8 +8,9 @@ import { useT } from "../i18n/context";
  *
  * Self-contained: all styling is inline plus one scoped <style> block, so it
  * looks identical in any Miko app whether or not that app loads the shared
- * miko-theme.css. It renders a dark, on-brand slider (arrows, scroll-snap,
- * dots) so the family of apps feels like a premium, coordinated suite.
+ * miko-theme.css. It renders a slider (arrows, scroll-snap, dots) styled
+ * like a native Shopify admin card (Oct 2026 native-look pass), so it sits
+ * seamlessly beside Polaris cards in every Miko app.
  *
  * Only list apps that are actually live on the App Store, never link to an
  * app that isn't published yet.
@@ -152,17 +153,18 @@ export function CrossSellSection({ currentApp }: { currentApp: MikoApp["key"] })
   const atEnd = active >= maxIndex;
 
   const arrowBtn = (disabled: boolean): React.CSSProperties => ({
-    width: 34,
-    height: 34,
-    borderRadius: "50%",
+    width: 28,
+    height: 28,
+    borderRadius: 8,
     display: "inline-flex",
     alignItems: "center",
     justifyContent: "center",
-    border: "1px solid #CBD5E1",
+    border: "none",
     background: "#FFFFFF",
-    color: "#0F172A",
+    boxShadow: "0 1px 0 0 #e3e3e3, inset 0 -1px 0 0 #b5b5b5, inset -1px 0 0 0 #e3e3e3, inset 1px 0 0 0 #e3e3e3, inset 0 1px 0 0 #e3e3e3",
+    color: "#303030",
     cursor: disabled ? "default" : "pointer",
-    opacity: disabled ? 0.35 : 1,
+    opacity: disabled ? 0.4 : 1,
     transition: "background 0.15s, opacity 0.15s",
     flexShrink: 0,
   });
@@ -172,30 +174,18 @@ export function CrossSellSection({ currentApp }: { currentApp: MikoApp["key"] })
       style={{
         position: "relative",
         overflow: "hidden",
-        borderRadius: 16,
-        padding: "24px 24px 20px",
-        background: "#F8FAFC",
-        border: "1px solid #E2E8F0",
+        borderRadius: 12,
+        padding: 16,
+        background: "#FFFFFF",
+        boxShadow: "0 1px 0 0 rgba(26,26,26,.07), inset 0 1px 0 0 rgba(204,204,204,.5), inset 0 -1px 0 0 rgba(0,0,0,.17), inset -1px 0 0 0 rgba(0,0,0,.13), inset 1px 0 0 0 rgba(0,0,0,.13)",
       }}
     >
       <style>{`
         .miko-xsell-track::-webkit-scrollbar { display: none; }
         .miko-xsell-track { -ms-overflow-style: none; scrollbar-width: none; }
-        .miko-xsell-card { transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease; }
-        .miko-xsell-card:hover { transform: translateY(-3px); }
+        .miko-xsell-card { transition: background 0.15s ease; }
+        .miko-xsell-card:hover { background: #fafafa !important; }
       `}</style>
-
-      {/* Ambient brand glow, non-interactive. */}
-      <div
-        aria-hidden="true"
-        style={{
-          position: "absolute",
-          inset: 0,
-          pointerEvents: "none",
-          background:
-            "radial-gradient(circle at 88% 10%, rgba(91,141,239,0.10), transparent 55%), radial-gradient(circle at 8% 95%, rgba(139,124,246,0.08), transparent 50%)",
-        }}
-      />
 
       <div style={{ position: "relative", zIndex: 1 }}>
         {/* Header */}
@@ -205,14 +195,14 @@ export function CrossSellSection({ currentApp }: { currentApp: MikoApp["key"] })
             alignItems: "flex-end",
             justifyContent: "space-between",
             gap: 16,
-            marginBottom: 18,
+            marginBottom: 12,
           }}
         >
           <div style={{ minWidth: 0 }}>
-            <div style={{ fontSize: 17, fontWeight: 700, color: "#0F172A", letterSpacing: "-0.01em" }}>
+            <div style={{ fontSize: 14, fontWeight: 650, color: "#303030", lineHeight: "20px" }}>
               {t("More from Miko")}
             </div>
-            <div style={{ fontSize: 13, color: "#64748B", marginTop: 3 }}>
+            <div style={{ fontSize: 13, color: "#616161", lineHeight: "20px" }}>
               {t("Built by the same team, made to work well together.")}
             </div>
           </div>
@@ -260,43 +250,41 @@ export function CrossSellSection({ currentApp }: { currentApp: MikoApp["key"] })
                 width: CARD_W,
                 scrollSnapAlign: "start",
                 boxSizing: "border-box",
-                borderRadius: 14,
-                padding: 18,
+                borderRadius: 12,
+                padding: 16,
                 display: "flex",
                 flexDirection: "column",
                 gap: 12,
-                background: `linear-gradient(160deg, #FFFFFF 0%, #FFFFFF 100%), radial-gradient(circle at 25% 0%, ${app.color}14, transparent 60%)`,
-                border: `1px solid ${app.color}33`,
-                boxShadow: `0 10px 28px ${app.color}14`,
-                minHeight: 210,
+                background: "#FFFFFF",
+                border: "1px solid #e3e3e3",
+                minHeight: 200,
               }}
             >
               <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
                 <div
                   style={{
-                    width: 52,
-                    height: 52,
-                    borderRadius: 13,
+                    width: 44,
+                    height: 44,
+                    borderRadius: 10,
                     overflow: "hidden",
                     flexShrink: 0,
-                    boxShadow: `0 6px 18px ${app.color}55, 0 0 0 1px rgba(255,255,255,0.14)`,
+                    boxShadow: "0 0 0 1px rgba(0,0,0,0.08)",
                   }}
                 >
                   <img
                     src={app.icon}
                     alt=""
-                    width={52}
-                    height={52}
-                    style={{ display: "block", width: 52, height: 52, objectFit: "cover" }}
+                    width={44}
+                    height={44}
+                    style={{ display: "block", width: 44, height: 44, objectFit: "cover" }}
                   />
                 </div>
                 <div
                   style={{
-                    fontSize: 15,
+                    fontSize: 13,
                     fontWeight: 650,
-                    color: "#0F172A",
-                    lineHeight: 1.25,
-                    letterSpacing: "-0.01em",
+                    color: "#303030",
+                    lineHeight: "20px",
                   }}
                 >
                   {app.name}
@@ -306,8 +294,8 @@ export function CrossSellSection({ currentApp }: { currentApp: MikoApp["key"] })
               <div
                 style={{
                   fontSize: 13,
-                  lineHeight: 1.5,
-                  color: "#64748B",
+                  lineHeight: "20px",
+                  color: "#616161",
                   flex: 1,
                 }}
               >
@@ -322,14 +310,17 @@ export function CrossSellSection({ currentApp }: { currentApp: MikoApp["key"] })
                   display: "inline-flex",
                   alignItems: "center",
                   justifyContent: "center",
-                  gap: 7,
+                  alignSelf: "flex-start",
+                  gap: 6,
                   textDecoration: "none",
-                  background: app.color,
-                  color: "#fff",
-                  fontSize: 13,
-                  fontWeight: 600,
-                  padding: "9px 14px",
-                  borderRadius: 9,
+                  background: "#FFFFFF",
+                  boxShadow: "0 1px 0 0 #e3e3e3, inset 0 -1px 0 0 #b5b5b5, inset -1px 0 0 0 #e3e3e3, inset 1px 0 0 0 #e3e3e3, inset 0 1px 0 0 #e3e3e3",
+                  color: "#303030",
+                  fontSize: 12,
+                  fontWeight: 550,
+                  lineHeight: "16px",
+                  padding: "6px 12px",
+                  borderRadius: 8,
                 }}
               >
                 {t("View on the App Store")}
@@ -343,7 +334,7 @@ export function CrossSellSection({ currentApp }: { currentApp: MikoApp["key"] })
 
         {/* Dots */}
         {maxIndex > 0 && (
-          <div style={{ display: "flex", justifyContent: "center", gap: 7, marginTop: 16 }}>
+          <div style={{ display: "flex", justifyContent: "center", gap: 6, marginTop: 12 }}>
             {Array.from({ length: maxIndex + 1 }).map((_, i) => {
               const on = i === active;
               return (
@@ -353,13 +344,13 @@ export function CrossSellSection({ currentApp }: { currentApp: MikoApp["key"] })
                   aria-label={t("Go to slide {n}", { n: i + 1 })}
                   onClick={() => scrollToIndex(i)}
                   style={{
-                    width: on ? 22 : 8,
-                    height: 8,
-                    borderRadius: 4,
+                    width: on ? 18 : 6,
+                    height: 6,
+                    borderRadius: 3,
                     border: "none",
                     padding: 0,
                     cursor: "pointer",
-                    background: on ? "#0F172A" : "#CBD5E1",
+                    background: on ? "#303030" : "#d4d4d4",
                     transition: "width 0.2s, background 0.2s",
                   }}
                 />

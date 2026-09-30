@@ -155,6 +155,7 @@ export default function PricingPage() {
 
   return (
     <Page
+      fullWidth
       title={t("Plans & Pricing")}
       subtitle={t("Choose the plan that fits your rental business.")}
     >

@@ -232,6 +232,7 @@ export default function EmailsPage() {
 
   return (
     <Page
+      fullWidth
       title={t("Email Templates")}
       subtitle={t("Customize the emails sent to your customers.")}
       primaryAction={{

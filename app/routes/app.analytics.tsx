@@ -12,6 +12,7 @@ import {
   Box,
   Divider,
   DataTable,
+  InlineGrid,
 } from "@shopify/polaris";
 import { authenticate } from "../shopify.server";
 import { db } from "../db.server";
@@ -178,9 +179,9 @@ function StatCard({
 }) {
   return (
     <Card>
-      <BlockStack gap="100">
-        <Text as="p" variant="bodySm" tone="subdued">{label}</Text>
-        <Text as="p" variant="headingXl">{value}</Text>
+      <BlockStack gap="200">
+        <Text as="p" variant="bodyMd" tone="subdued">{label}</Text>
+        <Text as="p" variant="headingLg">{value}</Text>
         {subtext && (
           <Text as="p" variant="bodySm" tone={tone || "subdued"}>{subtext}</Text>
         )}
@@ -211,12 +212,13 @@ export default function AnalyticsPage() {
 
   return (
     <Page
+      fullWidth
       title={t("Analytics")}
       subtitle={t("Track how your rental business is performing over time.")}
     >
       <BlockStack gap="600">
         {/* Top stats */}
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 16 }}>
+        <InlineGrid columns={{ xs: 1, sm: 2, md: 4 }} gap="400">
           <StatCard
             label={t("Revenue this month")}
             value={formatCurrency(stats.thisMonthRevenue, currency)}
@@ -244,9 +246,9 @@ export default function AnalyticsPage() {
             value={t("{n} days", { n: stats.avgRentalDays })}
             subtext={t("Per confirmed booking")}
           />
-        </div>
+        </InlineGrid>
 
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 16 }}>
+        <InlineGrid columns={{ xs: 1, sm: 2, md: 4 }} gap="400">
           <StatCard
             label={t("Active rentals right now")}
             value={String(stats.activeCount)}
@@ -277,7 +279,7 @@ export default function AnalyticsPage() {
               amount: formatCurrency(stats.lastMonthRevenue, currency),
             })}
           />
-        </div>
+        </InlineGrid>
 
         {/* Charts */}
         <Layout>
@@ -289,14 +291,14 @@ export default function AnalyticsPage() {
                 <div style={{ width: "100%", height: 240 }}>
                   <ResponsiveContainer>
                     <BarChart data={monthlyRevenue} margin={{ top: 4, right: 16, left: 0, bottom: 0 }}>
-                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
-                      <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: "#6b7280" }} />
-                      <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: "#6b7280" }} tickFormatter={(v) => `${currency}${v}`} />
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#ebebeb" />
+                      <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: "#616161" }} />
+                      <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: "#616161" }} tickFormatter={(v) => `${currency}${v}`} />
                       <Tooltip
                         formatter={(val: any) => [formatCurrency(val, currency), t("Revenue")]}
-                        contentStyle={{ borderRadius: 8, border: "1px solid #e5e7eb", fontSize: 13 }}
+                        contentStyle={{ borderRadius: 8, border: "1px solid #e3e3e3", fontSize: 13 }}
                       />
-                      <Bar dataKey="revenue" fill="#6366f1" radius={[4, 4, 0, 0]} />
+                      <Bar dataKey="revenue" fill="#005bd3" radius={[4, 4, 0, 0]} />
                     </BarChart>
                   </ResponsiveContainer>
                 </div>
@@ -312,14 +314,14 @@ export default function AnalyticsPage() {
                 <div style={{ width: "100%", height: 240 }}>
                   <ResponsiveContainer>
                     <LineChart data={monthlyBookings} margin={{ top: 4, right: 16, left: 0, bottom: 0 }}>
-                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
-                      <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: "#6b7280" }} />
-                      <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: "#6b7280" }} allowDecimals={false} />
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#ebebeb" />
+                      <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: "#616161" }} />
+                      <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: "#616161" }} allowDecimals={false} />
                       <Tooltip
                         formatter={(val: any) => [val, t("Bookings")]}
-                        contentStyle={{ borderRadius: 8, border: "1px solid #e5e7eb", fontSize: 13 }}
+                        contentStyle={{ borderRadius: 8, border: "1px solid #e3e3e3", fontSize: 13 }}
                       />
-                      <Line type="monotone" dataKey="bookings" stroke="#10b981" strokeWidth={2} dot={{ r: 4, fill: "#10b981" }} />
+                      <Line type="monotone" dataKey="bookings" stroke="#29845a" strokeWidth={2} dot={{ r: 4, fill: "#29845a" }} />
                     </LineChart>
                   </ResponsiveContainer>
                 </div>

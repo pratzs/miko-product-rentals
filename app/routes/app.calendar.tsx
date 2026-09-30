@@ -105,6 +105,7 @@ export default function CalendarPage() {
 
   return (
     <Page
+      fullWidth
       title={t("Availability Calendar")}
       subtitle={t("See all rental bookings at a glance. Click any booking to view details.")}
     >
@@ -189,10 +190,10 @@ export default function CalendarPage() {
                     key={day.toISOString()}
                     style={{
                       minHeight: 100,
-                      border: isCurrentDay ? "2px solid #6366f1" : "1px solid #e5e7eb",
+                      border: isCurrentDay ? "2px solid #005bd3" : "1px solid #ebebeb",
                       borderRadius: 8,
                       padding: "6px 8px",
-                      backgroundColor: isCurrentDay ? "#eef2ff" : "white",
+                      backgroundColor: isCurrentDay ? "#f2f7fe" : "#ffffff",
                     }}
                   >
                     <Text
@@ -212,11 +213,12 @@ export default function CalendarPage() {
                             display: "block",
                             width: "100%",
                             textAlign: "left",
-                            background: STATUS_COLORS[b.status] || "#e5e7eb",
+                            background: STATUS_COLORS[b.status] || "#ebebeb",
                             border: "none",
                             borderRadius: 4,
                             padding: "2px 6px",
                             cursor: "pointer",
+                            color: "#303030",
                             fontSize: 11,
                             lineHeight: "18px",
                             overflow: "hidden",

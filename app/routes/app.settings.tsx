@@ -137,7 +137,7 @@ export default function SettingsPage() {
 
   if (!config) {
     return (
-      <Page title={t("Settings")}>
+      <Page fullWidth title={t("Settings")}>
         <Banner tone="critical" title={t("Store configuration not found. Please re-install the app.")} />
       </Page>
     );
@@ -145,6 +145,7 @@ export default function SettingsPage() {
 
   return (
     <Page
+      fullWidth
       title={t("Settings")}
       subtitle={t("Configure how your rental business operates.")}
     >
