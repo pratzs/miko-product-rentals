@@ -1,12 +1,12 @@
 import type { ActionFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
-import { authenticate } from "../shopify.server";
+import { authenticateWebhookSafe } from "../webhook-auth.server";
 import { db } from "../db.server";
 import { syncBookingsFromOrder } from "../utils/booking-from-order.server";
 import { sendBookingConfirmation } from "../utils/email";
 
 export const action = async ({ request }: ActionFunctionArgs) => {
-  const { topic, shop, payload } = await authenticate.webhook(request);
+  const { topic, shop, payload } = await authenticateWebhookSafe(request);
 
   if (topic !== "ORDERS_PAID") {
     return json({ ok: true });

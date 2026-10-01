@@ -1,6 +1,6 @@
 import type { ActionFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
-import { authenticate } from "../shopify.server";
+import { authenticateWebhookSafe } from "../webhook-auth.server";
 import { syncBookingsFromOrder } from "../utils/booking-from-order.server";
 
 /**
@@ -14,7 +14,7 @@ import { syncBookingsFromOrder } from "../utils/booking-from-order.server";
  * payment capture.
  */
 export const action = async ({ request }: ActionFunctionArgs) => {
-  const { topic, shop, payload } = await authenticate.webhook(request);
+  const { topic, shop, payload } = await authenticateWebhookSafe(request);
   if (topic !== "ORDERS_CREATE") return json({ ok: true });
 
   const result = await syncBookingsFromOrder(shop, payload as any, {

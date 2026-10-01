@@ -1,5 +1,5 @@
 import type { ActionFunctionArgs } from "@remix-run/node";
-import { authenticate } from "../shopify.server";
+import { authenticateWebhookSafe } from "../webhook-auth.server";
 import { db } from "../db.server";
 import { redactCustomer, safeErr, type GdprCustomerPayload } from "../utils/gdpr.server";
 
@@ -14,7 +14,7 @@ import { redactCustomer, safeErr, type GdprCustomerPayload } from "../utils/gdpr
  * only the error name/code is logged).
  */
 export const action = async ({ request }: ActionFunctionArgs) => {
-  const { topic, shop, payload } = await authenticate.webhook(request);
+  const { topic, shop, payload } = await authenticateWebhookSafe(request);
 
   try {
     const result = await redactCustomer(db, shop, payload as GdprCustomerPayload);

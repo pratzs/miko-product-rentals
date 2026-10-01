@@ -1,6 +1,6 @@
 import type { ActionFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
-import { authenticate } from "../shopify.server";
+import { authenticateWebhookSafe } from "../webhook-auth.server";
 import { db } from "../db.server";
 import { deleteCartTransformOnUninstall } from "../utils/cart-transform.server";
 
@@ -22,15 +22,23 @@ import { deleteCartTransformOnUninstall } from "../utils/cart-transform.server";
  *      so the new install starts with a fresh token.
  */
 export const action = async ({ request }: ActionFunctionArgs) => {
-  const { topic, shop, session } = await authenticate.webhook(request);
+  const { topic, shop, session } = await authenticateWebhookSafe(request);
 
   if (topic !== "APP_UNINSTALLED") {
     return json({ ok: true });
   }
 
   // 1. Clean up the Cart Transform record while the token is still valid.
-  if (session?.accessToken) {
-    await deleteCartTransformOnUninstall(shop, session.accessToken);
+  // Best-effort only: session is undefined when the offline token could not be
+  // refreshed (see webhook-auth.server.ts), and the token can already be
+  // revoked. Nothing here may stop the cleanup below or turn this into a 500,
+  // because a failing app/uninstalled leaves the shop stuck (qpqzru-ac, 28 Sep).
+  try {
+    if (session?.accessToken) {
+      await deleteCartTransformOnUninstall(shop, session.accessToken);
+    }
+  } catch (err) {
+    console.warn(`[webhook] cart transform cleanup skipped for ${shop}:`, err);
   }
 
   // 2. Record the cancellation timestamp for the reinstall banner.

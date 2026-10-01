@@ -1,6 +1,6 @@
 import type { ActionFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
-import { authenticate } from "../shopify.server";
+import { authenticateWebhookSafe } from "../webhook-auth.server";
 import { db } from "../db.server";
 
 /**
@@ -12,7 +12,7 @@ import { db } from "../db.server";
  *   app_subscription.status - "ACTIVE" | "CANCELLED" | "DECLINED" | "EXPIRED" | "FROZEN" | "PENDING"
  */
 export const action = async ({ request }: ActionFunctionArgs) => {
-  const { topic, shop, payload } = await authenticate.webhook(request);
+  const { topic, shop, payload } = await authenticateWebhookSafe(request);
 
   if (topic !== "APP_SUBSCRIPTIONS_UPDATE") {
     return json({ ok: true });

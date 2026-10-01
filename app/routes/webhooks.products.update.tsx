@@ -1,6 +1,7 @@
 import type { ActionFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
-import { authenticate, unauthenticated } from "../shopify.server";
+import { unauthenticated } from "../shopify.server";
+import { authenticateWebhookSafe } from "../webhook-auth.server";
 import { db } from "../db.server";
 import { syncRentalProductVariants } from "../utils/variant-sync.server";
 import { ensureRentalVariantsCanOversell } from "../utils/product-metafields.server";
@@ -18,7 +19,7 @@ import { ensureRentalVariantsCanOversell } from "../utils/product-metafields.ser
  * basically a no-op for non-rental products.
  */
 export const action = async ({ request }: ActionFunctionArgs) => {
-  const { topic, shop, payload } = await authenticate.webhook(request);
+  const { topic, shop, payload } = await authenticateWebhookSafe(request);
   if (topic !== "PRODUCTS_UPDATE") return json({ ok: true });
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

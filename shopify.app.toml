@@ -31,12 +31,10 @@ api_version = "2026-04"
   uri = "/webhooks/app/scopes_update"
   topics = ["app/scopes_update"]
 
-  # Revocation half of the development-store free grant (see dev-store.server.ts).
-  # Fires when the shop's plan changes, which is how a Partner dev store that
-  # converts to a real paid store loses the free top plan straight away.
-  [[webhooks.subscriptions]]
-  uri = "/webhooks/shop/update"
-  topics = ["shop/update"]
+  # shop/update is deliberately NOT subscribed (1 Oct 2026). Third-party stores
+  # fire it every few seconds (only updated_at changes), which drove the webhook
+  # failure alerts. The dev-store grant is revoked by the app.tsx loader
+  # dev-store re-check instead; the route file stays as a harmless stub.
 
   [[webhooks.subscriptions]]
   uri = "/webhooks/app_subscriptions/update"

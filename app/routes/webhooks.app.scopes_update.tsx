@@ -1,6 +1,6 @@
 import type { ActionFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
-import { authenticate } from "../shopify.server";
+import { authenticateWebhookSafe } from "../webhook-auth.server";
 import { db } from "../db.server";
 
 /**
@@ -9,7 +9,7 @@ import { db } from "../db.server";
  * so middleware and feature gates know what we're allowed to call.
  */
 export const action = async ({ request }: ActionFunctionArgs) => {
-  const { topic, shop, session, payload } = await authenticate.webhook(request);
+  const { topic, shop, session, payload } = await authenticateWebhookSafe(request);
 
   if (topic !== "APP_SCOPES_UPDATE") {
     return json({ ok: true });

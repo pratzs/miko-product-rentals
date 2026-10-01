@@ -1,5 +1,5 @@
 import type { ActionFunctionArgs } from "@remix-run/node";
-import { authenticate } from "../shopify.server";
+import { authenticateWebhookSafe } from "../webhook-auth.server";
 import { db } from "../db.server";
 import { redactShop, safeErr } from "../utils/gdpr.server";
 
@@ -7,7 +7,7 @@ import { redactShop, safeErr } from "../utils/gdpr.server";
 // holds for the shop (all shop-scoped models, in FK order, in one transaction).
 // See redactShop() for the model list. Returns 500 on failure so Shopify retries.
 export const action = async ({ request }: ActionFunctionArgs) => {
-  const { topic, shop } = await authenticate.webhook(request);
+  const { topic, shop } = await authenticateWebhookSafe(request);
 
   try {
     const counts = await redactShop(db, shop);

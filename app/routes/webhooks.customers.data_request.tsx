@@ -1,5 +1,5 @@
 import type { ActionFunctionArgs } from "@remix-run/node";
-import { authenticate } from "../shopify.server";
+import { authenticateWebhookSafe } from "../webhook-auth.server";
 import { db } from "../db.server";
 import { handleDataRequest, safeErr, type GdprCustomerPayload, type SendFn } from "../utils/gdpr.server";
 
@@ -14,7 +14,7 @@ import { handleDataRequest, safeErr, type GdprCustomerPayload, type SendFn } fro
  * Never log the customer's email or the payload here: shop, topic and counts only.
  */
 export const action = async ({ request }: ActionFunctionArgs) => {
-  const { topic, shop, payload } = await authenticate.webhook(request);
+  const { topic, shop, payload } = await authenticateWebhookSafe(request);
 
   void (async () => {
     try {

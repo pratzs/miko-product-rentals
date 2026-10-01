@@ -1,5 +1,5 @@
 import type { ActionFunctionArgs } from "@remix-run/node";
-import { authenticate } from "../shopify.server";
+import { authenticateWebhookSafe } from "../webhook-auth.server";
 import { db as prisma } from "../db.server";
 import { DEV_STORE_PLAN, fetchIsDevelopmentStore } from "../dev-store.server";
 
@@ -19,7 +19,7 @@ import { DEV_STORE_PLAN, fetchIsDevelopmentStore } from "../dev-store.server";
  * webhook that only adjusts a boolean is worse than losing one event.
  */
 export const action = async ({ request }: ActionFunctionArgs) => {
-  const { shop, admin } = await authenticate.webhook(request);
+  const { shop, admin } = await authenticateWebhookSafe(request);
 
   try {
     // admin is undefined for a shop that has already uninstalled.
