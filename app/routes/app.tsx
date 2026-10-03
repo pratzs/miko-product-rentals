@@ -9,7 +9,7 @@ import { NavMenu } from "@shopify/app-bridge-react";
 import polarisStyles from "@shopify/polaris/build/esm/styles.css?url";
 import mikoStyles from "../styles/miko-theme.css?url";
 import { authenticate } from "../shopify.server";
-import { db } from "../db.server";
+import { db, upsertShopConfig } from "../db.server";
 import { DEV_STORE_PLAN, fetchIsDevelopmentStore } from "../dev-store.server";
 import { ensureShopName, ensureShopCurrency } from "../utils/shop-info.server";
 import { PLANS } from "../utils/plans";
@@ -38,7 +38,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   const { admin, session, billing } = await authenticate.admin(request);
 
   // Ensure shop config exists on every page load.
-  const shopConfig = await db.shopConfig.upsert({
+  const shopConfig = await upsertShopConfig({
     where: { shop: session.shop },
     create: { shop: session.shop, accessToken: session.accessToken || "" },
     update: { accessToken: session.accessToken || "" },

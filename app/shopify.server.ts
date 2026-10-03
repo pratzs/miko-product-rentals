@@ -1,3 +1,4 @@
+import { rejectMalformedEmbeddedParams } from "./embedded-guard.server";
 import "@shopify/shopify-app-remix/adapters/node";
 import {
   ApiVersion,
@@ -95,7 +96,18 @@ const shopify = shopifyApp({
 export default shopify;
 export const apiVersion = ApiVersion.April26;
 export const addDocumentResponseHeaders = shopify.addDocumentResponseHeaders;
-export const authenticate = shopify.authenticate;
+export { rejectMalformedEmbeddedParams };
+
+// Every authenticate.admin(request) runs the malformed shop/host guard first, so an
+// App Store review probe with a tampered `host` gets a 400 instead of the library's
+// "TypeError: Invalid URL" 500. Genuine admin requests pass through unchanged.
+export const authenticate: typeof shopify.authenticate = {
+  ...shopify.authenticate,
+  admin: (async (request: Request) => {
+    rejectMalformedEmbeddedParams(request);
+    return shopify.authenticate.admin(request);
+  }) as typeof shopify.authenticate.admin,
+};
 export const unauthenticated = shopify.unauthenticated;
 export const login = shopify.login;
 export const registerWebhooks = shopify.registerWebhooks;

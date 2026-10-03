@@ -1,5 +1,5 @@
 import { Resend } from "resend";
-import { db as prisma } from "./db.server";
+import { db as prisma, upsertShopConfig } from "./db.server";
 
 /**
  * Lifecycle emails: three one-off relationship emails per shop, never
@@ -192,7 +192,7 @@ export async function captureMerchantContact(
     const email = data.data?.shop?.email as string | undefined;
     const name = data.data?.shop?.shopOwnerName as string | undefined;
     if (email) {
-      await prisma.shopConfig.upsert({
+      await upsertShopConfig({
         where: { shop },
         create: { shop, merchantEmail: email, merchantName: name ?? null },
         update: { merchantEmail: email, merchantName: name ?? null, uninstalledAt: null },

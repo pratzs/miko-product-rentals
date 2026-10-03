@@ -5,7 +5,7 @@
  * so customers never see "app-testing-abc.myshopify.com" at the top of
  * their booking emails.
  */
-import { db } from "~/db.server";
+import { db, upsertShopConfig } from "~/db.server";
 
 interface AdminClient {
   graphql: (query: string, options?: { variables?: Record<string, unknown> }) => Promise<Response>;
@@ -30,15 +30,13 @@ export async function ensureShopName(admin: AdminClient, shop: string): Promise<
     // created the ShopConfig row, so updateMany matched nothing on a fresh
     // install and the shop name was never cached. Same defect as the currency
     // seed below.
-    await db.shopConfig
-      .upsert({
-        where: { shop },
-        create: { shop, shopName: name },
-        update: { shopName: name },
-      })
-      .catch((err) => {
-        console.error(`[shop-info] failed to persist shop name for ${shop}:`, err);
-      });
+    await upsertShopConfig({
+      where: { shop },
+      create: { shop, shopName: name },
+      update: { shopName: name },
+    }).catch((err) => {
+      console.error(`[shop-info] failed to persist shop name for ${shop}:`, err);
+    });
   } catch (err) {
     console.error(`[shop-info] failed to fetch shop name for ${shop}:`, err);
   }
@@ -87,15 +85,13 @@ export async function ensureShopCurrency(admin: AdminClient, shop: string): Prom
     // stranded on USD no matter its real Shopify currency, and the only way
     // out was finding Settings. Ubuge (a JPY shop) uninstalled five minutes
     // after install: "Cannot select a currency other than USD. Useless."
-    await db.shopConfig
-      .upsert({
-        where: { shop },
-        create: { shop, currency: currencyCode, currencySeeded: true },
-        update: { currency: currencyCode, currencySeeded: true },
-      })
-      .catch((err) => {
-        console.error(`[shop-info] failed to persist currency for ${shop}:`, err);
-      });
+    await upsertShopConfig({
+      where: { shop },
+      create: { shop, currency: currencyCode, currencySeeded: true },
+      update: { currency: currencyCode, currencySeeded: true },
+    }).catch((err) => {
+      console.error(`[shop-info] failed to persist currency for ${shop}:`, err);
+    });
   } catch (err) {
     console.error(`[shop-info] failed to fetch shop currency for ${shop}:`, err);
   }
