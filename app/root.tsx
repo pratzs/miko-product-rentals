@@ -20,13 +20,16 @@ export default function App() {
       <head>
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width,initial-scale=1" />
-                {/* App Bridge must be the FIRST script in the document head for its
-            web-vitals collection to measure correctly (a Built for Shopify
-            criterion). The AppProvider in routes/app.tsx used to inject this
-            tag mid-body; it now has isEmbeddedApp={false} so the script is
-            never loaded twice. */}
+        {/* App Bridge must be the FIRST script in the document head for its
+            web-vitals collection to measure correctly. Polaris web components
+            load straight after it, exactly once: two Polaris bundles throw.
+            polaris-2.js is the 2.x channel. It follows the merchant's admin at
+            runtime through App Bridge (new admin look on the new admin, the
+            previous look on the previous one). Rollback target if a later 2.x
+            minor misbehaves: polaris-2.0.js (frozen). */}
         <meta name="shopify-api-key" content={apiKey} />
         <script src="https://cdn.shopify.com/shopifycloud/app-bridge.js" data-api-key={apiKey} />
+        <script src="https://cdn.shopify.com/shopifycloud/polaris-2.js" />
         <Meta />
         <Links />
       </head>

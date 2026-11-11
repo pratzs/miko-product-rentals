@@ -1,5 +1,5 @@
 import { useFetcher } from "@remix-run/react";
-import { Banner } from "@shopify/polaris";
+import { Banner } from "./polaris";
 import { useT } from "../i18n/context";
 
 /** One-time App Store review ask, shown only after the shop's first-value
@@ -37,7 +37,7 @@ export function ReviewPrompt({
       secondaryAction={{ content: t("No thanks"), onAction: dismiss }}
       onDismiss={dismiss}
     >
-      <p>{message}</p>
+      <s-paragraph>{message}</s-paragraph>
     </Banner>
   );
 }

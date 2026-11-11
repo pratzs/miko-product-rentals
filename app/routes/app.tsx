@@ -1,12 +1,9 @@
 import type { HeadersFunction, LoaderFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
-import { Link, Outlet, useLoaderData, useRouteError } from "@remix-run/react";
+import { Outlet, useLoaderData, useRouteError } from "@remix-run/react";
 import { boundary } from "@shopify/shopify-app-remix/server";
-import { AppProvider } from "@shopify/shopify-app-remix/react";
-import { normalizeLocale, polarisLocaleCode, getDict, isRtl } from "../i18n";
+import { normalizeLocale, getDict, isRtl } from "../i18n";
 import { I18nProvider, useT } from "../i18n/context";
-import { NavMenu } from "@shopify/app-bridge-react";
-import polarisStyles from "@shopify/polaris/build/esm/styles.css?url";
 import mikoStyles from "../styles/miko-theme.css?url";
 import { authenticate } from "../shopify.server";
 import { db, upsertShopConfig } from "../db.server";
@@ -15,25 +12,10 @@ import { ensureShopName, ensureShopCurrency } from "../utils/shop-info.server";
 import { PLANS } from "../utils/plans";
 import { syncShopRentalConfig } from "../utils/rental-config-metafields.server";
 
-export const links = () => [
-  { rel: "stylesheet", href: polarisStyles },
-  { rel: "stylesheet", href: mikoStyles },
-];
-
-// Load the Polaris locale dictionary for a given Polaris locale code. Static
-// cases so Vite bundles each; Arabic + unknowns fall back to English (our own
-// strings still render in Arabic, and dir=rtl flips the layout).
-async function loadPolarisTranslations(code: string) {
-  switch (code) {
-    case "de": return (await import("@shopify/polaris/locales/de.json")).default;
-    case "es": return (await import("@shopify/polaris/locales/es.json")).default;
-    case "it": return (await import("@shopify/polaris/locales/it.json")).default;
-    case "fr": return (await import("@shopify/polaris/locales/fr.json")).default;
-    case "ja": return (await import("@shopify/polaris/locales/ja.json")).default;
-    case "zh-CN": return (await import("@shopify/polaris/locales/zh-CN.json")).default;
-    default: return (await import("@shopify/polaris/locales/en.json")).default;
-  }
-}
+// Polaris web components (loaded by root.tsx) need no stylesheet and take
+// their language from the admin, so the Polaris React stylesheet and locale
+// dictionaries this layout used to load are gone. Only our own theme remains.
+export const links = () => [{ rel: "stylesheet", href: mikoStyles }];
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const { admin, session, billing } = await authenticate.admin(request);
@@ -126,23 +108,19 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 
   // Shopify sends the merchant's chosen admin language in the `locale` param.
   const locale = normalizeLocale(new URL(request.url).searchParams.get("locale"));
-  const polarisTranslations = await loadPolarisTranslations(polarisLocaleCode(locale));
 
-  return json({ apiKey: process.env.SHOPIFY_API_KEY || "", locale, polarisTranslations });
+  return json({ apiKey: process.env.SHOPIFY_API_KEY || "", locale });
 };
 
 export default function App() {
-  const { apiKey, locale, polarisTranslations } = useLoaderData<typeof loader>();
+  const { locale } = useLoaderData<typeof loader>();
 
+  // No AppProvider: it only wrapped Polaris React. App Bridge loads first in
+  // root.tsx and Polaris web components straight after it.
   return (
-    // isEmbeddedApp={false} only suppresses AppProvider's own app-bridge.js
-    // injection -- the script now loads first-in-head from root.tsx, and a
-    // second copy must never be rendered. The app is still embedded.
-    <AppProvider isEmbeddedApp={false} apiKey={apiKey} i18n={polarisTranslations}>
-      <I18nProvider locale={locale} dict={getDict(locale)}>
-        <AppShell locale={locale} />
-      </I18nProvider>
-    </AppProvider>
+    <I18nProvider locale={locale} dict={getDict(locale)}>
+      <AppShell locale={locale} />
+    </I18nProvider>
   );
 }
 
@@ -151,17 +129,28 @@ function AppShell({ locale }: { locale: string }) {
   const t = useT();
   return (
     <>
-      <NavMenu>
-        <Link to="/app" rel="home">{t("Dashboard")}</Link>
-        <Link to="/app/products">{t("Rental Products")}</Link>
-        <Link to="/app/bookings">{t("Bookings")}</Link>
-        <Link to="/app/calendar">{t("Calendar")}</Link>
-        <Link to="/app/analytics">{t("Analytics")}</Link>
-        <Link to="/app/emails">{t("Emails")}</Link>
-        <Link to="/app/pricing">{t("Pricing")}</Link>
-        <Link to="/app/settings">{t("Settings")}</Link>
-        <Link to="/app/help">{t("Help")}</Link>
-      </NavMenu>
+      {/* App Bridge's own nav element (replaces NavMenu). One flat level;
+          App Bridge intercepts these relative links. */}
+      <s-app-nav>
+        <s-link
+          href="/app"
+          // Both @shopify/polaris-types and @shopify/app-bridge-types declare
+          // `s-link`, and Polaris wins the JSX merge, so App Bridge's `rel` is
+          // not on the type we get here.
+          // @ts-expect-error rel is App Bridge's, not Polaris's
+          rel="home"
+        >
+          {t("Dashboard")}
+        </s-link>
+        <s-link href="/app/products">{t("Rental Products")}</s-link>
+        <s-link href="/app/bookings">{t("Bookings")}</s-link>
+        <s-link href="/app/calendar">{t("Calendar")}</s-link>
+        <s-link href="/app/analytics">{t("Analytics")}</s-link>
+        <s-link href="/app/emails">{t("Emails")}</s-link>
+        <s-link href="/app/pricing">{t("Pricing")}</s-link>
+        <s-link href="/app/settings">{t("Settings")}</s-link>
+        <s-link href="/app/help">{t("Help")}</s-link>
+      </s-app-nav>
       <div dir={isRtl(locale as any) ? "rtl" : "ltr"} style={{ paddingBottom: "3rem" }}>
         <Outlet />
       </div>

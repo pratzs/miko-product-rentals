@@ -8,9 +8,8 @@ import { useT } from "../i18n/context";
  *
  * Self-contained: all styling is inline plus one scoped <style> block, so it
  * looks identical in any Miko app whether or not that app loads the shared
- * miko-theme.css. It renders a slider (arrows, scroll-snap, dots) styled
- * like a native Shopify admin card (Oct 2026 native-look pass), so it sits
- * seamlessly beside Polaris cards in every Miko app.
+ * miko-theme.css. It renders a native Polaris card holding a slider (arrows,
+ * scroll-snap, dots) of admin-style app cards (current Shopify admin look).
  *
  * Only list apps that are actually live on the App Store, never link to an
  * app that isn't published yet.
@@ -96,20 +95,6 @@ const MIKO_APPS: MikoApp[] = [
 const CARD_W = 280;
 const GAP = 16;
 
-function Arrow({ dir }: { dir: "left" | "right" }) {
-  return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <path
-        d={dir === "left" ? "M15 6l-6 6 6 6" : "M9 6l6 6-6 6"}
-        stroke="currentColor"
-        strokeWidth="2.4"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-}
-
 export function CrossSellSection({ currentApp }: { currentApp: MikoApp["key"] }) {
   const t = useT();
   const apps = MIKO_APPS.filter((a) => a.key !== currentApp);
@@ -152,83 +137,46 @@ export function CrossSellSection({ currentApp }: { currentApp: MikoApp["key"] })
   const atStart = active <= 0;
   const atEnd = active >= maxIndex;
 
-  const arrowBtn = (disabled: boolean): React.CSSProperties => ({
-    width: 28,
-    height: 28,
-    borderRadius: 8,
-    display: "inline-flex",
-    alignItems: "center",
-    justifyContent: "center",
-    border: "none",
-    background: "#FFFFFF",
-    boxShadow: "0 1px 0 0 #e3e3e3, inset 0 -1px 0 0 #b5b5b5, inset -1px 0 0 0 #e3e3e3, inset 1px 0 0 0 #e3e3e3, inset 0 1px 0 0 #e3e3e3",
-    color: "#303030",
-    cursor: disabled ? "default" : "pointer",
-    opacity: disabled ? 0.4 : 1,
-    transition: "background 0.15s, opacity 0.15s",
-    flexShrink: 0,
-  });
-
   return (
-    <div
-      style={{
-        position: "relative",
-        overflow: "hidden",
-        borderRadius: 12,
-        padding: 16,
-        background: "#FFFFFF",
-        boxShadow: "0 1px 0 0 rgba(26,26,26,.07), inset 0 1px 0 0 rgba(204,204,204,.5), inset 0 -1px 0 0 rgba(0,0,0,.17), inset -1px 0 0 0 rgba(0,0,0,.13), inset 1px 0 0 0 rgba(0,0,0,.13)",
-      }}
-    >
+    <s-section>
       <style>{`
         .miko-xsell-track::-webkit-scrollbar { display: none; }
         .miko-xsell-track { -ms-overflow-style: none; scrollbar-width: none; }
-        .miko-xsell-card { transition: background 0.15s ease; }
-        .miko-xsell-card:hover { background: #fafafa !important; }
+        .miko-xsell-card {
+          box-sizing: border-box; border-radius: 12px; padding: 16px; background: #fff;
+          display: flex; flex-direction: column; gap: 12px; min-height: 190px;
+          box-shadow: 0 1px 0 0 rgba(26,26,26,.07), inset 0 1px 0 0 rgba(204,204,204,.5),
+            inset 0 -1px 0 0 rgba(0,0,0,.17), inset -1px 0 0 0 rgba(0,0,0,.13), inset 1px 0 0 0 rgba(0,0,0,.13);
+        }
+        .miko-xsell-name { font-size: 13px; font-weight: 650; line-height: 20px; color: #303030; }
+        .miko-xsell-pitch { font-size: 13px; line-height: 20px; color: #616161; flex: 1; }
+        .miko-xsell-dot { height: 6px; border-radius: 3px; border: none; padding: 0; cursor: pointer; transition: width .2s, background .2s; }
       `}</style>
 
-      <div style={{ position: "relative", zIndex: 1 }}>
+      <s-stack direction="block" gap="base">
         {/* Header */}
-        <div
-          style={{
-            display: "flex",
-            alignItems: "flex-end",
-            justifyContent: "space-between",
-            gap: 16,
-            marginBottom: 12,
-          }}
-        >
-          <div style={{ minWidth: 0 }}>
-            <div style={{ fontSize: 14, fontWeight: 650, color: "#303030", lineHeight: "20px" }}>
-              {t("More from Miko")}
-            </div>
-            <div style={{ fontSize: 13, color: "#616161", lineHeight: "20px" }}>
-              {t("Built by the same team, made to work well together.")}
-            </div>
-          </div>
-          <div style={{ display: "flex", gap: 8 }}>
-            <button
-              type="button"
-              aria-label={t("Previous")}
+        <s-stack direction="inline" gap="base" alignItems="center" justifyContent="space-between">
+          <s-stack direction="block" gap="none">
+            <s-heading>{t("More from Miko")}</s-heading>
+            <s-text color="subdued">{t("Built by the same team, made to work well together.")}</s-text>
+          </s-stack>
+          <s-stack direction="inline" gap="small-200">
+            <s-button
+              icon="chevron-left"
+              accessibilityLabel={t("Previous")}
               onClick={() => scrollToIndex(active - 1)}
-              disabled={atStart}
-              style={arrowBtn(atStart)}
-            >
-              <Arrow dir="left" />
-            </button>
-            <button
-              type="button"
-              aria-label={t("Next")}
+              disabled={atStart || undefined}
+            />
+            <s-button
+              icon="chevron-right"
+              accessibilityLabel={t("Next")}
               onClick={() => scrollToIndex(active + 1)}
-              disabled={atEnd}
-              style={arrowBtn(atEnd)}
-            >
-              <Arrow dir="right" />
-            </button>
-          </div>
-        </div>
+              disabled={atEnd || undefined}
+            />
+          </s-stack>
+        </s-stack>
 
-        {/* Track */}
+        {/* Track. Padding gives the card shadows room inside the scroll box. */}
         <div
           ref={trackRef}
           className="miko-xsell-track"
@@ -237,7 +185,7 @@ export function CrossSellSection({ currentApp }: { currentApp: MikoApp["key"] })
             gap: GAP,
             overflowX: "auto",
             scrollSnapType: "x mandatory",
-            paddingBottom: 4,
+            padding: 2,
             scrollBehavior: "smooth",
           }}
         >
@@ -245,120 +193,47 @@ export function CrossSellSection({ currentApp }: { currentApp: MikoApp["key"] })
             <div
               key={app.key}
               className="miko-xsell-card"
-              style={{
-                flex: `0 0 ${CARD_W}px`,
-                width: CARD_W,
-                scrollSnapAlign: "start",
-                boxSizing: "border-box",
-                borderRadius: 12,
-                padding: 16,
-                display: "flex",
-                flexDirection: "column",
-                gap: 12,
-                background: "#FFFFFF",
-                border: "1px solid #e3e3e3",
-                minHeight: 200,
-              }}
+              style={{ flex: `0 0 ${CARD_W}px`, width: CARD_W, scrollSnapAlign: "start" }}
             >
               <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                <div
-                  style={{
-                    width: 44,
-                    height: 44,
-                    borderRadius: 10,
-                    overflow: "hidden",
-                    flexShrink: 0,
-                    boxShadow: "0 0 0 1px rgba(0,0,0,0.08)",
-                  }}
-                >
-                  <img
-                    src={app.icon}
-                    alt=""
-                    width={44}
-                    height={44}
-                    style={{ display: "block", width: 44, height: 44, objectFit: "cover" }}
-                  />
-                </div>
-                <div
-                  style={{
-                    fontSize: 13,
-                    fontWeight: 650,
-                    color: "#303030",
-                    lineHeight: "20px",
-                  }}
-                >
-                  {app.name}
-                </div>
+                <img
+                  src={app.icon}
+                  alt=""
+                  width={40}
+                  height={40}
+                  style={{ display: "block", width: 40, height: 40, objectFit: "cover", borderRadius: 8, flexShrink: 0 }}
+                />
+                <div className="miko-xsell-name">{app.name}</div>
               </div>
-
-              <div
-                style={{
-                  fontSize: 13,
-                  lineHeight: "20px",
-                  color: "#616161",
-                  flex: 1,
-                }}
-              >
-                {t(app.pitch)}
+              <div className="miko-xsell-pitch">{t(app.pitch)}</div>
+              <div>
+                <s-button href={app.url} target="_blank" icon="external">
+                  {t("View on the App Store")}
+                </s-button>
               </div>
-
-              <a
-                href={app.url}
-                target="_blank"
-                rel="noreferrer"
-                style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  alignSelf: "flex-start",
-                  gap: 6,
-                  textDecoration: "none",
-                  background: "#FFFFFF",
-                  boxShadow: "0 1px 0 0 #e3e3e3, inset 0 -1px 0 0 #b5b5b5, inset -1px 0 0 0 #e3e3e3, inset 1px 0 0 0 #e3e3e3, inset 0 1px 0 0 #e3e3e3",
-                  color: "#303030",
-                  fontSize: 12,
-                  fontWeight: 550,
-                  lineHeight: "16px",
-                  padding: "6px 12px",
-                  borderRadius: 8,
-                }}
-              >
-                {t("View on the App Store")}
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                  <path d="M7 17L17 7M17 7H8M17 7v9" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-              </a>
             </div>
           ))}
         </div>
 
         {/* Dots */}
         {maxIndex > 0 && (
-          <div style={{ display: "flex", justifyContent: "center", gap: 6, marginTop: 12 }}>
+          <div style={{ display: "flex", justifyContent: "center", gap: 6 }}>
             {Array.from({ length: maxIndex + 1 }).map((_, i) => {
               const on = i === active;
               return (
                 <button
                   key={i}
                   type="button"
+                  className="miko-xsell-dot"
                   aria-label={t("Go to slide {n}", { n: i + 1 })}
                   onClick={() => scrollToIndex(i)}
-                  style={{
-                    width: on ? 18 : 6,
-                    height: 6,
-                    borderRadius: 3,
-                    border: "none",
-                    padding: 0,
-                    cursor: "pointer",
-                    background: on ? "#303030" : "#d4d4d4",
-                    transition: "width 0.2s, background 0.2s",
-                  }}
+                  style={{ width: on ? 18 : 6, background: on ? "#303030" : "#d4d4d4" }}
                 />
               );
             })}
           </div>
         )}
-      </div>
-    </div>
+      </s-stack>
+    </s-section>
   );
 }
