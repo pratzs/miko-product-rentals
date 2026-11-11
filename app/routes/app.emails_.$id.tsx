@@ -1,6 +1,6 @@
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "@remix-run/node";
 import { json, redirect } from "@remix-run/node";
-import { useLoaderData, useFetcher } from "@remix-run/react";
+import { useLoaderData, useFetcher, useNavigate } from "@remix-run/react";
 import {
   useState,
   useCallback,
@@ -22,31 +22,16 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import { addDays, format } from "date-fns";
 import {
-  Page,
-  Layout,
-  Card,
-  BlockStack,
-  InlineStack,
-  Text,
-  TextField,
-  Button,
   Banner,
-  Box,
-  Icon,
-  Tag,
-  Popover,
-  ActionList,
-  Select,
+  Button,
+  Grid,
   RangeSlider,
-  Divider,
-  FormLayout,
-  Badge,
-} from "@shopify/polaris";
-import {
-  DragHandleIcon,
-  EditIcon,
-  DeleteIcon,
-} from "@shopify/polaris-icons";
+  Select,
+  TextField,
+  AppLink,
+  flag,
+} from "../components/polaris";
+import { TWO_UP } from "../components/layout";
 import { authenticate } from "../shopify.server";
 import { db } from "../db.server";
 import {
@@ -372,47 +357,39 @@ function SortableBlockRow({
 
   return (
     <div ref={setNodeRef} style={style}>
-      <Box
-        padding="300"
-        borderBlockEndWidth="025"
-        borderColor="border"
-        background={isSelected ? "bg-surface-selected" : undefined}
-      >
-        <InlineStack align="space-between" blockAlign="center" gap="200">
-          <InlineStack gap="200" blockAlign="center">
+      <s-box padding="small" background={isSelected ? "strong" : undefined}>
+        <s-stack direction="inline" justifyContent="space-between" alignItems="center" gap="small-200">
+          <s-stack direction="inline" gap="small-200" alignItems="center">
             <div
               {...attributes}
               {...listeners}
               style={{ cursor: "grab", display: "flex", alignItems: "center" }}
             >
-              <Icon source={DragHandleIcon} tone="subdued" />
+              <s-icon type="drag-handle" tone="neutral" />
             </div>
-            <BlockStack gap="050">
-              <Text as="p" variant="bodyMd" fontWeight="semibold">
-                {t(blockTypeLabel(block.type))}
-              </Text>
-              <Text as="p" variant="bodySm" tone="subdued">
-                {blockPreview(block, t, brand)}
-              </Text>
-            </BlockStack>
-          </InlineStack>
-          <InlineStack gap="100">
-            <Button
-              icon={EditIcon}
+            <s-stack direction="block" gap="small-300">
+              <s-text type="strong">{t(blockTypeLabel(block.type))}</s-text>
+              <s-text color="subdued">{blockPreview(block, t, brand)}</s-text>
+            </s-stack>
+          </s-stack>
+          <s-stack direction="inline" gap="small-300">
+            <s-button
+              icon="edit"
+              variant="tertiary"
               onClick={() => onSelect(block.id)}
-              variant="plain"
               accessibilityLabel={t("Edit block")}
             />
-            <Button
-              icon={DeleteIcon}
-              onClick={() => onDelete(block.id)}
-              variant="plain"
+            <s-button
+              icon="delete"
+              variant="tertiary"
               tone="critical"
+              onClick={() => onDelete(block.id)}
               accessibilityLabel={t("Delete block")}
             />
-          </InlineStack>
-        </InlineStack>
-      </Box>
+          </s-stack>
+        </s-stack>
+      </s-box>
+      <s-divider />
     </div>
   );
 }
@@ -447,40 +424,36 @@ function BlockEditor({ block, onChange, onClose, onDelete }: BlockEditorProps) {
   ];
 
   return (
-    <Card>
-      <BlockStack gap="400">
-        <Text as="h3" variant="headingMd">
-          {t("Edit {block} block", { block: t(blockTypeLabel(block.type)) })}
-        </Text>
-
+    <s-section heading={t("Edit {block} block", { block: t(blockTypeLabel(block.type)) })}>
+      <s-stack direction="block" gap="base">
         {block.type === "header" && (
-          <FormLayout>
+          <s-stack direction="block" gap="base">
             <TextField
               label={t("Logo URL (overrides brand logo)")}
               value={block.logoUrl}
               onChange={(v) => update("logoUrl", v)}
               autoComplete="off"
-              helpText={t("Leave blank to use the logo from Brand settings (recommended). Only set this if you want a different logo just for this template.")}
+              details={t("Leave blank to use the logo from Brand settings (recommended). Only set this if you want a different logo just for this template.")}
             />
             <TextField
               label={t("Background color")}
               value={block.backgroundColor}
               onChange={(v) => update("backgroundColor", v)}
               autoComplete="off"
-              helpText={t("Hex code e.g. #ffffff")}
+              details={t("Hex code e.g. #ffffff")}
             />
-          </FormLayout>
+          </s-stack>
         )}
 
         {block.type === "text" && (
-          <FormLayout>
+          <s-stack direction="block" gap="base">
             <TextField
               label={t("Content")}
               value={block.content}
               onChange={(v) => update("content", v)}
               multiline={4}
               autoComplete="off"
-              helpText={t("Use **text** for bold. Use {{variable}} placeholders.")}
+              details={t("Use **text** for bold. Use {{variable}} placeholders.")}
             />
             <RangeSlider
               label={t("Font size: {n}px", { n: block.fontSize })}
@@ -510,7 +483,7 @@ function BlockEditor({ block, onChange, onClose, onDelete }: BlockEditorProps) {
               value={block.color}
               onChange={(v) => update("color", v)}
               autoComplete="off"
-              helpText={t("Hex code e.g. #333333")}
+              details={t("Hex code e.g. #333333")}
             />
             <RangeSlider
               label={t("Padding top: {n}px", { n: block.paddingTop })}
@@ -526,11 +499,11 @@ function BlockEditor({ block, onChange, onClose, onDelete }: BlockEditorProps) {
               value={block.paddingBottom}
               onChange={(v) => update("paddingBottom", v as number)}
             />
-          </FormLayout>
+          </s-stack>
         )}
 
         {block.type === "details" && (
-          <FormLayout>
+          <s-stack direction="block" gap="base">
             <TextField
               label={t("Section title")}
               value={block.title}
@@ -542,13 +515,13 @@ function BlockEditor({ block, onChange, onClose, onDelete }: BlockEditorProps) {
               value={block.backgroundColor}
               onChange={(v) => update("backgroundColor", v)}
               autoComplete="off"
-              helpText={t("Hex code e.g. #f9f9f9")}
+              details={t("Hex code e.g. #f9f9f9")}
             />
-          </FormLayout>
+          </s-stack>
         )}
 
         {block.type === "button" && (
-          <FormLayout>
+          <s-stack direction="block" gap="base">
             <TextField
               label={t("Button text")}
               value={block.text}
@@ -567,16 +540,16 @@ function BlockEditor({ block, onChange, onClose, onDelete }: BlockEditorProps) {
               value={block.backgroundColor}
               onChange={(v) => update("backgroundColor", v)}
               autoComplete="off"
-              helpText={t("Hex code e.g. #1a1a1a")}
+              details={t("Hex code e.g. #1a1a1a")}
             />
             <TextField
               label={t("Text color")}
               value={block.textColor}
               onChange={(v) => update("textColor", v)}
               autoComplete="off"
-              helpText={t("Hex code e.g. #ffffff")}
+              details={t("Hex code e.g. #ffffff")}
             />
-          </FormLayout>
+          </s-stack>
         )}
 
         {block.type === "spacer" && (
@@ -595,7 +568,7 @@ function BlockEditor({ block, onChange, onClose, onDelete }: BlockEditorProps) {
             value={block.color}
             onChange={(v) => update("color", v)}
             autoComplete="off"
-            helpText={t("Hex code e.g. #e5e5e5")}
+            details={t("Hex code e.g. #e5e5e5")}
           />
         )}
 
@@ -606,25 +579,25 @@ function BlockEditor({ block, onChange, onClose, onDelete }: BlockEditorProps) {
             onChange={(v) => update("content", v)}
             multiline={10}
             autoComplete="off"
-            helpText={t("Raw HTML is rendered as-is. Use with caution.")}
+            details={t("Raw HTML is rendered as-is. Use with caution.")}
           />
         )}
 
-        <Divider />
-        <InlineStack gap="300">
-          <Button onClick={onClose} variant="secondary">
+        <s-divider />
+        <s-stack direction="inline" gap="small">
+          <s-button onClick={onClose} variant="secondary">
             {t("Done")}
-          </Button>
-          <Button
+          </s-button>
+          <s-button
             tone="critical"
             onClick={() => onDelete(block.id)}
-            variant="plain"
+            variant="tertiary"
           >
             {t("Remove block")}
-          </Button>
-        </InlineStack>
-      </BlockStack>
-    </Card>
+          </s-button>
+        </s-stack>
+      </s-stack>
+    </s-section>
   );
 }
 
@@ -658,53 +631,51 @@ function EmailPreview({
   const iframeWidth = device === "mobile" ? 380 : "100%";
 
   return (
-    <Card padding="0">
-      <Box padding="300" borderBlockEndWidth="025" borderColor="border">
-        <InlineStack align="space-between" blockAlign="center" wrap={false}>
-          <InlineStack gap="200" blockAlign="center">
-            <Text as="p" variant="bodyMd" fontWeight="semibold">{t("Live preview")}</Text>
-            <Badge tone="info">{t("Sample data")}</Badge>
-          </InlineStack>
-          <InlineStack gap="100">
-            <Button
-              size="slim"
-              pressed={device === "desktop"}
+    <s-section padding="none" accessibilityLabel={t("Live preview")}>
+      <s-box padding="small">
+        <s-stack direction="inline" justifyContent="space-between" alignItems="center">
+          <s-stack direction="inline" gap="small-200" alignItems="center">
+            <s-text type="strong">{t("Live preview")}</s-text>
+            <s-badge tone="info">{t("Sample data")}</s-badge>
+          </s-stack>
+          <s-stack direction="inline" gap="small-300">
+            <s-press-button
+              pressed={flag(device === "desktop")}
               onClick={() => onDeviceChange("desktop")}
             >
               {t("Desktop")}
-            </Button>
-            <Button
-              size="slim"
-              pressed={device === "mobile"}
+            </s-press-button>
+            <s-press-button
+              pressed={flag(device === "mobile")}
               onClick={() => onDeviceChange("mobile")}
             >
               {t("Mobile")}
-            </Button>
-          </InlineStack>
-        </InlineStack>
-      </Box>
+            </s-press-button>
+          </s-stack>
+        </s-stack>
+      </s-box>
+      <s-divider />
 
       {/* Mock inbox header showing what the customer's email client will display */}
-      <Box padding="300" borderBlockEndWidth="025" borderColor="border" background="bg-surface-secondary">
-        <BlockStack gap="050">
-          <InlineStack align="space-between" blockAlign="center">
-            <Text as="p" variant="bodySm" fontWeight="semibold">
-              {fromName}
-            </Text>
-            <Text as="p" variant="bodySm" tone="subdued">{t("now")}</Text>
-          </InlineStack>
-          <Text as="p" variant="bodyMd" fontWeight="medium">
-            {renderedSubject || t("(no subject)")}
-          </Text>
-          <Text as="p" variant="bodySm" tone="subdued">
+      <s-box padding="small" background="subdued">
+        <s-stack direction="block" gap="small-300">
+          <s-stack direction="inline" justifyContent="space-between" alignItems="center">
+            <s-text type="strong">{fromName}</s-text>
+            <s-text color="subdued">{t("now")}</s-text>
+          </s-stack>
+          <s-text fontWeight="medium">{renderedSubject || t("(no subject)")}</s-text>
+          <s-text color="subdued">
             {t("to")} {toEmail || "customer@example.com"}
-          </Text>
-        </BlockStack>
-      </Box>
+          </s-text>
+        </s-stack>
+      </s-box>
+      <s-divider />
 
       {/* The actual email rendered in an isolated iframe so its styles don't
-          collide with Polaris and so we get an accurate visual representation. */}
-      <Box padding="300" background="bg-fill-tertiary">
+          collide with the admin and so we get an accurate visual
+          representation. The light grey backdrop stands in for an email
+          client's reading pane; the email itself is the merchant's design. */}
+      <s-box padding="small" background="subdued">
         <div
           style={{
             display: "flex",
@@ -721,7 +692,7 @@ function EmailPreview({
               width: iframeWidth,
               maxWidth: "100%",
               height: 640,
-              border: "1px solid #e5e7eb",
+              border: "1px solid rgba(0, 0, 0, 0.1)",
               borderRadius: 4,
               background: "#ffffff",
               transition: "width 0.2s ease",
@@ -729,8 +700,8 @@ function EmailPreview({
             sandbox=""
           />
         </div>
-      </Box>
-    </Card>
+      </s-box>
+    </s-section>
   );
 }
 
@@ -758,6 +729,7 @@ const ADD_BLOCK_TYPES: EmailBlock["type"][] = [
 export default function EmailEditorPage() {
   const { template, brand, merchantEmail, previewOverrides } = useLoaderData<typeof loader>();
   const t = useT();
+  const navigate = useNavigate();
   const saveFetcher = useFetcher<typeof action>();
   const testFetcher = useFetcher<typeof action>();
 
@@ -862,24 +834,22 @@ export default function EmailEditorPage() {
   const testActionData = testFetcher.data;
 
   return (
-    <Page
-      fullWidth
-      title={templateName || t("New template")}
-      backAction={{ content: t("Email Templates"), url: "/app/emails" }}
-      primaryAction={{
-        content: t("Save"),
-        onAction: handleSave,
-        loading: isSubmitting,
-      }}
-      secondaryActions={[
-        {
-          content: t("Send test"),
-          onAction: handleSendTest,
-          loading: isSendingTest,
-        },
-      ]}
-    >
-      <BlockStack gap="500">
+    <s-page heading={templateName || t("New template")} inlineSize="large">
+      <AppLink slot="breadcrumb-actions" to="/app/emails" navigate={navigate}>
+        {t("Email Templates")}
+      </AppLink>
+      <s-button
+        slot="primary-action"
+        variant="primary"
+        loading={flag(isSubmitting)}
+        onClick={handleSave}
+      >
+        {t("Save")}
+      </s-button>
+      <s-button slot="secondary-actions" loading={flag(isSendingTest)} onClick={handleSendTest}>
+        {t("Send test")}
+      </s-button>
+      <s-stack direction="block" gap="large">
         {saveActionData && "error" in saveActionData && (
           <Banner tone="critical" title={(saveActionData as { error: string }).error} />
         )}
@@ -894,11 +864,11 @@ export default function EmailEditorPage() {
         )}
 
         {showTestEmailField && (
-          <Card>
-            <BlockStack gap="300">
-              <Text as="p" variant="bodyMd">{t("Send a test email")}</Text>
-              <InlineStack gap="300" blockAlign="end">
-                <Box minWidth="280px">
+          <s-section>
+            <s-stack direction="block" gap="small">
+              <s-text>{t("Send a test email")}</s-text>
+              <s-stack direction="inline" gap="small" alignItems="end">
+                <s-box minInlineSize="280px">
                   <TextField
                     label={t("Send to")}
                     value={testEmail}
@@ -907,206 +877,189 @@ export default function EmailEditorPage() {
                     autoComplete="email"
                     placeholder="your@email.com"
                   />
-                </Box>
-                <Button
+                </s-box>
+                <s-button
                   variant="primary"
                   onClick={handleSendTest}
-                  loading={isSendingTest}
+                  loading={flag(isSendingTest)}
                 >
                   {t("Send now")}
-                </Button>
-                <Button onClick={() => setShowTestEmailField(false)}>{t("Cancel")}</Button>
-              </InlineStack>
-            </BlockStack>
-          </Card>
+                </s-button>
+                <s-button onClick={() => setShowTestEmailField(false)}>{t("Cancel")}</s-button>
+              </s-stack>
+            </s-stack>
+          </s-section>
         )}
 
-        <Layout>
+        <Grid columns={TWO_UP} gap="base">
           {/* Editor area */}
-          <Layout.Section variant="oneHalf">
-            <BlockStack gap="400">
-              {/* Template details */}
-              <Card>
-                <BlockStack gap="400">
-                  <Text as="h2" variant="headingMd">{t("Template details")}</Text>
-                  <FormLayout>
-                    <TextField
-                      label={t("Template name")}
-                      value={templateName}
-                      onChange={(v) => { setTemplateName(v); setIsDirty(true); }}
-                      autoComplete="off"
-                    />
-                    <Select
-                      label={t("Email type")}
-                      options={TYPE_OPTIONS.map((o) => ({ ...o, label: t(o.label) }))}
-                      value={templateType}
-                      onChange={(v) => { setTemplateType(v); setIsDirty(true); }}
-                      helpText={t("Controls when this template is used for automated sends.")}
-                    />
-                    <TextField
-                      label={t("Subject line")}
-                      value={subject}
-                      onChange={(v) => { setSubject(v); setIsDirty(true); }}
-                      autoComplete="off"
-                      helpText={t("Supports {{variable}} placeholders.")}
-                    />
-
-                    {/* Variable chips */}
-                    <BlockStack gap="200">
-                      <Text as="p" variant="bodySm" tone="subdued">
-                        {t("Click a variable to copy it to your clipboard.")}
-                      </Text>
-                      <InlineStack gap="200" wrap>
-                        {TEMPLATE_VARIABLES.map((v) => (
-                          <Tag
-                            key={v.value}
-                            onClick={() => {
-                              navigator.clipboard
-                                .writeText(v.value)
-                                .catch(() => {});
-                            }}
-                          >
-                            {t(v.label)}
-                          </Tag>
-                        ))}
-                      </InlineStack>
-                    </BlockStack>
-                  </FormLayout>
-                </BlockStack>
-              </Card>
-
-              {/* Block list */}
-              <Card padding="0">
-                <Box padding="400" borderBlockEndWidth="025" borderColor="border">
-                  <InlineStack align="space-between" blockAlign="center">
-                    <Text as="h2" variant="headingMd">{t("Email content")}</Text>
-                    <Button
-                      variant="plain"
-                      onClick={() => setShowHtmlSource((v) => !v)}
-                    >
-                      {showHtmlSource ? t("Hide HTML") : t("View HTML source")}
-                    </Button>
-                  </InlineStack>
-                </Box>
-
-                <Box padding="0">
-                  {blocks.length === 0 ? (
-                    <Box padding="600">
-                      <BlockStack gap="300" inlineAlign="center">
-                        <Text as="p" tone="subdued" alignment="center">
-                          {t("No blocks yet. Add your first block below.")}
-                        </Text>
-                      </BlockStack>
-                    </Box>
-                  ) : (
-                    <DndContext
-                      sensors={sensors}
-                      collisionDetection={closestCenter}
-                      onDragEnd={handleDragEnd}
-                    >
-                      <SortableContext
-                        items={blocks.map((b) => b.id)}
-                        strategy={verticalListSortingStrategy}
-                      >
-                        {blocks.map((block) => (
-                          <SortableBlockRow
-                            key={block.id}
-                            block={block}
-                            isSelected={selectedBlockId === block.id}
-                            onSelect={setSelectedBlockId}
-                            onDelete={handleDeleteBlock}
-                            brand={brand}
-                          />
-                        ))}
-                      </SortableContext>
-                    </DndContext>
-                  )}
-
-                  <Box padding="400" borderBlockStartWidth="025" borderColor="border">
-                    <Popover
-                      active={addBlockOpen}
-                      onClose={() => setAddBlockOpen(false)}
-                      activator={
-                        <Button
-                          onClick={() => setAddBlockOpen(true)}
-                          fullWidth
-                        >
-                          {t("+ Add block")}
-                        </Button>
-                      }
-                    >
-                      <ActionList
-                        items={ADD_BLOCK_TYPES.map((type) => ({
-                          content: t(blockTypeLabel(type)),
-                          onAction: () => handleAddBlock(type),
-                        }))}
-                      />
-                    </Popover>
-                  </Box>
-                </Box>
-              </Card>
-
-              {/* Block settings - shown inline below the list when a block is selected */}
-              {selectedBlock && (
-                <BlockEditor
-                  block={selectedBlock}
-                  onChange={handleBlockChange}
-                  onClose={() => setSelectedBlockId(null)}
-                  onDelete={(id) => {
-                    handleDeleteBlock(id);
-                    setSelectedBlockId(null);
-                  }}
+          <s-stack direction="block" gap="base">
+            {/* Template details */}
+            <s-section heading={t("Template details")}>
+              <s-stack direction="block" gap="base">
+                <TextField
+                  label={t("Template name")}
+                  value={templateName}
+                  onChange={(v) => { setTemplateName(v); setIsDirty(true); }}
+                  autoComplete="off"
                 />
-              )}
+                <Select
+                  label={t("Email type")}
+                  options={TYPE_OPTIONS.map((o) => ({ ...o, label: t(o.label) }))}
+                  value={templateType}
+                  onChange={(v) => { setTemplateType(v); setIsDirty(true); }}
+                  details={t("Controls when this template is used for automated sends.")}
+                />
+                <TextField
+                  label={t("Subject line")}
+                  value={subject}
+                  onChange={(v) => { setSubject(v); setIsDirty(true); }}
+                  autoComplete="off"
+                  details={t("Supports {{variable}} placeholders.")}
+                />
 
-              {/* HTML source - shown on demand */}
-              {showHtmlSource && (
-                <Card>
-                  <BlockStack gap="300">
-                    <InlineStack align="space-between">
-                      <Text as="h3" variant="headingSm">{t("Compiled HTML")}</Text>
-                      <Button
-                        size="slim"
+                {/* Variable chips */}
+                <s-stack direction="block" gap="small-200">
+                  <s-text color="subdued">
+                    {t("Click a variable to copy it to your clipboard.")}
+                  </s-text>
+                  <s-stack direction="inline" gap="small-200">
+                    {TEMPLATE_VARIABLES.map((v) => (
+                      <s-clickable-chip
+                        key={v.value}
                         onClick={() => {
                           navigator.clipboard
-                            .writeText(compiledHtml())
+                            .writeText(v.value)
                             .catch(() => {});
                         }}
                       >
-                        {t("Copy")}
-                      </Button>
-                    </InlineStack>
-                    <TextField
-                      label={t("Compiled HTML")}
-                      labelHidden
-                      value={compiledHtml()}
-                      multiline={12}
-                      autoComplete="off"
-                      readOnly
-                      monospaced
-                    />
-                  </BlockStack>
-                </Card>
+                        {t(v.label)}
+                      </s-clickable-chip>
+                    ))}
+                  </s-stack>
+                </s-stack>
+              </s-stack>
+            </s-section>
+
+            {/* Block list */}
+            <s-section padding="none" accessibilityLabel={t("Email content")}>
+              <s-box padding="base">
+                <s-stack direction="inline" justifyContent="space-between" alignItems="center">
+                  <s-heading>{t("Email content")}</s-heading>
+                  <s-button
+                    variant="tertiary"
+                    onClick={() => setShowHtmlSource((v) => !v)}
+                  >
+                    {showHtmlSource ? t("Hide HTML") : t("View HTML source")}
+                  </s-button>
+                </s-stack>
+              </s-box>
+              <s-divider />
+
+              {blocks.length === 0 ? (
+                <s-box padding="large">
+                  <s-paragraph color="subdued">
+                    {t("No blocks yet. Add your first block below.")}
+                  </s-paragraph>
+                </s-box>
+              ) : (
+                <DndContext
+                  sensors={sensors}
+                  collisionDetection={closestCenter}
+                  onDragEnd={handleDragEnd}
+                >
+                  <SortableContext
+                    items={blocks.map((b) => b.id)}
+                    strategy={verticalListSortingStrategy}
+                  >
+                    {blocks.map((block) => (
+                      <SortableBlockRow
+                        key={block.id}
+                        block={block}
+                        isSelected={selectedBlockId === block.id}
+                        onSelect={setSelectedBlockId}
+                        onDelete={handleDeleteBlock}
+                        brand={brand}
+                      />
+                    ))}
+                  </SortableContext>
+                </DndContext>
               )}
-            </BlockStack>
-          </Layout.Section>
+
+              <s-box padding="base">
+                {/* Popover + ActionList became a button that opens an s-menu.
+                    Menu items use the adapter Button (listener bound on the
+                    element) so the click survives the menu's own rendering. */}
+                <s-button commandFor="add-block-menu" inlineSize="fill">
+                  {t("+ Add block")}
+                </s-button>
+                <s-menu id="add-block-menu" accessibilityLabel={t("+ Add block")}>
+                  {ADD_BLOCK_TYPES.map((type) => (
+                    <Button key={type} onClick={() => handleAddBlock(type)}>
+                      {t(blockTypeLabel(type))}
+                    </Button>
+                  ))}
+                </s-menu>
+              </s-box>
+            </s-section>
+
+            {/* Block settings - shown inline below the list when a block is selected */}
+            {selectedBlock && (
+              <BlockEditor
+                block={selectedBlock}
+                onChange={handleBlockChange}
+                onClose={() => setSelectedBlockId(null)}
+                onDelete={(id) => {
+                  handleDeleteBlock(id);
+                  setSelectedBlockId(null);
+                }}
+              />
+            )}
+
+            {/* HTML source - shown on demand */}
+            {showHtmlSource && (
+              <s-section>
+                <s-stack direction="block" gap="small">
+                  <s-stack direction="inline" justifyContent="space-between">
+                    <s-heading>{t("Compiled HTML")}</s-heading>
+                    <s-button
+                      onClick={() => {
+                        navigator.clipboard
+                          .writeText(compiledHtml())
+                          .catch(() => {});
+                      }}
+                    >
+                      {t("Copy")}
+                    </s-button>
+                  </s-stack>
+                  <TextField
+                    label={t("Compiled HTML")}
+                    labelHidden
+                    value={compiledHtml()}
+                    onChange={() => {}}
+                    multiline={12}
+                    autoComplete="off"
+                    readOnly
+                  />
+                </s-stack>
+              </s-section>
+            )}
+          </s-stack>
 
           {/* Live preview pane - sits to the right, sticky on scroll */}
-          <Layout.Section variant="oneHalf">
-            <div style={{ position: "sticky", top: 16 }}>
-              <EmailPreview
-                html={compiledHtml()}
-                subject={subject}
-                fromName={brand.name || t("Your Shop")}
-                toEmail={PREVIEW_SAMPLE_VARS.customer_email}
-                device={previewDevice}
-                onDeviceChange={setPreviewDevice}
-                previewOverrides={previewOverrides}
-              />
-            </div>
-          </Layout.Section>
-        </Layout>
-      </BlockStack>
-    </Page>
+          <div style={{ position: "sticky", top: 16 }}>
+            <EmailPreview
+              html={compiledHtml()}
+              subject={subject}
+              fromName={brand.name || t("Your Shop")}
+              toEmail={PREVIEW_SAMPLE_VARS.customer_email}
+              device={previewDevice}
+              onDeviceChange={setPreviewDevice}
+              previewOverrides={previewOverrides}
+            />
+          </div>
+        </Grid>
+      </s-stack>
+    </s-page>
   );
 }

@@ -2,34 +2,13 @@ import type { ActionFunctionArgs, LoaderFunctionArgs } from "@remix-run/node";
 import { json, redirect } from "@remix-run/node";
 import {
   useLoaderData,
-  useSubmit,
+  useNavigate,
   Form,
   useFetcher,
 } from "@remix-run/react";
-import { useState, useCallback, useRef } from "react";
-import {
-  Page,
-  Layout,
-  Card,
-  BlockStack,
-  InlineStack,
-  Text,
-  TextField,
-  Button,
-  Banner,
-  Badge,
-  Divider,
-  FormLayout,
-  DropZone,
-  Thumbnail,
-  Icon,
-  EmptyState,
-} from "@shopify/polaris";
-import {
-  EmailIcon,
-  ClockIcon,
-  AlertTriangleIcon,
-} from "@shopify/polaris-icons";
+import { useState, useCallback } from "react";
+import { Banner, DropZone, Grid, TextField, flag } from "../components/polaris";
+import { MAIN_WITH_SIDEBAR } from "../components/layout";
 import { authenticate } from "../shopify.server";
 import { db } from "../db.server";
 import {
@@ -179,19 +158,19 @@ const BUILT_IN_TYPES = [
     type: "confirmation",
     label: "Booking Confirmation",
     description: "Sent automatically when a booking is paid and confirmed.",
-    icon: EmailIcon,
+    icon: "email",
   },
   {
     type: "return_reminder",
     label: "Return Reminder",
     description: "Sent the day before the rental is due back.",
-    icon: ClockIcon,
+    icon: "clock",
   },
   {
     type: "overdue",
     label: "Overdue Notice",
     description: "Sent when a rental passes its return date without being returned.",
-    icon: AlertTriangleIcon,
+    icon: "alert-triangle",
   },
 ] as const;
 
@@ -203,6 +182,7 @@ export default function EmailsPage() {
   const { config, templates } =
     useLoaderData<typeof loader>();
   const t = useT();
+  const navigate = useNavigate();
   const brandFetcher = useFetcher<typeof action>();
   const actionFetcher = useFetcher<typeof action>();
 
@@ -219,22 +199,19 @@ export default function EmailsPage() {
   const [logoBase64, setLogoBase64] = useState<string>(
     config?.brandLogoUrl ?? "",
   );
-  const logoInputRef = useRef<HTMLInputElement>(null);
 
-  const handleDropZoneDrop = useCallback(
-    (_dropFiles: File[], acceptedFiles: File[]) => {
-      const file = acceptedFiles[0];
-      if (!file) return;
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        const result = reader.result as string;
-        setLogoPreview(result);
-        setLogoBase64(result);
-      };
-      reader.readAsDataURL(file);
-    },
-    [],
-  );
+  // s-drop-zone filters by `accept` itself and passes only accepted files.
+  const handleDropZoneDrop = useCallback((acceptedFiles: File[]) => {
+    const file = acceptedFiles[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      const result = reader.result as string;
+      setLogoPreview(result);
+      setLogoBase64(result);
+    };
+    reader.readAsDataURL(file);
+  }, []);
 
   const customTemplates = templates.filter((t) => t.type === "custom");
 
@@ -242,16 +219,12 @@ export default function EmailsPage() {
   const brandActionData = brandFetcher.data;
 
   return (
-    <Page
-      fullWidth
-      title={t("Email Templates")}
-      subtitle={t("Customize the emails sent to your customers.")}
-      primaryAction={{
-        content: t("Add template"),
-        url: "/app/emails/new",
-      }}
-    >
-      <BlockStack gap="600">
+    <s-page heading={t("Email Templates")} inlineSize="large">
+      <s-button slot="primary-action" variant="primary" onClick={() => navigate("/app/emails/new")}>
+        {t("Add template")}
+      </s-button>
+      <s-stack direction="block" gap="large">
+        <s-text color="subdued">{t("Customize the emails sent to your customers.")}</s-text>
         {brandActionData && "message" in brandActionData && (
           <Banner tone="success" title={(brandActionData as { message: string }).message} />
         )}
@@ -259,207 +232,169 @@ export default function EmailsPage() {
           <Banner tone="critical" title={(brandActionData as { error: string }).error} />
         )}
 
-        <Layout>
+        <Grid columns={MAIN_WITH_SIDEBAR} gap="base">
           {/* Main content */}
-          <Layout.Section>
-            <BlockStack gap="500">
-              {/* Automated emails */}
-              <BlockStack gap="300">
-                <Text as="h2" variant="headingMd">
-                  {t("Automated emails")}
-                </Text>
+          <s-stack direction="block" gap="large">
+            {/* Automated emails */}
+            <s-stack direction="block" gap="small">
+              <s-heading>{t("Automated emails")}</s-heading>
 
-                {BUILT_IN_TYPES.map(({ type, label, description, icon }) => {
-                  const tmpl = templates.find((t) => t.type === type);
-                  return (
-                    <Card key={type}>
-                      <InlineStack align="space-between" blockAlign="center" gap="400" wrap>
-                        <InlineStack gap="300" blockAlign="start">
-                          <Icon source={icon} />
-                          <BlockStack gap="100">
-                            <Text as="p" variant="bodyMd" fontWeight="semibold">
-                              {t(label)}
-                            </Text>
-                            <Text as="p" variant="bodySm" tone="subdued">
-                              {tmpl ? tmpl.subject : t(description)}
-                            </Text>
-                          </BlockStack>
-                        </InlineStack>
-                        <InlineStack gap="200" blockAlign="center">
-                          {tmpl && (
-                            <Badge tone={tmpl.isActive ? "success" : undefined}>
-                              {tmpl.isActive ? t("Active") : t("Inactive")}
-                            </Badge>
-                          )}
-                          {tmpl ? (
-                            <Button url={`/app/emails/${tmpl.id}`}>{t("Edit")}</Button>
-                          ) : (
-                            <Form method="post">
-                              <input type="hidden" name="intent" value="create_default" />
-                              <input type="hidden" name="type" value={type} />
-                              <Button submit>{t("Set up")}</Button>
-                            </Form>
-                          )}
-                        </InlineStack>
-                      </InlineStack>
-                    </Card>
-                  );
-                })}
-              </BlockStack>
-
-              <Divider />
-
-              {/* Custom templates */}
-              <BlockStack gap="300">
-                <InlineStack align="space-between" blockAlign="center">
-                  <Text as="h2" variant="headingMd">
-                    {t("Custom templates")}
-                  </Text>
-                  <Button url="/app/emails/new">{t("Add template")}</Button>
-                </InlineStack>
-
-                {customTemplates.length === 0 ? (
-                  <Card>
-                    <EmptyState
-                      heading={t("No custom templates yet")}
-                      image="https://cdn.shopify.com/s/files/1/0262/4071/2726/files/emptystate-files.png"
-                    >
-                      <Text as="p">
-                        {t("Create custom templates for special occasions or one-off communications.")}
-                      </Text>
-                    </EmptyState>
-                  </Card>
-                ) : (
-                  customTemplates.map((tmpl) => (
-                    <Card key={tmpl.id}>
-                      <InlineStack align="space-between" blockAlign="center" gap="400" wrap>
-                        <BlockStack gap="100">
-                          <Text as="p" variant="bodyMd" fontWeight="semibold">
-                            {tmpl.name}
-                          </Text>
-                          <Text as="p" variant="bodySm" tone="subdued">
-                            {tmpl.subject}
-                          </Text>
-                        </BlockStack>
-                        <InlineStack gap="200" blockAlign="center">
-                          <Badge tone={tmpl.isActive ? "success" : undefined}>
+              {BUILT_IN_TYPES.map(({ type, label, description, icon }) => {
+                const tmpl = templates.find((t) => t.type === type);
+                return (
+                  <s-section key={type}>
+                    <s-stack direction="inline" justifyContent="space-between" alignItems="center" gap="base">
+                      <s-stack direction="inline" gap="small" alignItems="start">
+                        <s-icon type={icon} />
+                        <s-stack direction="block" gap="small-300">
+                          <s-text type="strong">{t(label)}</s-text>
+                          <s-text color="subdued">{tmpl ? tmpl.subject : t(description)}</s-text>
+                        </s-stack>
+                      </s-stack>
+                      <s-stack direction="inline" gap="small-200" alignItems="center">
+                        {tmpl && (
+                          <s-badge tone={tmpl.isActive ? "success" : "auto"}>
                             {tmpl.isActive ? t("Active") : t("Inactive")}
-                          </Badge>
-                          <Button url={`/app/emails/${tmpl.id}`}>{t("Edit")}</Button>
-                          <actionFetcher.Form method="post">
-                            <input
-                              type="hidden"
-                              name="intent"
-                              value="delete_template"
-                            />
-                            <input type="hidden" name="id" value={tmpl.id} />
-                            <Button
-                              tone="critical"
-                              submit
-                              loading={actionFetcher.state !== "idle"}
-                            >
-                              {t("Delete")}
-                            </Button>
-                          </actionFetcher.Form>
-                        </InlineStack>
-                      </InlineStack>
-                    </Card>
-                  ))
-                )}
-              </BlockStack>
-            </BlockStack>
-          </Layout.Section>
+                          </s-badge>
+                        )}
+                        {tmpl ? (
+                          <s-button onClick={() => navigate(`/app/emails/${tmpl.id}`)}>{t("Edit")}</s-button>
+                        ) : (
+                          <Form method="post">
+                            <input type="hidden" name="intent" value="create_default" />
+                            <input type="hidden" name="type" value={type} />
+                            <s-button type="submit">{t("Set up")}</s-button>
+                          </Form>
+                        )}
+                      </s-stack>
+                    </s-stack>
+                  </s-section>
+                );
+              })}
+            </s-stack>
+
+            <s-divider />
+
+            {/* Custom templates */}
+            <s-stack direction="block" gap="small">
+              <s-stack direction="inline" justifyContent="space-between" alignItems="center">
+                <s-heading>{t("Custom templates")}</s-heading>
+                <s-button onClick={() => navigate("/app/emails/new")}>{t("Add template")}</s-button>
+              </s-stack>
+
+              {customTemplates.length === 0 ? (
+                <s-section>
+                  <s-empty-state heading={t("No custom templates yet")}>
+                    <s-icon slot="graphic" type="email" />
+                    <s-text slot="subheading">
+                      {t("Create custom templates for special occasions or one-off communications.")}
+                    </s-text>
+                  </s-empty-state>
+                </s-section>
+              ) : (
+                customTemplates.map((tmpl) => (
+                  <s-section key={tmpl.id}>
+                    <s-stack direction="inline" justifyContent="space-between" alignItems="center" gap="base">
+                      <s-stack direction="block" gap="small-300">
+                        <s-text type="strong">{tmpl.name}</s-text>
+                        <s-text color="subdued">{tmpl.subject}</s-text>
+                      </s-stack>
+                      <s-stack direction="inline" gap="small-200" alignItems="center">
+                        <s-badge tone={tmpl.isActive ? "success" : "auto"}>
+                          {tmpl.isActive ? t("Active") : t("Inactive")}
+                        </s-badge>
+                        <s-button onClick={() => navigate(`/app/emails/${tmpl.id}`)}>{t("Edit")}</s-button>
+                        <actionFetcher.Form method="post">
+                          <input type="hidden" name="intent" value="delete_template" />
+                          <input type="hidden" name="id" value={tmpl.id} />
+                          <s-button
+                            tone="critical"
+                            type="submit"
+                            loading={flag(actionFetcher.state !== "idle")}
+                          >
+                            {t("Delete")}
+                          </s-button>
+                        </actionFetcher.Form>
+                      </s-stack>
+                    </s-stack>
+                  </s-section>
+                ))
+              )}
+            </s-stack>
+          </s-stack>
 
           {/* Brand settings sidebar */}
-          <Layout.Section variant="oneThird">
-            <Card>
-              <BlockStack gap="400">
-                <Text as="h2" variant="headingMd">
-                  {t("Brand settings")}
-                </Text>
-                <Text as="p" variant="bodySm" tone="subdued">
-                  {t("These settings are applied to all your email templates.")}
-                </Text>
-                <Divider />
+          <s-section heading={t("Brand settings")}>
+            <s-stack direction="block" gap="base">
+              <s-text color="subdued">
+                {t("These settings are applied to all your email templates.")}
+              </s-text>
+              <s-divider />
 
-                <brandFetcher.Form method="post">
-                  <input type="hidden" name="intent" value="save_brand" />
-                  <input
-                    type="hidden"
-                    name="brandLogoUrl"
-                    value={logoBase64}
+              <brandFetcher.Form method="post">
+                <input type="hidden" name="intent" value="save_brand" />
+                <input type="hidden" name="brandLogoUrl" value={logoBase64} />
+                {/* The fields below are controlled web components with no
+                    `name`; these hidden inputs carry the same values the
+                    old named Polaris React fields submitted. */}
+                <input type="hidden" name="brandName" value={brandName} />
+                <input type="hidden" name="brandPrimaryColor" value={brandPrimaryColor} />
+                <input type="hidden" name="senderName" value={senderName} />
+                <s-stack direction="block" gap="base">
+                  {/* Logo upload */}
+                  <s-stack direction="block" gap="small-200">
+                    <s-text>{t("Logo")}</s-text>
+                    {logoPreview && (
+                      <s-thumbnail src={logoPreview} alt={t("Brand logo preview")} size="large" />
+                    )}
+                    <DropZone
+                      label={t("Add logo")}
+                      accept="image/*"
+                      onDrop={handleDropZoneDrop}
+                    />
+                    <s-text color="subdued">
+                      {t("Shown in the email header. Recommended: 200×60px PNG.")}
+                    </s-text>
+                  </s-stack>
+
+                  <TextField
+                    label={t("Brand name")}
+                    value={brandName}
+                    onChange={setBrandName}
+                    autoComplete="off"
+                    details={t("Shown in emails when no logo is uploaded.")}
                   />
-                  <FormLayout>
-                    {/* Logo upload */}
-                    <BlockStack gap="200">
-                      <Text as="p" variant="bodyMd">
-                        {t("Logo")}
-                      </Text>
-                      {logoPreview && (
-                        <Thumbnail
-                          source={logoPreview}
-                          alt={t("Brand logo preview")}
-                          size="large"
-                        />
-                      )}
-                      <DropZone
-                        accept="image/*"
-                        type="image"
-                        allowMultiple={false}
-                        onDrop={handleDropZoneDrop}
-                      >
-                        <DropZone.FileUpload
-                          actionTitle={t("Add logo")}
-                          actionHint={t("or drop an image to upload")}
-                        />
-                      </DropZone>
-                      <Text as="p" variant="bodySm" tone="subdued">
-                        {t("Shown in the email header. Recommended: 200×60px PNG.")}
-                      </Text>
-                    </BlockStack>
 
-                    <TextField
-                      label={t("Brand name")}
-                      name="brandName"
-                      value={brandName}
-                      onChange={setBrandName}
-                      autoComplete="off"
-                      helpText={t("Shown in emails when no logo is uploaded.")}
-                    />
+                  <TextField
+                    label={t("Primary color")}
+                    value={brandPrimaryColor}
+                    onChange={setBrandPrimaryColor}
+                    autoComplete="off"
+                    details={t("Used for buttons and accents. Hex code e.g. #1a1a1a")}
+                  />
 
-                    <TextField
-                      label={t("Primary color")}
-                      name="brandPrimaryColor"
-                      value={brandPrimaryColor}
-                      onChange={setBrandPrimaryColor}
-                      autoComplete="off"
-                      helpText={t("Used for buttons and accents. Hex code e.g. #1a1a1a")}
-                    />
+                  <TextField
+                    label={t("Sender name")}
+                    value={senderName}
+                    onChange={setEmailSenderName}
+                    autoComplete="off"
+                    details={t("Appears as the 'From' name in the customer's inbox.")}
+                  />
 
-                    <TextField
-                      label={t("Sender name")}
-                      name="senderName"
-                      value={senderName}
-                      onChange={setEmailSenderName}
-                      autoComplete="off"
-                      helpText={t("Appears as the 'From' name in the customer's inbox.")}
-                    />
-
-                    <Button
-                      variant="primary"
-                      submit
-                      loading={savingBrand}
-                      fullWidth
-                    >
-                      {t("Save brand settings")}
-                    </Button>
-                  </FormLayout>
-                </brandFetcher.Form>
-              </BlockStack>
-            </Card>
-          </Layout.Section>
-        </Layout>
-      </BlockStack>
-    </Page>
+                  <s-button
+                    variant="primary"
+                    type="submit"
+                    loading={flag(savingBrand)}
+                    inlineSize="fill"
+                  >
+                    {t("Save brand settings")}
+                  </s-button>
+                </s-stack>
+              </brandFetcher.Form>
+            </s-stack>
+          </s-section>
+        </Grid>
+      </s-stack>
+    </s-page>
   );
 }
