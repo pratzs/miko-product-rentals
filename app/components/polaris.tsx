@@ -341,6 +341,13 @@ export function Select({
   disabled?: boolean;
 }) {
   const ref = useRef<ElementRef<"s-select">>(null);
+  // React 18 only writes the `value` attribute on custom elements, and it lands
+  // before the options exist, so the select can show its first option instead of
+  // the saved one. Set the live property after render; skipped when it matches.
+  useEffect(() => {
+    const el = ref.current as unknown as { value?: string } | null;
+    if (el && value !== undefined && el.value !== String(value)) el.value = String(value);
+  }, [ref, value]);
   useCustomEvent(ref, "change", (e) => {
     onChange(String((e.currentTarget as unknown as { value?: string }).value ?? ""));
   });

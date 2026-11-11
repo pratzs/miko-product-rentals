@@ -68,6 +68,8 @@
   text-decoration: none;
   cursor: pointer;
   transition: background-color 0.15s ease;
+  position: relative; /* above the gradient overlay (.miko-gradient-bg::before) */
+  z-index: 1;
 }
 .miko-hero-btn--primary { background: #29845a; color: #fff; }
 .miko-hero-btn--primary:hover { background: #1f6b48; }
