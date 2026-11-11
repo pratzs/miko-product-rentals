@@ -86,6 +86,37 @@ shopify app config link
 
 Follow the prompts to connect your local `shopify.app.toml` to the Partner dashboard app.
 
+## 7. Releasing a change to how rentals are priced at checkout
+
+The price a shopper pays for a rental is set by the Cart Transform Function
+(`extensions/miko-cart-transform`, Rust, built by `shopify app deploy`). It never
+takes a price from the cart. It recomputes it from the merchant's rates, which
+the server publishes to app-owned metafields (`$app:miko_rentals.config`) on each
+rental product and variant. A rental line whose metafield is missing is charged
+the variant's normal price.
+
+That makes the order of a release matter:
+
+1. **Server first (Railway).** On boot it publishes every shop's rates (about a
+   minute after start, then every 6 hours, and on every save in the app).
+2. **Confirm every shop is published.** Either read the Railway log line
+   `[rental-config/tick] N/N shops fully synced`, or ask for a report:
+   `curl -X POST https://YOUR_URL/api/cron/rental-config -H "Authorization: Bearer YOUR_CRON_SECRET"`
+   `shopsFullySynced` must equal `shops` and every `errors` list must be empty.
+3. **Then `shopify app deploy`** (function and theme extension).
+
+Never deploy the function before the server has published the rates: until the
+metafields exist, every rental would be charged the normal product price.
+
+The machine that runs `shopify app deploy` needs Rust with the WASI target:
+`rustup target add wasm32-wasip1`.
+
+Before any change to the function, run `npm run test:cartsecurity` (it builds
+the function natively and compares it with the JavaScript reference on tens of
+thousands of carts) and measure the instruction count on a large cart with
+`shopify app function run --path extensions/miko-cart-transform --input cart.json --json`.
+Shopify discards the function's whole output above 11 million instructions.
+
 ## Done!
 
 Your app will be live at `https://YOUR_RAILWAY_URL/app` when installed on a store.

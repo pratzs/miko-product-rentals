@@ -18,6 +18,7 @@
     "test:carttransform": "node tests/cart-transform-all-plans.test.mjs",
     "build:carttransform:native": "cargo build --release --quiet --manifest-path extensions/miko-cart-transform/Cargo.toml",
     "test:cartsecurity": "npm run -s build:carttransform:native && node tests/cart-transform-security.test.mjs && node tests/cart-transform-parity.test.mjs",
+    "test:server-security": "node tests/server-security.test.mjs",
     "prisma": "prisma",
     "vite": "vite"
   },
