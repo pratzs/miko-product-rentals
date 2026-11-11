@@ -1,31 +1,17 @@
 import type { LoaderFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
 import { useLoaderData, useNavigate, useSearchParams, Form } from "@remix-run/react";
-import {
-  Page,
-  Layout,
-  Card,
-  BlockStack,
-  InlineStack,
-  Text,
-  Button,
-  Badge,
-  DataTable,
-  EmptyState,
-  Filters,
-  ChoiceList,
-  Select,
-  Box,
-} from "@shopify/polaris";
 import { authenticate } from "../shopify.server";
 import { db } from "../db.server";
 import { format } from "date-fns";
 import { formatCurrency } from "../utils/pricing";
-import { useState, useCallback } from "react";
-import { Banner } from "@shopify/polaris";
+import { useRef, useState } from "react";
+import type { ElementRef } from "react";
+import { Banner, Button, Select, badgeTone, useCustomEvent } from "../components/polaris";
+import { AskSidekickButton } from "../components/AskSidekick";
 import { useT } from "../i18n/context";
 
-const STATUS_BADGE: Record<string, { tone: any; label: string }> = {
+const STATUS_BADGE: Record<string, { tone: string; label: string }> = {
   pending:      { tone: "attention", label: "Pending payment" },
   confirmed:    { tone: "info",      label: "Confirmed" },
   active:       { tone: "success",   label: "Out on rental" },
@@ -117,26 +103,12 @@ export default function BookingsPage() {
     setSearchParams(p);
   }
 
-  const rows = bookings.map((b) => [
-    <Button variant="plain" onClick={() => navigate(`/app/bookings/${b.id}`)}>
-      {b.orderName || b.id.slice(-6).toUpperCase()}
-    </Button>,
-    <BlockStack gap="050">
-      <Text as="p" variant="bodyMd">{b.customerName}</Text>
-      <Text as="p" variant="bodySm" tone="subdued">{b.customerEmail}</Text>
-    </BlockStack>,
-    <BlockStack gap="050">
-      <Text as="p" variant="bodyMd">{b.productTitle}</Text>
-      {b.variantTitle && (
-        <Text as="p" variant="bodySm" tone="subdued">{b.variantTitle}</Text>
-      )}
-    </BlockStack>,
-    format(new Date(b.startDate), "d MMM yyyy"),
-    format(new Date(b.endDate), "d MMM yyyy"),
-    `${b.rentalDays}d`,
-    formatCurrency(b.totalCharged, currency),
-    <Badge tone={STATUS_BADGE[b.status]?.tone}>{t(STATUS_BADGE[b.status]?.label ?? "")}</Badge>,
-  ]);
+  // s-search-field's `input` is a Polaris event; React 18 needs the listener
+  // attached by hand. Fires per keystroke, as Polaris React's Filters did.
+  const searchRef = useRef<ElementRef<"s-search-field">>(null);
+  useCustomEvent(searchRef, "input", (e) => {
+    handleSearch(String((e.currentTarget as unknown as { value?: string }).value ?? ""));
+  });
 
   const statusTabs = [
     { label: t("All"), value: "", count: counts.all },
@@ -150,20 +122,25 @@ export default function BookingsPage() {
   const upgradedCount = parseInt(searchParams.get("upgraded") || "0");
   const flaggedCount = parseInt(searchParams.get("flagged") || "0");
   const showSyncBanner = syncedCount > 0 || upgradedCount > 0 || flaggedCount > 0;
+  const hasFilters = !!(searchParams.get("q") || searchParams.get("productId") || statusFilter);
 
   return (
-    <Page
-      fullWidth
-      title={t("Bookings")}
-      subtitle={t("Every rental booking across all your products")}
-      secondaryActions={[
-        {
-          content: t("Sync from Shopify"),
-          helpText: t("Recover bookings from recent Shopify orders that may have been missed"),
-        },
-      ]}
-    >
-      <BlockStack gap="500">
+    <s-page heading={t("Bookings")} inlineSize="large">
+      {/* Ask Sidekick (plan 9.3). Hidden unless shopify.sidekick.isEnabled()
+          says yes; launches only on click. Answered by the read-only
+          list_overdue_rentals tool in extensions/rentals-sidekick. */}
+      <AskSidekickButton
+        slot="secondary-actions"
+        label={t("Ask Sidekick")}
+        prompt={t("Which rentals are overdue right now, who has them, and how late is each one?")}
+        errors={{
+          rejected: t("Sidekick could not take that question."),
+          failed: t("Sidekick could not start the conversation."),
+        }}
+      />
+      <s-stack direction="block" gap="base">
+        <s-text color="subdued">{t("Every rental booking across all your products")}</s-text>
+
         {showSyncBanner && (
           <Banner
             tone={flaggedCount > 0 ? "warning" : "success"}
@@ -176,7 +153,7 @@ export default function BookingsPage() {
               setSearchParams(p);
             }}
           >
-            <p>
+            <s-paragraph>
               {syncedCount > 0 && (
                 <>
                   {syncedCount > 1
@@ -195,76 +172,107 @@ export default function BookingsPage() {
                 (flaggedCount > 1
                   ? t("{n} bookings were flagged for review (overbooking risk).", { n: flaggedCount })
                   : t("{n} booking was flagged for review (overbooking risk).", { n: flaggedCount }))}
-            </p>
+            </s-paragraph>
           </Banner>
         )}
 
         <Form method="POST" action="/app/sync-orders">
           <input type="hidden" name="returnTo" value="/app/bookings" />
-          <Button submit variant="plain">
+          <s-button type="submit" variant="tertiary">
             {t("Sync from Shopify (recover missing bookings)")}
-          </Button>
+          </s-button>
         </Form>
 
         {/* Tab-style status pills */}
-        <InlineStack gap="200">
+        <s-stack direction="inline" gap="small-200">
           {statusTabs.map((tab) => (
-            <Button
+            <s-button
               key={tab.value}
               variant={statusFilter === tab.value ? "primary" : "secondary"}
               onClick={() => applyFilter("status", tab.value)}
-              size="slim"
             >
               {`${tab.label} (${tab.count})`}
-            </Button>
+            </s-button>
           ))}
-        </InlineStack>
+        </s-stack>
 
-        <Card padding="0">
-          <Box padding="400">
-            <Filters
-              queryValue={queryValue}
-              queryPlaceholder={t("Search by customer name, email, or order number")}
-              onQueryChange={handleSearch}
-              onQueryClear={() => handleSearch("")}
-              filters={[
-                {
-                  key: "productId",
-                  label: t("Product"),
-                  filter: (
-                    <ChoiceList
-                      title={t("Product")}
-                      titleHidden
-                      choices={[
-                        { label: t("All products"), value: "" },
-                        ...products.map((p) => ({ label: p.title, value: p.id })),
-                      ]}
-                      selected={[searchParams.get("productId") || ""]}
-                      onChange={([v]) => applyFilter("productId", v)}
-                    />
-                  ),
-                },
-              ]}
-              onClearAll={() => setSearchParams({})}
-            />
-          </Box>
-
-          {bookings.length === 0 ? (
-            <Box padding="800">
-              <EmptyState heading={t("No bookings match your filters")} image="">
-                <p>{t("Try adjusting the filters or search term.")}</p>
-              </EmptyState>
-            </Box>
-          ) : (
-            <DataTable
-              columnContentTypes={["text","text","text","text","text","text","numeric","text"]}
-              headings={[t("Order"), t("Customer"), t("Product"), t("Start date"), t("Return by"), t("Duration"), t("Charged"), t("Status")]}
-              rows={rows}
-              hoverable
-            />
-          )}
-        </Card>
-      </BlockStack>
-    </Page>
+        <s-section padding="none" accessibilityLabel={t("Bookings")}>
+          <s-table>
+            <s-stack slot="filters" direction="inline" gap="small-200" alignItems="end">
+              <s-box inlineSize="100%" maxInlineSize="420px">
+                <s-search-field
+                  ref={searchRef}
+                  label={t("Search")}
+                  labelAccessibilityVisibility="exclusive"
+                  placeholder={t("Search by customer name, email, or order number")}
+                  value={queryValue}
+                />
+              </s-box>
+              <s-box minInlineSize="200px">
+                <Select
+                  label={t("Product")}
+                  value={searchParams.get("productId") || ""}
+                  onChange={(v) => applyFilter("productId", v)}
+                  options={[
+                    { label: t("All products"), value: "" },
+                    ...products.map((p) => ({ label: p.title, value: p.id })),
+                  ]}
+                />
+              </s-box>
+              {hasFilters && (
+                <s-button variant="tertiary" onClick={() => { setQueryValue(""); setSearchParams({}); }}>
+                  {t("Clear all")}
+                </s-button>
+              )}
+            </s-stack>
+            <s-table-header-row>
+              <s-table-header listSlot="primary">{t("Order")}</s-table-header>
+              <s-table-header listSlot="secondary">{t("Customer")}</s-table-header>
+              <s-table-header>{t("Product")}</s-table-header>
+              <s-table-header>{t("Start date")}</s-table-header>
+              <s-table-header>{t("Return by")}</s-table-header>
+              <s-table-header>{t("Duration")}</s-table-header>
+              <s-table-header format="currency">{t("Charged")}</s-table-header>
+              <s-table-header listSlot="inline">{t("Status")}</s-table-header>
+            </s-table-header-row>
+            <s-table-body>
+              {bookings.map((b) => (
+                <s-table-row key={b.id}>
+                  <s-table-cell>
+                    <Button variant="tertiary" onClick={() => navigate(`/app/bookings/${b.id}`)}>
+                      {b.orderName || b.id.slice(-6).toUpperCase()}
+                    </Button>
+                  </s-table-cell>
+                  <s-table-cell>
+                    <s-stack direction="block" gap="none">
+                      <s-text>{b.customerName}</s-text>
+                      <s-text color="subdued">{b.customerEmail}</s-text>
+                    </s-stack>
+                  </s-table-cell>
+                  <s-table-cell>
+                    <s-stack direction="block" gap="none">
+                      <s-text>{b.productTitle}</s-text>
+                      {b.variantTitle && <s-text color="subdued">{b.variantTitle}</s-text>}
+                    </s-stack>
+                  </s-table-cell>
+                  <s-table-cell>{format(new Date(b.startDate), "d MMM yyyy")}</s-table-cell>
+                  <s-table-cell>{format(new Date(b.endDate), "d MMM yyyy")}</s-table-cell>
+                  <s-table-cell>{`${b.rentalDays}d`}</s-table-cell>
+                  <s-table-cell>{formatCurrency(b.totalCharged, currency)}</s-table-cell>
+                  <s-table-cell>
+                    <s-badge tone={badgeTone(STATUS_BADGE[b.status]?.tone)}>
+                      {t(STATUS_BADGE[b.status]?.label ?? "")}
+                    </s-badge>
+                  </s-table-cell>
+                </s-table-row>
+              ))}
+              <s-empty-state heading={t("No bookings match your filters")}>
+                <s-text slot="subheading">{t("Try adjusting the filters or search term.")}</s-text>
+              </s-empty-state>
+            </s-table-body>
+          </s-table>
+        </s-section>
+      </s-stack>
+    </s-page>
   );
 }
