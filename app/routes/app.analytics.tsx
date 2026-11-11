@@ -155,9 +155,8 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   });
 };
 
-// Chart styling. These charts are our own drawing, so they take the admin's
-// text colour (`currentColor`) rather than hard-coding the previous Polaris
-// palette, which would not follow the new admin look.
+// Chart styling. Axis text follows the admin's text colour; the data marks keep
+// the bright blue and green merchants already know from the previous look.
 const CHART_TICK = { fontSize: 12, fill: "currentColor", fillOpacity: 0.65 };
 const CHART_GRID = "rgba(0, 0, 0, 0.08)";
 const CHART_TOOLTIP = { borderRadius: 8, border: "1px solid rgba(0, 0, 0, 0.1)", fontSize: 13 };
@@ -281,7 +280,7 @@ export default function AnalyticsPage() {
                     formatter={(val: any) => [formatCurrency(val, currency), t("Revenue")]}
                     contentStyle={CHART_TOOLTIP}
                   />
-                  <Bar dataKey="revenue" fill="currentColor" fillOpacity={0.8} radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="revenue" fill="#005bd3" radius={[4, 4, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             </div>
@@ -298,7 +297,7 @@ export default function AnalyticsPage() {
                     formatter={(val: any) => [val, t("Bookings")]}
                     contentStyle={CHART_TOOLTIP}
                   />
-                  <Line type="monotone" dataKey="bookings" stroke="currentColor" strokeWidth={2} dot={{ r: 4, fill: "currentColor" }} />
+                  <Line type="monotone" dataKey="bookings" stroke="#29845a" strokeWidth={2} dot={{ r: 4, fill: "#29845a" }} />
                 </LineChart>
               </ResponsiveContainer>
             </div>

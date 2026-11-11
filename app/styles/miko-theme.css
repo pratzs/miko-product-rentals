@@ -51,3 +51,26 @@
     display: none;
   }
 }
+
+/* Hero buttons on the navy brand block (see components/HeroButton.tsx). */
+.miko-hero-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 32px;
+  padding: 6px 14px;
+  border: 0;
+  border-radius: 10px;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 20px;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+.miko-hero-btn--primary { background: #29845a; color: #fff; }
+.miko-hero-btn--primary:hover { background: #1f6b48; }
+.miko-hero-btn--secondary { background: #fff; color: #303030; }
+.miko-hero-btn--secondary:hover { background: #f1f1f1; }
+.miko-hero-btn:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }

@@ -8,7 +8,7 @@ import { db } from "../db.server";
 import { setRentalMetafield, ensureRentalVariantsCanOversell } from "../utils/product-metafields.server";
 import { syncRentalProductConfig, clearRentalProductConfig } from "../utils/rental-config-metafields.server";
 import { syncRentalProductVariants } from "../utils/variant-sync.server";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useT } from "../i18n/context";
 
 export const loader = async ({ request, params }: LoaderFunctionArgs) => {
@@ -208,6 +208,13 @@ export default function ProductConfigPage() {
   const t = useT();
   const { product, currency } = useLoaderData<typeof loader>();
   const actionData = useActionData<typeof action>();
+  // The success banner sits at the top of a long page, so also confirm the save
+  // with an admin toast the merchant sees wherever they are scrolled to.
+  useEffect(() => {
+    if (actionData && "message" in actionData) {
+      (window as any).shopify?.toast?.show((actionData as any).message);
+    }
+  }, [actionData]);
   const navigation = useNavigation();
   const navigate = useNavigate();
   const submit = useSubmit();

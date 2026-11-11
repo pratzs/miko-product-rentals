@@ -145,7 +145,7 @@ export default function CalendarPage() {
                 }}
               />
               <s-text color="subdued">
-                {t(status.charAt(0).toUpperCase() + status.slice(1))}
+                {t(status === "needs_review" ? "Needs review" : status.charAt(0).toUpperCase() + status.slice(1))}
               </s-text>
             </s-stack>
           ))}

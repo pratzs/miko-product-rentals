@@ -2,6 +2,7 @@ import type { ActionFunctionArgs, LoaderFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
 import { useLoaderData, useNavigate } from "@remix-run/react";
 import { CrossSellSection } from "../components/CrossSellSection";
+import { HeroButton } from "../components/HeroButton";
 import { MikoMascot } from "../components/MikoMascot";
 import { ReviewPrompt } from "../components/ReviewPrompt";
 import { Banner, Grid, ProgressBar, badgeTone } from "../components/polaris";
@@ -419,12 +420,12 @@ export default function Dashboard() {
               </span>
             </s-paragraph>
             <div style={{ display: "flex", gap: 8, marginTop: 4, flexWrap: "wrap" }}>
-              <s-button variant="primary" onClick={() => navigate(stats.totalProducts === 0 ? "/app/products" : "/app/bookings")}>
+              <HeroButton onClick={() => navigate(stats.totalProducts === 0 ? "/app/products" : "/app/bookings")}>
                 {stats.totalProducts === 0 ? t("Enable your first rental") : t("View bookings")}
-              </s-button>
-              <s-button variant="secondary" onClick={() => navigate("/app/help")}>
+              </HeroButton>
+              <HeroButton variant="secondary" onClick={() => navigate("/app/help")}>
                 {t("See how it works")}
-              </s-button>
+              </HeroButton>
             </div>
           </div>
           <div className="miko-side-mascot" style={{ flexShrink: 0, position: "relative" }}>

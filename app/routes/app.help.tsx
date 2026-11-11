@@ -2,6 +2,7 @@ import type { LoaderFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
 import { useLoaderData, useNavigate } from "@remix-run/react";
 import type { ComponentProps, ReactNode } from "react";
+import { HeroButton } from "../components/HeroButton";
 import { Banner, Grid } from "../components/polaris";
 import { MAIN_WITH_SIDEBAR } from "../components/layout";
 import { authenticate } from "../shopify.server";
@@ -221,15 +222,15 @@ export default function HelpPage() {
                     </s-stack>
                   </div>
                   <s-stack direction="inline" gap="small-200">
-                    <s-button variant="primary" icon="product" onClick={() => navigate("/app/products")}>
+                    <HeroButton onClick={() => navigate("/app/products")}>
                       {t("Add your first rental")}
-                    </s-button>
-                    <s-button icon="external" href={themeEditorBlockUrl} target="_blank">
+                    </HeroButton>
+                    <HeroButton variant="secondary" href={themeEditorBlockUrl}>
                       {t("Open theme editor")}
-                    </s-button>
-                    <s-button icon="email" onClick={() => openMailto(t("Miko support request"))}>
+                    </HeroButton>
+                    <HeroButton variant="secondary" onClick={() => openMailto(t("Miko support request"))}>
                       {t("Email support")}
-                    </s-button>
+                    </HeroButton>
                   </s-stack>
                 </s-stack>
               </div>
