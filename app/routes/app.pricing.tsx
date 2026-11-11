@@ -2,21 +2,9 @@ import type { ActionFunctionArgs, LoaderFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
 import { useLoaderData } from "@remix-run/react";
 import { useAppBridge } from "@shopify/app-bridge-react";
-import {
-  Page,
-  Layout,
-  Card,
-  BlockStack,
-  InlineStack,
-  Text,
-  Button,
-  Banner,
-  Badge,
-  Divider,
-  ProgressBar,
-  List,
-} from "@shopify/polaris";
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
+import { Banner, Grid, ProgressBar, flag } from "../components/polaris";
+import { TWO_UP } from "../components/layout";
 import { authenticate } from "../shopify.server";
 import { db } from "../db.server";
 import { PLANS, checkRentalLimit, getPlan } from "../utils/plans";
@@ -153,22 +141,80 @@ export default function PricingPage() {
 
   const popularPlan = "growth";
 
+  // One plan card. Every value and button below is passed in per plan exactly
+  // as the Polaris React version had it; only the drawing is shared.
+  const featureList = (features: string[]) => (
+    <s-unordered-list>
+      {features.map((f) =>
+        f.includes("coming soon") ? (
+          <s-list-item key={f}>
+            <s-stack direction="inline" gap="small-200" alignItems="center">
+              <s-text>{t(f.replace(" (coming soon)", ""))}</s-text>
+              <s-badge tone="neutral">{t("Coming soon")}</s-badge>
+            </s-stack>
+          </s-list-item>
+        ) : (
+          <s-list-item key={f}>{t(f)}</s-list-item>
+        ),
+      )}
+    </s-unordered-list>
+  );
+
+  const planCard = ({
+    name,
+    price,
+    cadence,
+    badge,
+    features,
+    usageLine,
+    progress,
+    action,
+  }: {
+    name: string;
+    price: string;
+    cadence: string;
+    badge?: ReactNode;
+    features: string[];
+    usageLine: string;
+    progress: number;
+    action: ReactNode;
+  }) => (
+    <s-section>
+      <s-stack direction="block" gap="base">
+        <s-stack direction="block" gap="small-300">
+          <s-stack direction="inline" justifyContent="space-between" alignItems="center">
+            <s-heading>{name}</s-heading>
+            {badge}
+          </s-stack>
+          <s-text fontSize="large-100" fontWeight="bold">{price}</s-text>
+          <s-text color="subdued">{cadence}</s-text>
+        </s-stack>
+        <s-divider />
+        {featureList(features)}
+        <s-stack direction="block" gap="small-200">
+          <s-text color="subdued">{usageLine}</s-text>
+          <ProgressBar progress={Math.min(100, progress)} label={usageLine} />
+        </s-stack>
+        <s-box>{action}</s-box>
+      </s-stack>
+    </s-section>
+  );
+
+  const currentPlanButton = <s-button disabled>{t("Current plan")}</s-button>;
+
   return (
-    <Page
-      fullWidth
-      title={t("Plans & Pricing")}
-      subtitle={t("Choose the plan that fits your rental business.")}
-    >
-      <BlockStack gap="600">
+    <s-page heading={t("Plans & Pricing")} inlineSize="large">
+      <s-stack direction="block" gap="large">
+        <s-text color="subdued">{t("Choose the plan that fits your rental business.")}</s-text>
         {error && (
           <Banner tone="critical" onDismiss={() => setError(null)}>
-            <Text as="p">{error}</Text>
+            <s-paragraph>{error}</s-paragraph>
           </Banner>
         )}
 
         {currentPlan !== "free" && (
           <Banner tone="success">
-            <Text as="p">
+            <s-paragraph>
               {t("You're on the {plan} plan: {limit} rentals/month.", {
                 plan: t(currentPlanDetails.name),
                 limit: currentPlanDetails.rentalLimit,
@@ -176,222 +222,83 @@ export default function PricingPage() {
               {usage.resetDate
                 ? t("Resets on {date}.", { date: new Date(usage.resetDate).toLocaleDateString("en-NZ", { day: "numeric", month: "long" }) })
                 : ""}
-            </Text>
+            </s-paragraph>
           </Banner>
         )}
 
-        <Layout>
+        <Grid columns={TWO_UP} gap="base">
           {/* Row 1: Free + Starter */}
-          <Layout.Section variant="oneHalf">
-            <Card>
-              <BlockStack gap="400">
-                <BlockStack gap="100">
-                  <Text as="h2" variant="headingLg">
-                    {t("Free")}
-                  </Text>
-                  <Text as="p" variant="headingXl">
-                    $0
-                  </Text>
-                  <Text as="p" tone="subdued">
-                    {t("Forever free")}
-                  </Text>
-                </BlockStack>
-                <Divider />
-                <List type="bullet">
-                  {planFeatures.free.map((f) => (
-                    <List.Item key={f}>{t(f)}</List.Item>
-                  ))}
-                </List>
-                <BlockStack gap="200">
-                  <Text as="p" tone="subdued">
-                    {t("{used} of {limit} lifetime rentals used", { used: usage.current, limit: plans.free.rentalLimit })}
-                  </Text>
-                  <ProgressBar
-                    progress={Math.min(
-                      100,
-                      currentPlan === "free"
-                        ? (usage.current / plans.free.rentalLimit) * 100
-                        : 0,
-                    )}
-                    tone="highlight"
-                    size="small"
-                  />
-                </BlockStack>
-                {currentPlan === "free" ? (
-                  <Button disabled>{t("Current plan")}</Button>
-                ) : (
-                  <Button variant="secondary" loading={loading === "cancel"} onClick={handleCancel}>
-                    {t("Downgrade to Free")}
-                  </Button>
-                )}
-              </BlockStack>
-            </Card>
-          </Layout.Section>
+          {planCard({
+            name: t("Free"),
+            price: "$0",
+            cadence: t("Forever free"),
+            features: planFeatures.free,
+            usageLine: t("{used} of {limit} lifetime rentals used", { used: usage.current, limit: plans.free.rentalLimit }),
+            progress: currentPlan === "free" ? (usage.current / plans.free.rentalLimit) * 100 : 0,
+            action:
+              currentPlan === "free" ? (
+                currentPlanButton
+              ) : (
+                <s-button variant="secondary" loading={flag(loading === "cancel")} onClick={handleCancel}>
+                  {t("Downgrade to Free")}
+                </s-button>
+              ),
+          })}
 
-          <Layout.Section variant="oneHalf">
-            <Card>
-              <BlockStack gap="400">
-                <BlockStack gap="100">
-                  <Text as="h2" variant="headingLg">
-                    {t("Starter")}
-                  </Text>
-                  <Text as="p" variant="headingXl">
-                    $19.95
-                  </Text>
-                  <Text as="p" tone="subdued">
-                    {t("per month")}
-                  </Text>
-                </BlockStack>
-                <Divider />
-                <List type="bullet">
-                  {planFeatures.starter.map((f) => (
-                    <List.Item key={f}>{t(f)}</List.Item>
-                  ))}
-                </List>
-                <BlockStack gap="200">
-                  <Text as="p" tone="subdued">
-                    {t("{used} of {limit} rentals this month", { used: currentPlan === "starter" ? usage.current : 0, limit: plans.starter.rentalLimit })}
-                  </Text>
-                  <ProgressBar
-                    progress={Math.min(
-                      100,
-                      currentPlan === "starter"
-                        ? (usage.current / plans.starter.rentalLimit) * 100
-                        : 0,
-                    )}
-                    tone="highlight"
-                    size="small"
-                  />
-                </BlockStack>
-                {currentPlan === "starter" ? (
-                  <Button disabled>{t("Current plan")}</Button>
-                ) : (
-                  <Button variant="primary" loading={loading === "starter"} disabled={submitting} onClick={() => handleSubscribe("starter")}>
-                    {currentPlan === "free" ? t("Upgrade to Starter") : t("Switch to Starter")}
-                  </Button>
-                )}
-              </BlockStack>
-            </Card>
-          </Layout.Section>
+          {planCard({
+            name: t("Starter"),
+            price: "$19.95",
+            cadence: t("per month"),
+            features: planFeatures.starter,
+            usageLine: t("{used} of {limit} rentals this month", { used: currentPlan === "starter" ? usage.current : 0, limit: plans.starter.rentalLimit }),
+            progress: currentPlan === "starter" ? (usage.current / plans.starter.rentalLimit) * 100 : 0,
+            action:
+              currentPlan === "starter" ? (
+                currentPlanButton
+              ) : (
+                <s-button variant="primary" loading={flag(loading === "starter")} disabled={flag(submitting)} onClick={() => handleSubscribe("starter")}>
+                  {currentPlan === "free" ? t("Upgrade to Starter") : t("Switch to Starter")}
+                </s-button>
+              ),
+          })}
 
           {/* Row 2: Growth + Pro */}
-          <Layout.Section variant="oneHalf">
-            <Card>
-              <BlockStack gap="400">
-                <InlineStack align="space-between">
-                  <Text as="h2" variant="headingLg">
-                    {t("Growth")}
-                  </Text>
-                  {popularPlan === "growth" && (
-                    <Badge tone="attention">{t("Popular")}</Badge>
-                  )}
-                </InlineStack>
-                <BlockStack gap="100">
-                  <Text as="p" variant="headingXl">
-                    $49.95
-                  </Text>
-                  <Text as="p" tone="subdued">
-                    {t("per month")}
-                  </Text>
-                </BlockStack>
-                <Divider />
-                <List type="bullet">
-                  {planFeatures.growth.map((f) =>
-                    f.includes("coming soon") ? (
-                      <List.Item key={f}>
-                        <InlineStack gap="200" blockAlign="center">
-                          <Text as="span">{t(f.replace(" (coming soon)", ""))}</Text>
-                          <Badge tone="new">{t("Coming soon")}</Badge>
-                        </InlineStack>
-                      </List.Item>
-                    ) : (
-                      <List.Item key={f}>{t(f)}</List.Item>
-                    ),
-                  )}
-                </List>
-                <BlockStack gap="200">
-                  <Text as="p" tone="subdued">
-                    {t("{used} of {limit} rentals this month", { used: currentPlan === "growth" ? usage.current : 0, limit: plans.growth.rentalLimit })}
-                  </Text>
-                  <ProgressBar
-                    progress={Math.min(
-                      100,
-                      currentPlan === "growth"
-                        ? (usage.current / plans.growth.rentalLimit) * 100
-                        : 0,
-                    )}
-                    tone="highlight"
-                    size="small"
-                  />
-                </BlockStack>
-                {currentPlan === "growth" ? (
-                  <Button disabled>{t("Current plan")}</Button>
-                ) : (
-                  <Button variant="primary" loading={loading === "growth"} disabled={submitting} onClick={() => handleSubscribe("growth")}>
-                    {currentPlan === "pro" ? t("Switch to Growth") : t("Upgrade to Growth")}
-                  </Button>
-                )}
-              </BlockStack>
-            </Card>
-          </Layout.Section>
+          {planCard({
+            name: t("Growth"),
+            price: "$49.95",
+            cadence: t("per month"),
+            badge: popularPlan === "growth" ? <s-badge tone="caution">{t("Popular")}</s-badge> : undefined,
+            features: planFeatures.growth,
+            usageLine: t("{used} of {limit} rentals this month", { used: currentPlan === "growth" ? usage.current : 0, limit: plans.growth.rentalLimit }),
+            progress: currentPlan === "growth" ? (usage.current / plans.growth.rentalLimit) * 100 : 0,
+            action:
+              currentPlan === "growth" ? (
+                currentPlanButton
+              ) : (
+                <s-button variant="primary" loading={flag(loading === "growth")} disabled={flag(submitting)} onClick={() => handleSubscribe("growth")}>
+                  {currentPlan === "pro" ? t("Switch to Growth") : t("Upgrade to Growth")}
+                </s-button>
+              ),
+          })}
 
-          <Layout.Section variant="oneHalf">
-            <Card>
-              <BlockStack gap="400">
-                <BlockStack gap="100">
-                  <Text as="h2" variant="headingLg">
-                    {t("Pro")}
-                  </Text>
-                  <Text as="p" variant="headingXl">
-                    $89.95
-                  </Text>
-                  <Text as="p" tone="subdued">
-                    {t("per month")}
-                  </Text>
-                </BlockStack>
-                <Divider />
-                <List type="bullet">
-                  {planFeatures.pro.map((f) =>
-                    f.includes("coming soon") ? (
-                      <List.Item key={f}>
-                        <InlineStack gap="200" blockAlign="center">
-                          <Text as="span">{t(f.replace(" (coming soon)", ""))}</Text>
-                          <Badge tone="new">{t("Coming soon")}</Badge>
-                        </InlineStack>
-                      </List.Item>
-                    ) : (
-                      <List.Item key={f}>{t(f)}</List.Item>
-                    ),
-                  )}
-                </List>
-                <BlockStack gap="200">
-                  <Text as="p" tone="subdued">
-                    {t("{used} of {limit} rentals this month", { used: currentPlan === "pro" ? usage.current : 0, limit: plans.pro.rentalLimit })}
-                  </Text>
-                  <ProgressBar
-                    progress={Math.min(
-                      100,
-                      currentPlan === "pro"
-                        ? (usage.current / plans.pro.rentalLimit) * 100
-                        : 0,
-                    )}
-                    tone="highlight"
-                    size="small"
-                  />
-                </BlockStack>
-                {currentPlan === "pro" ? (
-                  <Button disabled>{t("Current plan")}</Button>
-                ) : (
-                  <Button variant="primary" loading={loading === "pro"} disabled={submitting} onClick={() => handleSubscribe("pro")}>
-                    {t("Upgrade to Pro")}
-                  </Button>
-                )}
-              </BlockStack>
-            </Card>
-          </Layout.Section>
-        </Layout>
-
-      </BlockStack>
-    </Page>
+          {planCard({
+            name: t("Pro"),
+            price: "$89.95",
+            cadence: t("per month"),
+            features: planFeatures.pro,
+            usageLine: t("{used} of {limit} rentals this month", { used: currentPlan === "pro" ? usage.current : 0, limit: plans.pro.rentalLimit }),
+            progress: currentPlan === "pro" ? (usage.current / plans.pro.rentalLimit) * 100 : 0,
+            action:
+              currentPlan === "pro" ? (
+                currentPlanButton
+              ) : (
+                <s-button variant="primary" loading={flag(loading === "pro")} disabled={flag(submitting)} onClick={() => handleSubscribe("pro")}>
+                  {t("Upgrade to Pro")}
+                </s-button>
+              ),
+          })}
+        </Grid>
+      </s-stack>
+    </s-page>
   );
 }

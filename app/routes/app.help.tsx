@@ -1,36 +1,9 @@
 import type { LoaderFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
 import { useLoaderData, useNavigate } from "@remix-run/react";
-import {
-  Page,
-  Layout,
-  Card,
-  BlockStack,
-  InlineStack,
-  Text,
-  Button,
-  Box,
-  Divider,
-  Badge,
-  List,
-  Icon,
-} from "@shopify/polaris";
-import {
-  MagicIcon,
-  PlayIcon,
-  QuestionCircleIcon,
-  CodeIcon,
-  ClockIcon,
-  ChatIcon,
-  LockIcon,
-  ExternalIcon,
-  ProductIcon,
-  CalendarIcon,
-  EmailIcon,
-  StoreIcon,
-  CheckCircleIcon,
-  AlertCircleIcon,
-} from "@shopify/polaris-icons";
+import type { ComponentProps, ReactNode } from "react";
+import { Banner, Grid } from "../components/polaris";
+import { MAIN_WITH_SIDEBAR } from "../components/layout";
 import { authenticate } from "../shopify.server";
 import { useT } from "../i18n/context";
 
@@ -50,140 +23,116 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   });
 };
 
+type IconName = ComponentProps<"s-icon">["type"];
+
+/** Numbered square used by the quick start and journey lists. */
+function StepNumber({ n, round }: { n: number; round?: boolean }) {
+  return (
+    <s-box
+      inlineSize={round ? "32px" : "28px"}
+      blockSize={round ? "32px" : "28px"}
+      background="subdued"
+      borderRadius={round ? "large-200" : "base"}
+    >
+      <s-stack direction="block" alignItems="center" justifyContent="center" blockSize="100%">
+        <s-text type="strong">{n}</s-text>
+      </s-stack>
+    </s-box>
+  );
+}
+
 interface StepCardProps {
   number: number;
-  icon: React.FunctionComponent<React.SVGProps<SVGSVGElement>>;
+  icon: IconName;
   title: string;
-  body: React.ReactNode;
+  body: ReactNode;
   cta?: { label: string; url?: string; onClick?: () => void };
 }
 
 function StepCard({ number, icon, title, body, cta }: StepCardProps) {
   return (
-    <Box
-      padding="400"
-      borderRadius="300"
-      background="bg-surface"
-      borderColor="border-secondary"
-      borderWidth="025"
-    >
-      <BlockStack gap="300">
-        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <div
-            style={{
-              width: 28,
-              height: 28,
-              borderRadius: 8,
-              background: "#f1f1f1",
-              color: "#303030",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              fontWeight: 650,
-              fontSize: 13,
-              flexShrink: 0,
-            }}
-          >
-            {number}
-          </div>
-          <div style={{ width: 20, height: 20, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-            <Icon source={icon} tone="subdued" />
-          </div>
-          <Text as="h3" variant="headingSm">{title}</Text>
-        </div>
-        <Box paddingInlineStart="800">
-          <BlockStack gap="300">
-            <Text as="p" tone="subdued">{body}</Text>
+    <s-box padding="base" borderRadius="large" border="base">
+      <s-stack direction="block" gap="small">
+        <s-stack direction="inline" gap="small" alignItems="center">
+          <StepNumber n={number} />
+          <s-icon type={icon} color="subdued" />
+          <s-heading>{title}</s-heading>
+        </s-stack>
+        <s-box paddingInlineStart="large-200">
+          <s-stack direction="block" gap="small">
+            <s-paragraph color="subdued">{body}</s-paragraph>
             {cta && (
-              <InlineStack>
+              <s-box>
                 {cta.url ? (
-                  <Button url={cta.url} target="_blank" variant="primary" icon={ExternalIcon}>
+                  <s-button href={cta.url} target="_blank" variant="primary" icon="external">
                     {cta.label}
-                  </Button>
+                  </s-button>
                 ) : (
-                  <Button onClick={cta.onClick} variant="primary">{cta.label}</Button>
+                  <s-button onClick={cta.onClick} variant="primary">{cta.label}</s-button>
                 )}
-              </InlineStack>
+              </s-box>
             )}
-          </BlockStack>
-        </Box>
-      </BlockStack>
-    </Box>
+          </s-stack>
+        </s-box>
+      </s-stack>
+    </s-box>
   );
 }
 
 interface JourneyStepProps {
   number: number;
   title: string;
-  body: React.ReactNode;
+  body: ReactNode;
 }
 
 function JourneyStep({ number, title, body }: JourneyStepProps) {
   return (
-    <InlineStack gap="400" wrap={false} blockAlign="start">
-      <Box minWidth="40px">
-        <div
-          style={{
-            width: 32,
-            height: 32,
-            borderRadius: 16,
-            background: "#f1f1f1",
-            color: "#303030",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            fontWeight: 650,
-            fontSize: 13,
-          }}
-        >
-          {number}
-        </div>
-      </Box>
-      <BlockStack gap="100">
-        <Text as="h3" variant="headingSm">{title}</Text>
-        <Text as="p" tone="subdued">{body}</Text>
-      </BlockStack>
-    </InlineStack>
+    // Fixed two-column grid: the number column must never wrap above the text.
+    <s-grid gridTemplateColumns="40px 1fr" gap="base" alignItems="start">
+      <StepNumber n={number} round />
+      <s-stack direction="block" gap="small-300">
+        <s-heading>{title}</s-heading>
+        <s-paragraph color="subdued">{body}</s-paragraph>
+      </s-stack>
+    </s-grid>
   );
 }
 
 interface SectionHeaderProps {
-  icon: React.FunctionComponent<React.SVGProps<SVGSVGElement>>;
+  icon: IconName;
   title: string;
 }
 
 /** Native admin section heading: a neutral icon chip and the title. */
 function SectionHeader({ icon, title }: SectionHeaderProps) {
   return (
-    <InlineStack gap="200" blockAlign="center" wrap={false}>
-      <Box background="bg-fill-secondary" borderRadius="200" padding="100">
-        <Icon source={icon} tone="subdued" />
-      </Box>
-      <Text as="h2" variant="headingMd">{title}</Text>
-    </InlineStack>
+    <s-stack direction="inline" gap="small-200" alignItems="center">
+      <s-box background="subdued" borderRadius="base" padding="small-300">
+        <s-icon type={icon} color="subdued" />
+      </s-box>
+      <s-heading>{title}</s-heading>
+    </s-stack>
   );
 }
 
 interface ScenarioProps {
   question: string;
-  answer: React.ReactNode;
+  answer: ReactNode;
 }
 
 function Scenario({ question, answer }: ScenarioProps) {
   return (
-    <Box paddingBlock="400" paddingInline="100">
-      <BlockStack gap="200">
-        <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
-          <div style={{ width: 20, height: 20, marginTop: 2, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-            <Icon source={QuestionCircleIcon} tone="subdued" />
-          </div>
-          <Text as="h3" variant="headingSm">{question}</Text>
-        </div>
-        <Box paddingInlineStart="600">
-          <Text as="p" tone="subdued">{answer}</Text>
-        </Box>
-      </BlockStack>
-    </Box>
+    <s-box paddingBlock="base" paddingInline="small-300">
+      <s-stack direction="block" gap="small-200">
+        <s-stack direction="inline" gap="small" alignItems="start">
+          <s-icon type="question-circle" color="subdued" />
+          <s-heading>{question}</s-heading>
+        </s-stack>
+        <s-box paddingInlineStart="large">
+          <s-paragraph color="subdued">{answer}</s-paragraph>
+        </s-box>
+      </s-stack>
+    </s-box>
   );
 }
 
@@ -217,34 +166,33 @@ export default function HelpPage() {
     }
   }
 
+
   return (
-    <Page
-      fullWidth
-      title={t("Help center")}
-      subtitle={t("Everything you need to launch and run rentals with confidence.")}
-    >
-      <Layout>
-        <Layout.Section>
-          <Card>
-            <BlockStack gap="200">
-              <Text as="h2" variant="headingMd">{t("Full documentation")}</Text>
-              <Text as="p" tone="subdued">
-                {t("Every feature, step by step, with a troubleshooting guide. Opens in a new tab.")}
-              </Text>
-              <div>
-                <Button onClick={() => window.open("https://miko.co.nz/docs/rentals/", "_blank")}>
-                  {t("Open the documentation")}
-                </Button>
-              </div>
-            </BlockStack>
-          </Card>
-        </Layout.Section>
-        <Layout.Section>
-          <BlockStack gap="600">
-            {/* Hero: the brand navy header, as on the dashboard. */}
+    <s-page heading={t("Help center")} inlineSize="large">
+      <s-stack direction="block" gap="large">
+        <s-text color="subdued">{t("Everything you need to launch and run rentals with confidence.")}</s-text>
+
+        <s-section>
+          <s-stack direction="block" gap="small-200">
+            <s-heading>{t("Full documentation")}</s-heading>
+            <s-paragraph color="subdued">
+              {t("Every feature, step by step, with a troubleshooting guide. Opens in a new tab.")}
+            </s-paragraph>
+            <s-box>
+              <s-button onClick={() => window.open("https://miko.co.nz/docs/rentals/", "_blank")}>
+                {t("Open the documentation")}
+              </s-button>
+            </s-box>
+          </s-stack>
+        </s-section>
+
+        <Grid columns={MAIN_WITH_SIDEBAR} gap="large">
+          <s-stack direction="block" gap="large">
+            {/* Hero: the brand navy header, as on the dashboard. Brand block,
+                drawn with our own classes; it does not restyle with Polaris. */}
             <div className="miko-gradient-bg" style={{ borderRadius: 12, padding: "24px 28px" }}>
               <div style={{ position: "relative", zIndex: 1 }}>
-                <BlockStack gap="400">
+                <s-stack direction="block" gap="base">
                   <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
                     <div
                       style={{
@@ -259,112 +207,99 @@ export default function HelpPage() {
                         color: "#ffffff",
                       }}
                     >
-                      <div style={{ width: 22, height: 22, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                        <Icon source={MagicIcon} tone="inherit" />
-                      </div>
+                      <s-icon type="magic" />
                     </div>
-                    <BlockStack gap="100">
-                      <Text as="h2" variant="headingLg">
+                    <s-stack direction="block" gap="small-300">
+                      <s-heading>
                         <span style={{ color: "#ffffff" }}>{t("Welcome to Miko")}</span>
-                      </Text>
-                      <Text as="p">
+                      </s-heading>
+                      <s-paragraph>
                         <span style={{ color: "rgba(255,255,255,0.85)" }}>
                           {t("Get your first rental product live in about 5 minutes. We will walk you through every step.")}
                         </span>
-                      </Text>
-                    </BlockStack>
+                      </s-paragraph>
+                    </s-stack>
                   </div>
-                  <InlineStack gap="200" wrap>
-                    <Button
-                      variant="primary"
-                      icon={ProductIcon}
-                      onClick={() => navigate("/app/products")}
-                    >
+                  <s-stack direction="inline" gap="small-200">
+                    <s-button variant="primary" icon="product" onClick={() => navigate("/app/products")}>
                       {t("Add your first rental")}
-                    </Button>
-                    <Button
-                      icon={ExternalIcon}
-                      url={themeEditorBlockUrl}
-                      target="_blank"
-                    >
+                    </s-button>
+                    <s-button icon="external" href={themeEditorBlockUrl} target="_blank">
                       {t("Open theme editor")}
-                    </Button>
-                    <Button
-                      icon={EmailIcon}
-                      onClick={() => openMailto(t("Miko support request"))}
-                    >
+                    </s-button>
+                    <s-button icon="email" onClick={() => openMailto(t("Miko support request"))}>
                       {t("Email support")}
-                    </Button>
-                  </InlineStack>
-                </BlockStack>
+                    </s-button>
+                  </s-stack>
+                </s-stack>
               </div>
             </div>
 
             {/* Quick Start */}
-            <Card>
-              <BlockStack gap="500">
-                <InlineStack gap="300" align="space-between" blockAlign="center">
-                  <BlockStack gap="200">
-                    <SectionHeader icon={CheckCircleIcon} title={t("Quick start")} />
-                    <Text as="p" tone="subdued">
+            <s-section>
+              <s-stack direction="block" gap="large">
+                <s-stack direction="inline" gap="small" justifyContent="space-between" alignItems="center">
+                  <s-stack direction="block" gap="small-200">
+                    <SectionHeader icon="check-circle" title={t("Quick start")} />
+                    <s-paragraph color="subdued">
                       {t("Follow these in order. The dashboard checklist ticks each one off as you go.")}
-                    </Text>
-                  </BlockStack>
-                  <Badge tone="info">{t("5 steps")}</Badge>
-                </InlineStack>
-                <BlockStack gap="300">
+                    </s-paragraph>
+                  </s-stack>
+                  <s-badge tone="info">{t("5 steps")}</s-badge>
+                </s-stack>
+                <s-stack direction="block" gap="small">
                   <StepCard
                     number={1}
-                    icon={ProductIcon}
+                    icon="product"
                     title={t("Add your first rental product")}
                     body={t("Pick any product from your Shopify store and turn on rentals for it. Its normal listing stays the same. You are just adding a rental option on top.")}
                     cta={{ label: t("Manage products"), onClick: () => navigate("/app/products") }}
                   />
                   <StepCard
                     number={2}
-                    icon={StoreIcon}
+                    icon="store"
                     title={t("Set your rental pricing and units")}
                     body={
                       <>
-                        {t("Enter at least a")} <strong>{t("daily price")}</strong>{t(". Weekly and monthly rates are optional and we will automatically apply the best one for the customer's chosen dates. Set")} <strong>{t("Total units available")}</strong> {t("to how many of this item you have on hand to rent out.")}
+                        {t("Enter at least a")} <s-text type="strong">{t("daily price")}</s-text>{t(". Weekly and monthly rates are optional and we will automatically apply the best one for the customer's chosen dates. Set")} <s-text type="strong">{t("Total units available")}</s-text> {t("to how many of this item you have on hand to rent out.")}
                       </>
                     }
                     cta={{ label: t("Open products"), onClick: () => navigate("/app/products") }}
                   />
                   <StepCard
                     number={3}
-                    icon={CalendarIcon}
+                    icon="calendar"
                     title={t("Add the booking calendar to your product page")}
                     body={t("Open your theme editor and drop the Miko Rental Calendar block onto your product template. As soon as a customer views the product, we automatically detect that the calendar is live.")}
                     cta={{ label: t("Open theme editor"), url: themeEditorBlockUrl }}
                   />
                   <StepCard
                     number={4}
-                    icon={CodeIcon}
+                    icon="code"
                     title={t("Turn on the display rules (recommended)")}
                     body={t("Enable the Miko Rental Display Rules app embed. It hides the normal price and Add to cart button on rental products so customers can only check out through the rental flow. It also adds a Rental badge on your collection pages.")}
                     cta={{ label: t("Enable app embed"), url: themeEditorEmbedUrl }}
                   />
                   <StepCard
                     number={5}
-                    icon={EmailIcon}
+                    icon="email"
                     title={t("Set your email sender name")}
                     body={t("Customers receive booking confirmations, return reminders, and overdue notices from Miko. The sender name is what shows up in their inbox, usually your store name.")}
                     cta={{ label: t("Email settings"), onClick: () => navigate("/app/settings") }}
                   />
-                </BlockStack>
-              </BlockStack>
-            </Card>
+                </s-stack>
+              </s-stack>
+            </s-section>
 
             {/* How it works */}
-            <Card>
-              <BlockStack gap="400">
-                <SectionHeader icon={PlayIcon} title={t("How a rental flows through Miko")} />
-                <Text as="p" tone="subdued">
+            <s-section>
+              <s-stack direction="block" gap="base">
+                <SectionHeader icon="play" title={t("How a rental flows through Miko")} />
+                <s-paragraph color="subdued">
                   {t("Here is what happens from the moment a customer picks their dates to the day the item is back on your shelf.")}
-                </Text>
-                <Box paddingBlockStart="200">
-                  <BlockStack gap="400">
+                </s-paragraph>
+                <s-box paddingBlockStart="small-200">
+                  <s-stack direction="block" gap="base">
                     <JourneyStep
                       number={1}
                       title={t("Customer picks their dates")}
@@ -400,29 +335,29 @@ export default function HelpPage() {
                       title={t("Late returns")}
                       body={t("If the return date passes, the booking moves to Overdue and the customer gets an overdue notice showing your late fee rate. When the item is back, click Record late fee and create a draft order in Shopify to collect.")}
                     />
-                  </BlockStack>
-                </Box>
-              </BlockStack>
-            </Card>
+                  </s-stack>
+                </s-box>
+              </s-stack>
+            </s-section>
 
             {/* Common scenarios */}
-            <Card>
-              <BlockStack gap="400">
-                <SectionHeader icon={QuestionCircleIcon} title={t("Common questions")} />
-                <Text as="p" tone="subdued">
+            <s-section>
+              <s-stack direction="block" gap="base">
+                <SectionHeader icon="question-circle" title={t("Common questions")} />
+                <s-paragraph color="subdued">
                   {t("Real situations you may run into and the quickest way to handle each one.")}
-                </Text>
-                <Divider />
+                </s-paragraph>
+                <s-divider />
 
                 <Scenario
                   question={t("An order came in but I don't see a booking for it")}
                   answer={
                     <>
-                      {t("Open the")} <strong>{t("Bookings")}</strong> {t("page and click")} <strong>{t("Sync from Shopify")}</strong> {t("at the top. It pulls in the last 50 orders and creates bookings for any that have rental info but were missed (usually because of a brief webhook outage). New orders going forward show up automatically.")}
+                      {t("Open the")} <s-text type="strong">{t("Bookings")}</s-text> {t("page and click")} <s-text type="strong">{t("Sync from Shopify")}</s-text> {t("at the top. It pulls in the last 50 orders and creates bookings for any that have rental info but were missed (usually because of a brief webhook outage). New orders going forward show up automatically.")}
                     </>
                   }
                 />
-                <Divider />
+                <s-divider />
 
                 <Scenario
                   question={t("A booking is flagged as Needs review")}
@@ -432,121 +367,101 @@ export default function HelpPage() {
                     </>
                   }
                 />
-                <Divider />
+                <s-divider />
 
                 <Scenario
                   question={t("The product page still shows the regular price")}
                   answer={
                     <>
-                      {t("Two quick checks. First, go to")} <strong>{t("Rental Products")}</strong> {t("and click")} <strong>{t("Sync with storefront")}</strong> {t("so the rental flag is written to your product. Second, confirm the Miko Rental Display Rules app embed is turned on in the theme editor. Then do a hard refresh of the product page (")}<strong>{t("Cmd + Shift + R")}</strong> {t("on Mac or")} <strong>{t("Ctrl + Shift + R")}</strong> {t("on Windows) to clear the cached version.")}
+                      {t("Two quick checks. First, go to")} <s-text type="strong">{t("Rental Products")}</s-text> {t("and click")} <s-text type="strong">{t("Sync with storefront")}</s-text> {t("so the rental flag is written to your product. Second, confirm the Miko Rental Display Rules app embed is turned on in the theme editor. Then do a hard refresh of the product page (")}<s-text type="strong">{t("Cmd + Shift + R")}</s-text> {t("on Mac or")} <s-text type="strong">{t("Ctrl + Shift + R")}</s-text> {t("on Windows) to clear the cached version.")}
                     </>
                   }
                 />
-                <Divider />
+                <s-divider />
 
                 <Scenario
                   question={t("The customer's deposit needs to be refunded")}
                   answer={
                     <>
-                      {t("Open the booking, scroll to")} <strong>{t("Deposit management")}</strong>{t(", and click")} <strong>{t("Refund deposit to customer")}</strong>{t(". We use Shopify's standard refund flow so the customer gets the money back on their original payment method, and Shopify automatically sends them a refund email.")}
+                      {t("Open the booking, scroll to")} <s-text type="strong">{t("Deposit management")}</s-text>{t(", and click")} <s-text type="strong">{t("Refund deposit to customer")}</s-text>{t(". We use Shopify's standard refund flow so the customer gets the money back on their original payment method, and Shopify automatically sends them a refund email.")}
                     </>
                   }
                 />
-                <Divider />
+                <s-divider />
 
                 <Scenario
                   question={t("The customer damaged the item or did not return it")}
                   answer={
                     <>
-                      {t("Open the booking, scroll to")} <strong>{t("Deposit management")}</strong>{t(", and click")} <strong>{t("Mark forfeited")}</strong>{t(". The deposit stays with you and the customer is not refunded. If you need to charge more than the deposit, create a draft order in Shopify for the extra amount and send them an invoice.")}
+                      {t("Open the booking, scroll to")} <s-text type="strong">{t("Deposit management")}</s-text>{t(", and click")} <s-text type="strong">{t("Mark forfeited")}</s-text>{t(". The deposit stays with you and the customer is not refunded. If you need to charge more than the deposit, create a draft order in Shopify for the extra amount and send them an invoice.")}
                     </>
                   }
                 />
-                <Divider />
+                <s-divider />
 
                 <Scenario
                   question={t("I want to block out certain dates (holidays, maintenance)")}
                   answer={
                     <>
-                      {t("Open the product, scroll to")} <strong>{t("Blocked dates")}</strong>{t(", and add the dates you want to keep unavailable. Customers will not be able to pick those dates in the calendar.")}
+                      {t("Open the product, scroll to")} <s-text type="strong">{t("Blocked dates")}</s-text>{t(", and add the dates you want to keep unavailable. Customers will not be able to pick those dates in the calendar.")}
                     </>
                   }
                 />
-                <Divider />
+                <s-divider />
 
                 <Scenario
                   question={t("I changed my plan but rentals are still being blocked at the limit")}
                   answer={
                     <>
-                      {t("Plan changes apply right away, but if your monthly usage already passed the new plan's limit, it stays blocked until the next calendar month. The")} <strong>{t("Awaiting payment")}</strong> {t("count on your dashboard shows where you stand.")}
+                      {t("Plan changes apply right away, but if your monthly usage already passed the new plan's limit, it stays blocked until the next calendar month. The")} <s-text type="strong">{t("Awaiting payment")}</s-text> {t("count on your dashboard shows where you stand.")}
                     </>
                   }
                 />
-                <Divider />
+                <s-divider />
 
                 <Scenario
                   question={t("I uninstalled and reinstalled the app")}
                   answer={
                     <>
-                      {t("No worries, your products, bookings, settings, and email templates are all kept. Shopify cancels paid subscriptions on uninstall, so you will be on the Free plan until you reactivate from")} <strong>{t("Pricing")}</strong>{t(". The cart price override is set back up automatically when you reinstall.")}
+                      {t("No worries, your products, bookings, settings, and email templates are all kept. Shopify cancels paid subscriptions on uninstall, so you will be on the Free plan until you reactivate from")} <s-text type="strong">{t("Pricing")}</s-text>{t(". The cart price override is set back up automatically when you reinstall.")}
                     </>
                   }
                 />
-              </BlockStack>
-            </Card>
+              </s-stack>
+            </s-section>
 
             {/* Multi-unit + overbooking */}
-            <Card>
-              <BlockStack gap="400">
-                <SectionHeader icon={AlertCircleIcon} title={t("Multi unit rentals and overbooking protection")} />
-                <Text as="p">
-                  {t("Set")} <strong>{t("Total units available")}</strong> {t("on each product to how many physical copies you have on hand. When a product has more than one unit, customers see a quantity picker on the storefront, and the calendar only blocks dates when every unit is booked.")}
-                </Text>
-                <Text as="p">{t("We protect you from overbooking in two places:")}</Text>
-                <List type="bullet">
-                  <List.Item>
+            <s-section>
+              <s-stack direction="block" gap="base">
+                <SectionHeader icon="alert-circle" title={t("Multi unit rentals and overbooking protection")} />
+                <s-paragraph>
+                  {t("Set")} <s-text type="strong">{t("Total units available")}</s-text> {t("on each product to how many physical copies you have on hand. When a product has more than one unit, customers see a quantity picker on the storefront, and the calendar only blocks dates when every unit is booked.")}
+                </s-paragraph>
+                <s-paragraph>{t("We protect you from overbooking in two places:")}</s-paragraph>
+                <s-unordered-list>
+                  <s-list-item>
                     {t("The booking widget checks availability before the customer can pay and shows a clear warning if not enough units are free for their dates.")}
-                  </List.Item>
-                  <List.Item>
-                    {t("The order webhook checks again at order creation and at payment. If two customers race for the last unit, the second booking is created as")} <strong>{t("Needs review")}</strong> {t("instead of silently overbooking. A banner on your dashboard tells you what to do.")}
-                  </List.Item>
-                </List>
-              </BlockStack>
-            </Card>
+                  </s-list-item>
+                  <s-list-item>
+                    {t("The order webhook checks again at order creation and at payment. If two customers race for the last unit, the second booking is created as")} <s-text type="strong">{t("Needs review")}</s-text> {t("instead of silently overbooking. A banner on your dashboard tells you what to do.")}
+                  </s-list-item>
+                </s-unordered-list>
+              </s-stack>
+            </s-section>
 
             {/* Theme compatibility */}
-            <Card>
-              <BlockStack gap="400">
-                <SectionHeader icon={CodeIcon} title={t("Works on every modern Shopify theme")} />
-                <Text as="p">
+            <s-section>
+              <s-stack direction="block" gap="base">
+                <SectionHeader icon="code" title={t("Works on every modern Shopify theme")} />
+                <s-paragraph>
                   {t("Our display rules embed works automatically on every Shopify built theme (Dawn, Horizon, Sense, Refresh, Studio, Craft, Origin, and the rest) and the vast majority of third party themes. No setup needed beyond turning the embed on.")}
-                </Text>
-                <Box
-                  background="bg-surface-info"
-                  padding="400"
-                  borderRadius="300"
-                  borderColor="border-info"
-                  borderWidth="025"
-                >
-                  <BlockStack gap="200">
-                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                      <div style={{ width: 20, height: 20, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                        <Icon source={AlertCircleIcon} tone="info" />
-                      </div>
-                      <Text as="h3" variant="headingSm">{t("On a heavily customized theme?")}</Text>
-                    </div>
-                    <Text as="p" tone="subdued">
-                      {t("If the Rental badge does not appear or the price is still showing on rental cards, paste this snippet into your theme's main CSS file. Go to")} <strong>{t("Online Store, then Themes, then Edit code, then assets/base.css")}</strong> {t("(or whatever stylesheet your theme uses) and replace")} <code>.your-card-class</code> {t("with the wrapper class your theme actually uses.")}
-                    </Text>
-                  </BlockStack>
-                </Box>
-                <Box
-                  background="bg-surface-secondary"
-                  borderRadius="200"
-                  padding="400"
-                  borderColor="border"
-                  borderWidth="025"
-                >
+                </s-paragraph>
+                <Banner tone="info" title={t("On a heavily customized theme?")}>
+                  <s-paragraph>
+                    {t("If the Rental badge does not appear or the price is still showing on rental cards, paste this snippet into your theme's main CSS file. Go to")} <s-text type="strong">{t("Online Store, then Themes, then Edit code, then assets/base.css")}</s-text> {t("(or whatever stylesheet your theme uses) and replace")} <code>.your-card-class</code> {t("with the wrapper class your theme actually uses.")}
+                  </s-paragraph>
+                </Banner>
+                <s-box background="subdued" borderRadius="base" padding="base" border="base">
                   <pre style={{ margin: 0, fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace", fontSize: "12px", whiteSpace: "pre-wrap", lineHeight: "1.6" }}>
 {`/* Miko fallback for custom themes */
 .your-card-class[data-miko-rental-card] {
@@ -570,123 +485,109 @@ export default function HelpPage() {
   border-radius: 4px;
 }`}
                   </pre>
-                </Box>
-                <Text as="p" tone="subdued">
-                  {t("Not sure what your class names are? Right click any product card on your storefront and choose")} <strong>{t("Inspect")}</strong>{t(". The wrapping element's")} <code>class</code> {t("attribute is what goes in place of")} <code>.your-card-class</code>{t(". The visible price element's class goes in place of")} <code>.your-price-class</code>.
-                </Text>
-                <Box
-                  background="bg-surface-success"
-                  padding="400"
-                  borderRadius="300"
-                  borderColor="border-success"
-                  borderWidth="025"
+                </s-box>
+                <s-paragraph color="subdued">
+                  {t("Not sure what your class names are? Right click any product card on your storefront and choose")} <s-text type="strong">{t("Inspect")}</s-text>{t(". The wrapping element's")} <code>class</code> {t("attribute is what goes in place of")} <code>.your-card-class</code>{t(". The visible price element's class goes in place of")} <code>.your-price-class</code>.
+                </s-paragraph>
+                <Banner
+                  tone="success"
+                  title={t("Don't want to touch code?")}
+                  action={{
+                    content: t("Get a custom snippet"),
+                    onAction: () =>
+                      openMailto(
+                        t("Custom theme CSS help"),
+                        t("Hi Miko team,\n\nMy store URL: \nMy theme: \n\nThe Rental badge / price hide is not working on my collection pages. Could you send me a CSS snippet that works for my theme?\n\nThanks!"),
+                      ),
+                  }}
                 >
-                  <InlineStack gap="400" align="space-between" blockAlign="center" wrap>
-                    <BlockStack gap="100">
-                      <Text as="h3" variant="headingSm">{t("Don't want to touch code?")}</Text>
-                      <Text as="p" tone="subdued" variant="bodySm">
-                        {t("Send us your store URL and we will send back a ready to paste snippet tailored to your theme. Usually within one business day.")}
-                      </Text>
-                    </BlockStack>
-                    <Button
-                      onClick={() =>
-                        openMailto(
-                          t("Custom theme CSS help"),
-                          t("Hi Miko team,\n\nMy store URL: \nMy theme: \n\nThe Rental badge / price hide is not working on my collection pages. Could you send me a CSS snippet that works for my theme?\n\nThanks!"),
-                        )
-                      }
-                      variant="primary"
-                      icon={EmailIcon}
-                    >
-                      {t("Get a custom snippet")}
-                    </Button>
-                  </InlineStack>
-                </Box>
-              </BlockStack>
-            </Card>
+                  <s-paragraph>
+                    {t("Send us your store URL and we will send back a ready to paste snippet tailored to your theme. Usually within one business day.")}
+                  </s-paragraph>
+                </Banner>
+              </s-stack>
+            </s-section>
 
             {/* Late fees */}
-            <Card>
-              <BlockStack gap="400">
-                <SectionHeader icon={ClockIcon} title={t("How late fees work")} />
-                <Text as="p">
-                  {t("Set the")} <strong>{t("Late fee per day")}</strong> {t("and a")} <strong>{t("Grace period")}</strong> {t("in Settings. After a rental's return date passes, Miko automatically marks it as Overdue and sends the customer an overdue notice showing your late fee rate.")}
-                </Text>
-                <Text as="p">
-                  {t("When the item is back, open the booking and click")} <strong>{t("Record late fee")}</strong>{t(". We calculate it as (days overdue minus your grace period) times your daily rate and save it on the booking. We do not auto charge the card. To collect, create a draft order in Shopify with a custom line item and send the invoice. This keeps you in control of any goodwill exceptions you want to make.")}
-                </Text>
-              </BlockStack>
-            </Card>
-          </BlockStack>
-        </Layout.Section>
+            <s-section>
+              <s-stack direction="block" gap="base">
+                <SectionHeader icon="clock" title={t("How late fees work")} />
+                <s-paragraph>
+                  {t("Set the")} <s-text type="strong">{t("Late fee per day")}</s-text> {t("and a")} <s-text type="strong">{t("Grace period")}</s-text> {t("in Settings. After a rental's return date passes, Miko automatically marks it as Overdue and sends the customer an overdue notice showing your late fee rate.")}
+                </s-paragraph>
+                <s-paragraph>
+                  {t("When the item is back, open the booking and click")} <s-text type="strong">{t("Record late fee")}</s-text>{t(". We calculate it as (days overdue minus your grace period) times your daily rate and save it on the booking. We do not auto charge the card. To collect, create a draft order in Shopify with a custom line item and send the invoice. This keeps you in control of any goodwill exceptions you want to make.")}
+                </s-paragraph>
+              </s-stack>
+            </s-section>
+          </s-stack>
 
-        {/* Sidebar */}
-        <Layout.Section variant="oneThird">
-          <BlockStack gap="400">
-            <Card>
-              <BlockStack gap="300">
-                <SectionHeader icon={ExternalIcon} title={t("Quick links")} />
-                <BlockStack gap="200">
-                  <Button url={themeEditorBlockUrl} target="_blank" fullWidth icon={CalendarIcon}>
+          {/* Sidebar */}
+          <s-stack direction="block" gap="base">
+            <s-section>
+              <s-stack direction="block" gap="small">
+                <SectionHeader icon="external" title={t("Quick links")} />
+                <s-stack direction="block" gap="small-200">
+                  <s-button href={themeEditorBlockUrl} target="_blank" inlineSize="fill" icon="calendar">
                     {t("Add calendar block")}
-                  </Button>
-                  <Button url={themeEditorEmbedUrl} target="_blank" fullWidth icon={CodeIcon}>
+                  </s-button>
+                  <s-button href={themeEditorEmbedUrl} target="_blank" inlineSize="fill" icon="code">
                     {t("Enable display rules")}
-                  </Button>
-                  <Button url={appEmbedsUrl} target="_blank" fullWidth variant="plain">
+                  </s-button>
+                  <s-button href={appEmbedsUrl} target="_blank" inlineSize="fill" variant="tertiary">
                     {t("All app embeds")}
-                  </Button>
-                </BlockStack>
-              </BlockStack>
-            </Card>
+                  </s-button>
+                </s-stack>
+              </s-stack>
+            </s-section>
 
-            <Card>
-              <BlockStack gap="300">
-                <SectionHeader icon={ChatIcon} title={t("Talk to a human")} />
-                <Text as="p" tone="subdued">
+            <s-section>
+              <s-stack direction="block" gap="small">
+                <SectionHeader icon="chat" title={t("Talk to a human")} />
+                <s-paragraph color="subdued">
                   {t("Stuck on something? Email our team and we will get back to you within one business day.")}
-                </Text>
-                <Button onClick={() => openMailto(t("Miko support request"))} fullWidth variant="primary" icon={EmailIcon}>
+                </s-paragraph>
+                <s-button onClick={() => openMailto(t("Miko support request"))} inlineSize="fill" variant="primary" icon="email">
                   {t("Email our team")}
-                </Button>
-              </BlockStack>
-            </Card>
+                </s-button>
+              </s-stack>
+            </s-section>
 
-            <Card>
-              <BlockStack gap="300">
-                <SectionHeader icon={MagicIcon} title={t("Beyond rentals?")} />
-                <Text as="p" tone="subdued">
+            <s-section>
+              <s-stack direction="block" gap="small">
+                <SectionHeader icon="magic" title={t("Beyond rentals?")} />
+                <s-paragraph color="subdued">
                   {t("Want to use Miko for event bookings, equipment hire, studio time, or any other date based booking? Tell us your use case and we will see if we can help.")}
-                </Text>
-                <Button
+                </s-paragraph>
+                <s-button
                   onClick={() =>
                     openMailto(
                       t("Use case beyond rentals"),
                       t("Hi Miko team,\n\nI run a store on Shopify and I'm interested in using Miko for:\n\n(Describe your use case here, e.g. event bookings, equipment hire, studio time, appointments...)\n\nIs this something you can help with?\n\nThanks!"),
                     )
                   }
-                  fullWidth
-                  icon={EmailIcon}
+                  inlineSize="fill"
+                  icon="email"
                 >
                   {t("Share your use case")}
-                </Button>
-              </BlockStack>
-            </Card>
+                </s-button>
+              </s-stack>
+            </s-section>
 
-            <Card>
-              <BlockStack gap="300">
-                <SectionHeader icon={LockIcon} title={t("Privacy and your data")} />
-                <Text as="p" tone="subdued">
+            <s-section>
+              <s-stack direction="block" gap="small">
+                <SectionHeader icon="lock" title={t("Privacy and your data")} />
+                <s-paragraph color="subdued">
                   {t("Miko only stores the data you create through the app: rental products, bookings, settings, and email templates. Customer data is limited to the name, email, and phone attached to orders.")}
-                </Text>
-                <Text as="p" tone="subdued">
+                </s-paragraph>
+                <s-paragraph color="subdued">
                   {t("When you uninstall, your sessions are deleted right away and a 48 hour retention window lets you reinstall without losing anything. After that, your shop's data is fully deleted.")}
-                </Text>
-              </BlockStack>
-            </Card>
-          </BlockStack>
-        </Layout.Section>
-      </Layout>
-    </Page>
+                </s-paragraph>
+              </s-stack>
+            </s-section>
+          </s-stack>
+        </Grid>
+      </s-stack>
+    </s-page>
   );
 }
