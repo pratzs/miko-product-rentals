@@ -1,19 +1,8 @@
 import type { LoaderFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
 import { useLoaderData } from "@remix-run/react";
-import {
-  Page,
-  Layout,
-  Card,
-  BlockStack,
-  InlineStack,
-  Text,
-  Badge,
-  Box,
-  Divider,
-  DataTable,
-  InlineGrid,
-} from "@shopify/polaris";
+import { Grid } from "../components/polaris";
+import { FOUR_UP, MAIN_WITH_SIDEBAR } from "../components/layout";
 import { authenticate } from "../shopify.server";
 import { db } from "../db.server";
 import { format, startOfMonth, endOfMonth, subMonths, startOfYear } from "date-fns";
@@ -166,6 +155,13 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   });
 };
 
+// Chart styling. These charts are our own drawing, so they take the admin's
+// text colour (`currentColor`) rather than hard-coding the previous Polaris
+// palette, which would not follow the new admin look.
+const CHART_TICK = { fontSize: 12, fill: "currentColor", fillOpacity: 0.65 };
+const CHART_GRID = "rgba(0, 0, 0, 0.08)";
+const CHART_TOOLTIP = { borderRadius: 8, border: "1px solid rgba(0, 0, 0, 0.1)", fontSize: 13 };
+
 function StatCard({
   label,
   value,
@@ -178,15 +174,19 @@ function StatCard({
   tone?: "success" | "critical" | "subdued";
 }) {
   return (
-    <Card>
-      <BlockStack gap="200">
-        <Text as="p" variant="bodyMd" tone="subdued">{label}</Text>
-        <Text as="p" variant="headingLg">{value}</Text>
+    <s-section>
+      <s-stack direction="block" gap="small-200">
+        <s-text color="subdued">{label}</s-text>
+        <s-text fontSize="large-100" fontWeight="bold">{value}</s-text>
         {subtext && (
-          <Text as="p" variant="bodySm" tone={tone || "subdued"}>{subtext}</Text>
+          !tone || tone === "subdued" ? (
+            <s-text color="subdued">{subtext}</s-text>
+          ) : (
+            <s-text tone={tone}>{subtext}</s-text>
+          )
         )}
-      </BlockStack>
-    </Card>
+      </s-stack>
+    </s-section>
   );
 }
 
@@ -199,26 +199,13 @@ export default function AnalyticsPage() {
     ? ((stats.thisMonthRevenue - stats.lastMonthRevenue) / stats.lastMonthRevenue) * 100
     : null;
 
-  const topProductRows = topProducts.map((p) => [
-    <InlineStack gap="200" blockAlign="center" key={p.id}>
-      <Text as="span">{p.title}</Text>
-      {p.isActive && <Badge tone="success">{t("Active")}</Badge>}
-    </InlineStack>,
-    String(p.bookings),
-    formatCurrency(p.revenue, currency),
-    formatCurrency(p.bookings > 0 ? p.revenue / p.bookings : 0, currency),
-    t("{days}d", { days: p.avgDays }),
-  ]);
-
   return (
-    <Page
-      fullWidth
-      title={t("Analytics")}
-      subtitle={t("Track how your rental business is performing over time.")}
-    >
-      <BlockStack gap="600">
+    <s-page heading={t("Analytics")} inlineSize="large">
+      <s-stack direction="block" gap="large">
+        <s-text color="subdued">{t("Track how your rental business is performing over time.")}</s-text>
+
         {/* Top stats */}
-        <InlineGrid columns={{ xs: 1, sm: 2, md: 4 }} gap="400">
+        <Grid columns={FOUR_UP} gap="base">
           <StatCard
             label={t("Revenue this month")}
             value={formatCurrency(stats.thisMonthRevenue, currency)}
@@ -246,9 +233,9 @@ export default function AnalyticsPage() {
             value={t("{n} days", { n: stats.avgRentalDays })}
             subtext={t("Per confirmed booking")}
           />
-        </InlineGrid>
+        </Grid>
 
-        <InlineGrid columns={{ xs: 1, sm: 2, md: 4 }} gap="400">
+        <Grid columns={FOUR_UP} gap="base">
           <StatCard
             label={t("Active rentals right now")}
             value={String(stats.activeCount)}
@@ -279,76 +266,80 @@ export default function AnalyticsPage() {
               amount: formatCurrency(stats.lastMonthRevenue, currency),
             })}
           />
-        </InlineGrid>
+        </Grid>
 
         {/* Charts */}
-        <Layout>
-          <Layout.Section>
-            <Card>
-              <BlockStack gap="400">
-                <Text as="h2" variant="headingMd">{t("Monthly revenue (last 6 months)")}</Text>
-                <Divider />
-                <div style={{ width: "100%", height: 240 }}>
-                  <ResponsiveContainer>
-                    <BarChart data={monthlyRevenue} margin={{ top: 4, right: 16, left: 0, bottom: 0 }}>
-                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#ebebeb" />
-                      <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: "#616161" }} />
-                      <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: "#616161" }} tickFormatter={(v) => `${currency}${v}`} />
-                      <Tooltip
-                        formatter={(val: any) => [formatCurrency(val, currency), t("Revenue")]}
-                        contentStyle={{ borderRadius: 8, border: "1px solid #e3e3e3", fontSize: 13 }}
-                      />
-                      <Bar dataKey="revenue" fill="#005bd3" radius={[4, 4, 0, 0]} />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
-              </BlockStack>
-            </Card>
-          </Layout.Section>
+        <Grid columns={MAIN_WITH_SIDEBAR} gap="base">
+          <s-section heading={t("Monthly revenue (last 6 months)")}>
+            <div style={{ width: "100%", height: 240 }}>
+              <ResponsiveContainer>
+                <BarChart data={monthlyRevenue} margin={{ top: 4, right: 16, left: 0, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={CHART_GRID} />
+                  <XAxis dataKey="month" axisLine={false} tickLine={false} tick={CHART_TICK} />
+                  <YAxis axisLine={false} tickLine={false} tick={CHART_TICK} tickFormatter={(v) => `${currency}${v}`} />
+                  <Tooltip
+                    formatter={(val: any) => [formatCurrency(val, currency), t("Revenue")]}
+                    contentStyle={CHART_TOOLTIP}
+                  />
+                  <Bar dataKey="revenue" fill="currentColor" fillOpacity={0.8} radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </s-section>
 
-          <Layout.Section variant="oneThird">
-            <Card>
-              <BlockStack gap="400">
-                <Text as="h2" variant="headingMd">{t("Booking volume (last 6 months)")}</Text>
-                <Divider />
-                <div style={{ width: "100%", height: 240 }}>
-                  <ResponsiveContainer>
-                    <LineChart data={monthlyBookings} margin={{ top: 4, right: 16, left: 0, bottom: 0 }}>
-                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#ebebeb" />
-                      <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: "#616161" }} />
-                      <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: "#616161" }} allowDecimals={false} />
-                      <Tooltip
-                        formatter={(val: any) => [val, t("Bookings")]}
-                        contentStyle={{ borderRadius: 8, border: "1px solid #e3e3e3", fontSize: 13 }}
-                      />
-                      <Line type="monotone" dataKey="bookings" stroke="#29845a" strokeWidth={2} dot={{ r: 4, fill: "#29845a" }} />
-                    </LineChart>
-                  </ResponsiveContainer>
-                </div>
-              </BlockStack>
-            </Card>
-          </Layout.Section>
-        </Layout>
+          <s-section heading={t("Booking volume (last 6 months)")}>
+            <div style={{ width: "100%", height: 240 }}>
+              <ResponsiveContainer>
+                <LineChart data={monthlyBookings} margin={{ top: 4, right: 16, left: 0, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={CHART_GRID} />
+                  <XAxis dataKey="month" axisLine={false} tickLine={false} tick={CHART_TICK} />
+                  <YAxis axisLine={false} tickLine={false} tick={CHART_TICK} allowDecimals={false} />
+                  <Tooltip
+                    formatter={(val: any) => [val, t("Bookings")]}
+                    contentStyle={CHART_TOOLTIP}
+                  />
+                  <Line type="monotone" dataKey="bookings" stroke="currentColor" strokeWidth={2} dot={{ r: 4, fill: "currentColor" }} />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          </s-section>
+        </Grid>
 
         {/* Top products */}
-        <Card padding="0">
-          <Box padding="400">
-            <Text as="h2" variant="headingMd">{t("Top products by revenue")}</Text>
-          </Box>
-          <Divider />
-          {topProducts.length === 0 ? (
-            <Box padding="800">
-              <Text as="p" tone="subdued" alignment="center">{t("No booking data yet. Revenue will appear here once you have confirmed bookings.")}</Text>
-            </Box>
-          ) : (
-            <DataTable
-              columnContentTypes={["text", "numeric", "numeric", "numeric", "numeric"]}
-              headings={[t("Product"), t("Bookings"), t("Total revenue"), t("Avg per booking"), t("Avg rental length")]}
-              rows={topProductRows}
-            />
-          )}
-        </Card>
-      </BlockStack>
-    </Page>
+        <s-section padding="none" accessibilityLabel={t("Top products by revenue")}>
+          <s-box padding="base">
+            <s-heading>{t("Top products by revenue")}</s-heading>
+          </s-box>
+          <s-table>
+            <s-table-header-row>
+              <s-table-header listSlot="primary">{t("Product")}</s-table-header>
+              <s-table-header format="numeric">{t("Bookings")}</s-table-header>
+              <s-table-header format="currency">{t("Total revenue")}</s-table-header>
+              <s-table-header format="currency">{t("Avg per booking")}</s-table-header>
+              <s-table-header format="numeric">{t("Avg rental length")}</s-table-header>
+            </s-table-header-row>
+            <s-table-body>
+              {topProducts.map((p) => (
+                <s-table-row key={p.id}>
+                  <s-table-cell>
+                    <s-stack direction="inline" gap="small-200" alignItems="center">
+                      <s-text>{p.title}</s-text>
+                      {p.isActive && <s-badge tone="success">{t("Active")}</s-badge>}
+                    </s-stack>
+                  </s-table-cell>
+                  <s-table-cell>{String(p.bookings)}</s-table-cell>
+                  <s-table-cell>{formatCurrency(p.revenue, currency)}</s-table-cell>
+                  <s-table-cell>{formatCurrency(p.bookings > 0 ? p.revenue / p.bookings : 0, currency)}</s-table-cell>
+                  <s-table-cell>{t("{days}d", { days: p.avgDays })}</s-table-cell>
+                </s-table-row>
+              ))}
+              <s-empty-state heading={t("Top products by revenue")}>
+                <s-text slot="subheading">{t("No booking data yet. Revenue will appear here once you have confirmed bookings.")}</s-text>
+              </s-empty-state>
+            </s-table-body>
+          </s-table>
+        </s-section>
+      </s-stack>
+    </s-page>
   );
 }

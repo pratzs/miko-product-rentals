@@ -4,33 +4,8 @@ import { useLoaderData, useNavigate } from "@remix-run/react";
 import { CrossSellSection } from "../components/CrossSellSection";
 import { MikoMascot } from "../components/MikoMascot";
 import { ReviewPrompt } from "../components/ReviewPrompt";
-import {
-  Page,
-  Layout,
-  Card,
-  BlockStack,
-  InlineStack,
-  InlineGrid,
-  Text,
-  Button,
-  Badge,
-  DataTable,
-  EmptyState,
-  Banner,
-  Box,
-  Divider,
-  Icon,
-  ProgressBar,
-} from "@shopify/polaris";
-import {
-  CheckCircleIcon,
-  CalendarIcon,
-  CashDollarIcon,
-  ClockIcon,
-  AlertCircleIcon,
-  ProductIcon,
-  CreditCardIcon,
-} from "@shopify/polaris-icons";
+import { Banner, Grid, ProgressBar, badgeTone } from "../components/polaris";
+import { MAIN_WITH_SIDEBAR, THREE_UP } from "../components/layout";
 import { authenticate } from "../shopify.server";
 import { db } from "../db.server";
 import { dismissReviewPrompt, shouldShowReviewPrompt } from "../review-prompt.server";
@@ -259,7 +234,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   });
 };
 
-const STATUS_BADGE: Record<string, { tone: any; label: string }> = {
+const STATUS_BADGE: Record<string, { tone: string; label: string }> = {
   pending:   { tone: "attention", label: "Pending payment" },
   confirmed: { tone: "info",      label: "Confirmed" },
   active:    { tone: "success",   label: "Out on rental" },
@@ -358,7 +333,7 @@ export default function Dashboard() {
           ? t("{n} more confirmed, not yet started", { n: stats.confirmedBookings })
           : t("Items currently with customers"),
       tone: "subdued" as const,
-      icon: CalendarIcon,
+      icon: "calendar" as const,
     },
     {
       label: t("Awaiting payment"),
@@ -370,14 +345,14 @@ export default function Dashboard() {
             })
           : t("All recent orders are paid"),
       tone: stats.pendingPaymentBookings > 0 ? ("caution" as const) : ("subdued" as const),
-      icon: CreditCardIcon,
+      icon: "credit-card" as const,
     },
     {
       label: t("Overdue returns"),
       value: stats.overdueBookings.toString(),
       sublabel: stats.overdueBookings > 0 ? t("Past the return date") : t("Everything on track"),
       tone: stats.overdueBookings > 0 ? ("critical" as const) : ("subdued" as const),
-      icon: ClockIcon,
+      icon: "clock" as const,
     },
     {
       label: t("Deposits held"),
@@ -389,7 +364,7 @@ export default function Dashboard() {
             : t("Owed back across {n} booking", { n: stats.depositsHeldCount })
           : t("No deposits outstanding"),
       tone: "subdued" as const,
-      icon: CashDollarIcon,
+      icon: "cash-dollar" as const,
     },
     {
       label: t("Revenue this month"),
@@ -398,76 +373,61 @@ export default function Dashboard() {
         amount: formatCurrency(stats.totalRevenue, currency),
       }),
       tone: "subdued" as const,
-      icon: CashDollarIcon,
+      icon: "cash-dollar" as const,
     },
     {
       label: t("Rental products"),
       value: stats.totalProducts.toString(),
       sublabel: t("{n} total bookings", { n: stats.totalBookings }),
       tone: "subdued" as const,
-      icon: ProductIcon,
+      icon: "product" as const,
     },
   ];
 
-  const tableRows = recentBookings.map((b) => {
-    const badge = STATUS_BADGE[b.status];
-    return [
-      b.orderName || "-",
-      b.customerName,
-      b.productTitle,
-      format(new Date(b.startDate), "d MMM yyyy"),
-      format(new Date(b.endDate), "d MMM yyyy"),
-      formatCurrency(b.totalCharged, currency),
-      <Badge tone={badge?.tone || "subdued"}>
-        {badge ? t(badge.label) : b.status}
-      </Badge>,
-    ];
-  });
-
   return (
-    <Page
-      fullWidth
-      title={t("Dashboard")}
-      subtitle={t("Welcome to Miko Product Rentals")}
-      primaryAction={
-        stats.totalProducts === 0
-          ? { content: t("Enable your first rental"), onAction: () => navigate("/app/products") }
-          : { content: t("View all bookings"), onAction: () => navigate("/app/bookings") }
-      }
-    >
-      <BlockStack gap="600">
-        {/* Hero */}
+    <s-page heading={t("Dashboard")} inlineSize="large">
+      <s-button
+        slot="primary-action"
+        variant="primary"
+        onClick={() => navigate(stats.totalProducts === 0 ? "/app/products" : "/app/bookings")}
+      >
+        {stats.totalProducts === 0 ? t("Enable your first rental") : t("View all bookings")}
+      </s-button>
+      <s-stack direction="block" gap="large">
+        <s-text color="subdued">{t("Welcome to Miko Product Rentals")}</s-text>
+
+        {/* Hero: the navy Miko brand block, kept as our own design. */}
         <div
           className="miko-gradient-bg"
           style={{ borderRadius: 12, padding: "28px 32px", display: "flex", alignItems: "center", gap: 32 }}
         >
-          <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 14 }}>
+          <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 14, position: "relative" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
               <div className="miko-status-dot" style={{ width: 8, height: 8, borderRadius: "50%", background: "#3ecf8e", boxShadow: "0 0 8px #3ecf8e", flexShrink: 0 }} />
-              <Text as="span" variant="bodySm">
+              <s-text>
                 <span style={{ color: "rgba(255,255,255,0.8)" }}>
                   {stats.totalProducts > 0 ? t("Your rentals are live") : t("Let's set up your first rental")}
                 </span>
-              </Text>
+              </s-text>
             </div>
-            <Text as="h2" variant="headingXl" fontWeight="bold">
-              <span style={{ color: "white" }}>{t("Rent out your products, effortlessly.")}</span>
-            </Text>
-            <Text as="p" variant="bodyLg">
+            <s-heading>
+              <span style={{ color: "white", fontSize: 24, lineHeight: 1.25 }}>{t("Rent out your products, effortlessly.")}</span>
+            </s-heading>
+            <s-paragraph>
               <span style={{ color: "rgba(255,255,255,0.9)" }}>
                 {t("Let customers book by the day with live availability, flexible dates, and refundable deposits, all handled automatically at checkout.")}
               </span>
-            </Text>
+            </s-paragraph>
             <div style={{ display: "flex", gap: 8, marginTop: 4, flexWrap: "wrap" }}>
-              <Button variant="primary" tone="success" size="large" onClick={() => navigate(stats.totalProducts === 0 ? "/app/products" : "/app/bookings")}>
+              <s-button variant="primary" onClick={() => navigate(stats.totalProducts === 0 ? "/app/products" : "/app/bookings")}>
                 {stats.totalProducts === 0 ? t("Enable your first rental") : t("View bookings")}
-              </Button>
-              <Button variant="secondary" size="large" onClick={() => navigate("/app/help")}>
+              </s-button>
+              <s-button variant="secondary" onClick={() => navigate("/app/help")}>
                 {t("See how it works")}
-              </Button>
+              </s-button>
             </div>
           </div>
-          <div className="miko-side-mascot" style={{ flexShrink: 0 }}>
+          <div className="miko-side-mascot" style={{ flexShrink: 0, position: "relative" }}>
             <MikoMascot size="lg" pose="present" />
           </div>
         </div>
@@ -480,83 +440,80 @@ export default function Dashboard() {
           />
         )}
         {!onboardingCompleted && (
-          <Card>
-            <BlockStack gap="400">
-              <BlockStack gap="100">
-                <InlineStack align="space-between" blockAlign="center">
-                  <Text as="h2" variant="headingMd">{t("Get your rentals up and running")}</Text>
-                  <Badge tone={onboarding.allStepsDone ? "success" : "attention"}>
+          <s-section>
+            <s-stack direction="block" gap="base">
+              <s-stack direction="block" gap="small-300">
+                <s-stack direction="inline" justifyContent="space-between" alignItems="center" gap="small-200">
+                  <s-heading>{t("Get your rentals up and running")}</s-heading>
+                  <s-badge tone={onboarding.allStepsDone ? "success" : "caution"}>
                     {t("{done} of {total} done", {
                       done: onboarding.stepsDone,
                       total: onboarding.totalSteps,
                     })}
-                  </Badge>
-                </InlineStack>
-                <Text as="p" tone="subdued">
+                  </s-badge>
+                </s-stack>
+                <s-paragraph color="subdued">
                   {t("Work through these steps and your first product will be ready to rent. Each one ticks itself off as soon as we detect it is done, so there is nothing to mark by hand.")}
-                </Text>
-              </BlockStack>
+                </s-paragraph>
+              </s-stack>
 
-              <ProgressBar progress={(onboarding.stepsDone / onboarding.totalSteps) * 100} tone="success" size="small" />
+              <ProgressBar
+                progress={(onboarding.stepsDone / onboarding.totalSteps) * 100}
+                tone="success"
+                label={t("{done} of {total} done", { done: onboarding.stepsDone, total: onboarding.totalSteps })}
+              />
 
-              <BlockStack gap="0">
+              <s-stack direction="block" gap="none">
                 {setupSteps.map((step, i) => (
-                  <Box key={step.title}>
-                    {i > 0 && <Divider />}
-                    <Box paddingBlock="300">
-                      <InlineStack gap="300" blockAlign="center" wrap={false}>
-                        <Box minWidth="28px">
+                  <s-box key={step.title}>
+                    {i > 0 && <s-divider />}
+                    <s-box paddingBlock="small">
+                      <s-stack direction="inline" gap="small" alignItems="center">
+                        <s-box minInlineSize="28px">
                           {step.done ? (
-                            <Icon source={CheckCircleIcon} tone="success" />
+                            <s-icon type="check-circle" tone="success" />
                           ) : (
-                            <Box
-                              background="bg-surface-secondary"
-                              borderColor="border"
-                              borderWidth="025"
-                              borderRadius="full"
-                              minWidth="28px"
-                              minHeight="28px"
-                            >
-                              <div style={{ width: 28, height: 28, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                                <Text as="span" variant="bodySm" tone="subdued" fontWeight="medium">{i + 1}</Text>
-                              </div>
-                            </Box>
+                            // s-box has no fully round radius, so the numbered
+                            // step marker is a plain circle with a neutral ring.
+                            <div style={{ width: 26, height: 26, borderRadius: "50%", border: "1px solid rgba(0,0,0,0.15)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                              <s-text color="subdued" fontWeight="medium">{i + 1}</s-text>
+                            </div>
                           )}
-                        </Box>
-                        <Box width="100%">
-                          <BlockStack gap="050">
-                            <Text as="p" variant="bodyMd" fontWeight="medium" tone={step.done ? "subdued" : undefined}>
+                        </s-box>
+                        <div style={{ flex: "1 1 220px", minWidth: 0 }}>
+                          <s-stack direction="block" gap="none">
+                            <s-text fontWeight="medium" color={step.done ? "subdued" : undefined}>
                               {step.title}
-                            </Text>
-                            <Text as="p" variant="bodySm" tone="subdued">{step.description}</Text>
-                          </BlockStack>
-                        </Box>
-                        <Box minWidth="fit-content">
+                            </s-text>
+                            <s-text color="subdued">{step.description}</s-text>
+                          </s-stack>
+                        </div>
+                        <s-box>
                           {step.done ? (
-                            <Badge tone="success">{t("Done")}</Badge>
+                            <s-badge tone="success">{t("Done")}</s-badge>
                           ) : (
-                            <Button onClick={step.onAction}>{step.actionLabel}</Button>
+                            <s-button onClick={step.onAction}>{step.actionLabel}</s-button>
                           )}
-                        </Box>
-                      </InlineStack>
-                    </Box>
-                  </Box>
+                        </s-box>
+                      </s-stack>
+                    </s-box>
+                  </s-box>
                 ))}
-              </BlockStack>
+              </s-stack>
 
               {onboarding.allStepsDone && (
                 <Banner tone="success" title={t("You are all set. Your store is ready to take rental bookings.")}>
-                  <p>{t("This checklist will disappear on its own now that every step is complete.")}</p>
+                  <s-paragraph>{t("This checklist will disappear on its own now that every step is complete.")}</s-paragraph>
                 </Banner>
               )}
 
-              <InlineStack>
-                <Button variant="plain" onClick={() => navigate("/app/help")}>
+              <s-stack direction="inline">
+                <s-button variant="tertiary" onClick={() => navigate("/app/help")}>
                   {t("Full setup guide and FAQ →")}
-                </Button>
-              </InlineStack>
-            </BlockStack>
-          </Card>
+                </s-button>
+              </s-stack>
+            </s-stack>
+          </s-section>
         )}
 
         {calendarMissing && (
@@ -568,9 +525,9 @@ export default function Dashboard() {
               onAction: () => window.open(themeEditorUrl, "_top"),
             }}
           >
-            <p>
+            <s-paragraph>
               {t("Your rental products are priced and switched on, but the Miko booking calendar has never appeared on your storefront, so there is no way for a shopper to pick dates or check out. It has to be added to your product template once. This takes about a minute and the banner clears itself the first time the calendar loads.")}
-            </p>
+            </s-paragraph>
           </Banner>
         )}
 
@@ -583,9 +540,9 @@ export default function Dashboard() {
               onAction: () => window.open(dryRun.url, "_blank"),
             }}
           >
-            <p>
+            <s-paragraph>
               {t("The fastest way to know everything works is a dry run: open your rental on the storefront, pick dates, and check out exactly like a customer would. You will see the booking land here within a minute, and you can cancel and refund it straight away. This banner disappears on its own after the first booking.")}
-            </p>
+            </s-paragraph>
           </Banner>
         )}
 
@@ -605,11 +562,11 @@ export default function Dashboard() {
             tone="warning"
             action={{ content: t("See plans"), onAction: () => navigate("/app/pricing") }}
           >
-            <p>
+            <s-paragraph>
               {usage.isLifetime
                 ? t("New online bookings are paused until you upgrade. Your existing bookings are safe. Upgrade any time to start taking rentals again right away.")
                 : t("New online bookings are paused until you upgrade, or until your count resets next month. Your existing bookings are safe. Upgrade any time to start taking rentals again right away.")}
-            </p>
+            </s-paragraph>
           </Banner>
         )}
 
@@ -623,7 +580,7 @@ export default function Dashboard() {
             tone="info"
             action={{ content: t("See plans"), onAction: () => navigate("/app/pricing") }}
           >
-            <p>{t("You are getting close to your plan limit. Upgrading now keeps new bookings flowing without a gap.")}</p>
+            <s-paragraph>{t("You are getting close to your plan limit. Upgrading now keeps new bookings flowing without a gap.")}</s-paragraph>
           </Banner>
         )}
 
@@ -633,9 +590,9 @@ export default function Dashboard() {
             title={t("Welcome back. Your previous paid plan has ended.")}
             action={{ content: t("Reactivate plan"), onAction: () => navigate("/app/pricing") }}
           >
-            <p>
+            <s-paragraph>
               {t("Your previous Miko subscription was canceled when you uninstalled the app. You're back on the Free plan. Reactivate any paid plan to lift the rental limits.")}
-            </p>
+            </s-paragraph>
           </Banner>
         )}
 
@@ -649,9 +606,9 @@ export default function Dashboard() {
             tone="warning"
             action={{ content: t("Review now"), onAction: () => navigate("/app/bookings?status=needs_review") }}
           >
-            <p>
+            <s-paragraph>
               {t("Orders came in for dates that would exceed your available units. Reach out to those customers to adjust dates or refund, otherwise you may end up overbooked.")}
-            </p>
+            </s-paragraph>
           </Banner>
         )}
 
@@ -665,102 +622,121 @@ export default function Dashboard() {
             tone="critical"
             action={{ content: t("Review overdue bookings"), onAction: () => navigate("/app/bookings?status=overdue") }}
           >
-            <p>{t("These items have not been returned past their due date. Contact the customers and apply late fees if needed.")}</p>
+            <s-paragraph>{t("These items have not been returned past their due date. Contact the customers and apply late fees if needed.")}</s-paragraph>
           </Banner>
         )}
 
         {/* Stats row */}
-        <InlineGrid columns={{ xs: 1, sm: 2, md: 3 }} gap="400">
+        <Grid columns={THREE_UP} gap="base">
           {statCards.map((card) => (
-            <Card key={card.label}>
-              <BlockStack gap="200">
-                <InlineStack gap="200" blockAlign="center" wrap={false}>
-                  <Box background="bg-fill-secondary" borderRadius="200" padding="100">
-                    <Icon source={card.icon} tone={card.tone} />
-                  </Box>
-                  <Text as="p" variant="bodyMd" tone="subdued">{card.label}</Text>
-                </InlineStack>
-                <Text as="p" variant="headingLg">{card.value}</Text>
-                <Text as="p" variant="bodySm" tone="subdued">{card.sublabel}</Text>
-              </BlockStack>
-            </Card>
+            <s-section key={card.label}>
+              <s-stack direction="block" gap="small-200">
+                <s-stack direction="inline" gap="small-200" alignItems="center">
+                  <s-box background="subdued" borderRadius="base" padding="small-300">
+                    <s-icon
+                      type={card.icon}
+                      tone={card.tone === "subdued" ? undefined : card.tone}
+                      color={card.tone === "subdued" ? "subdued" : undefined}
+                    />
+                  </s-box>
+                  <s-text color="subdued">{card.label}</s-text>
+                </s-stack>
+                <s-text fontSize="large-100" fontWeight="bold">{card.value}</s-text>
+                <s-text color="subdued">{card.sublabel}</s-text>
+              </s-stack>
+            </s-section>
           ))}
-        </InlineGrid>
+        </Grid>
 
-        <Layout>
+        <Grid columns={MAIN_WITH_SIDEBAR} gap="base">
           {/* Recent bookings table */}
-          <Layout.Section>
-            <Card>
-              <BlockStack gap="400">
-                <InlineStack align="space-between" blockAlign="center">
-                  <Text as="h2" variant="headingMd">{t("Recent bookings")}</Text>
-                  <Button variant="plain" onClick={() => navigate("/app/bookings")}>
-                    {t("View all")}
-                  </Button>
-                </InlineStack>
-                {recentBookings.length === 0 ? (
-                  <EmptyState
-                    heading={t("No bookings yet")}
-                    image=""
-                  >
-                    <p>{t("Once customers rent products, their bookings will appear here.")}</p>
-                  </EmptyState>
-                ) : (
-                  <DataTable
-                    columnContentTypes={["text","text","text","text","text","numeric","text"]}
-                    headings={[t("Order"),t("Customer"),t("Product"),t("Start date"),t("Return by"),t("Charged"),t("Status")]}
-                    rows={tableRows}
-                    hoverable
-                  />
-                )}
-              </BlockStack>
-            </Card>
-          </Layout.Section>
+          <s-section padding="none" accessibilityLabel={t("Recent bookings")}>
+            <s-box padding="base">
+              <s-stack direction="inline" justifyContent="space-between" alignItems="center">
+                <s-heading>{t("Recent bookings")}</s-heading>
+                <s-button variant="tertiary" onClick={() => navigate("/app/bookings")}>
+                  {t("View all")}
+                </s-button>
+              </s-stack>
+            </s-box>
+            <s-table>
+              <s-table-header-row>
+                <s-table-header listSlot="kicker">{t("Order")}</s-table-header>
+                <s-table-header listSlot="primary">{t("Customer")}</s-table-header>
+                <s-table-header listSlot="secondary">{t("Product")}</s-table-header>
+                <s-table-header>{t("Start date")}</s-table-header>
+                <s-table-header>{t("Return by")}</s-table-header>
+                <s-table-header format="currency">{t("Charged")}</s-table-header>
+                <s-table-header listSlot="inline">{t("Status")}</s-table-header>
+              </s-table-header-row>
+              <s-table-body>
+                {recentBookings.map((b) => {
+                  const badge = STATUS_BADGE[b.status];
+                  return (
+                    <s-table-row key={b.id}>
+                      <s-table-cell>{b.orderName || "-"}</s-table-cell>
+                      <s-table-cell>{b.customerName}</s-table-cell>
+                      <s-table-cell>{b.productTitle}</s-table-cell>
+                      <s-table-cell>{format(new Date(b.startDate), "d MMM yyyy")}</s-table-cell>
+                      <s-table-cell>{format(new Date(b.endDate), "d MMM yyyy")}</s-table-cell>
+                      <s-table-cell>{formatCurrency(b.totalCharged, currency)}</s-table-cell>
+                      <s-table-cell>
+                        <s-badge tone={badgeTone(badge?.tone)}>
+                          {badge ? t(badge.label) : b.status}
+                        </s-badge>
+                      </s-table-cell>
+                    </s-table-row>
+                  );
+                })}
+                <s-empty-state heading={t("No bookings yet")}>
+                  <s-text slot="subheading">{t("Once customers rent products, their bookings will appear here.")}</s-text>
+                </s-empty-state>
+              </s-table-body>
+            </s-table>
+          </s-section>
 
           {/* Upcoming starts */}
-          <Layout.Section variant="oneThird">
-            <Card>
-              <BlockStack gap="400">
-                <Text as="h2" variant="headingMd">{t("Upcoming rentals")}</Text>
-                <Text as="p" variant="bodySm" tone="subdued">
-                  {t("Confirmed bookings starting soon")}
-                </Text>
-                {upcomingBookings.length === 0 ? (
-                  <Text as="p" tone="subdued">{t("No upcoming rentals.")}</Text>
-                ) : (
-                  <BlockStack gap="300">
-                    {upcomingBookings.map((b, i) => (
-                      <Box key={b.id}>
-                        {i > 0 && <Divider />}
-                        <Box paddingBlockStart={i > 0 ? "300" : "0"}>
-                          <BlockStack gap="100">
-                            <InlineStack align="space-between">
-                              <Text as="p" variant="bodyMd" fontWeight="medium">{b.customerName}</Text>
-                              <Badge tone={isToday(new Date(b.startDate)) ? "success" : isTomorrow(new Date(b.startDate)) ? "attention" : "info"}>
-                                {isToday(new Date(b.startDate))
-                                  ? t("Starts today")
-                                  : isTomorrow(new Date(b.startDate))
-                                  ? t("Starts tomorrow")
-                                  : format(new Date(b.startDate), "d MMM")}
-                              </Badge>
-                            </InlineStack>
-                            <Text as="p" variant="bodySm" tone="subdued">{b.productTitle}</Text>
-                            <Text as="p" variant="bodySm" tone="subdued">
-                              {t("Returns {date}", { date: format(new Date(b.endDate), "d MMM yyyy") })}
-                            </Text>
-                          </BlockStack>
-                        </Box>
-                      </Box>
-                    ))}
-                  </BlockStack>
-                )}
-              </BlockStack>
-            </Card>
-          </Layout.Section>
-        </Layout>
+          <s-section>
+            <s-stack direction="block" gap="base">
+              <s-stack direction="block" gap="small-300">
+                <s-heading>{t("Upcoming rentals")}</s-heading>
+                <s-text color="subdued">{t("Confirmed bookings starting soon")}</s-text>
+              </s-stack>
+              {upcomingBookings.length === 0 ? (
+                <s-text color="subdued">{t("No upcoming rentals.")}</s-text>
+              ) : (
+                <s-stack direction="block" gap="small">
+                  {upcomingBookings.map((b, i) => (
+                    <s-box key={b.id}>
+                      {i > 0 && <s-divider />}
+                      <s-box paddingBlockStart={i > 0 ? "small" : "none"}>
+                        <s-stack direction="block" gap="small-300">
+                          <s-stack direction="inline" justifyContent="space-between" gap="small-200">
+                            <s-text fontWeight="medium">{b.customerName}</s-text>
+                            <s-badge tone={isToday(new Date(b.startDate)) ? "success" : isTomorrow(new Date(b.startDate)) ? "caution" : "info"}>
+                              {isToday(new Date(b.startDate))
+                                ? t("Starts today")
+                                : isTomorrow(new Date(b.startDate))
+                                ? t("Starts tomorrow")
+                                : format(new Date(b.startDate), "d MMM")}
+                            </s-badge>
+                          </s-stack>
+                          <s-text color="subdued">{b.productTitle}</s-text>
+                          <s-text color="subdued">
+                            {t("Returns {date}", { date: format(new Date(b.endDate), "d MMM yyyy") })}
+                          </s-text>
+                        </s-stack>
+                      </s-box>
+                    </s-box>
+                  ))}
+                </s-stack>
+              )}
+            </s-stack>
+          </s-section>
+        </Grid>
 
         <CrossSellSection currentApp="rentals" />
-      </BlockStack>
-    </Page>
+      </s-stack>
+    </s-page>
   );
 }
