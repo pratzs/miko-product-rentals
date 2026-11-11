@@ -1,0 +1,70 @@
+# Learn more about configuring your app at https://shopify.dev/docs/apps/tools/cli/configuration
+
+client_id = "b8544a09163552794fa1425e39c470a6"
+name = "Miko Product Rentals (staging)"
+application_url = "https://miko-rentals-staging-staging.up.railway.app"
+embedded = true
+
+[access_scopes]
+scopes = "read_products,write_products,read_orders,write_orders,read_cart_transforms,write_cart_transforms"
+
+[sidekick]
+# Routes a merchant's question to THIS app before Sidekick picks a tool. Names
+# the domain nouns and verbs so vague copy doesn't force the merchant to invoke
+# the app by name. Required once any Sidekick-eligible extension exists.
+extensions_summary = "Look up rental bookings and their status, find overdue and currently-active rentals, check whether a product is available to rent for given dates, search a customer's bookings, list the rental catalogue and pricing, and report this month's rental revenue and held deposits"
+
+[auth]
+redirect_urls = [
+  "https://miko-rentals-staging-staging.up.railway.app/auth/callback",
+  "http://localhost:3000/auth/callback"
+]
+
+[webhooks]
+api_version = "2026-04"
+
+  [[webhooks.subscriptions]]
+  uri = "/webhooks/app/uninstalled"
+  topics = ["app/uninstalled"]
+
+  [[webhooks.subscriptions]]
+  uri = "/webhooks/app/scopes_update"
+  topics = ["app/scopes_update"]
+
+  # shop/update is deliberately NOT subscribed (1 Oct 2026). Third-party stores
+  # fire it every few seconds (only updated_at changes), which drove the webhook
+  # failure alerts. The dev-store grant is revoked by the app.tsx loader
+  # dev-store re-check instead; the route file stays as a harmless stub.
+
+  [[webhooks.subscriptions]]
+  uri = "/webhooks/app_subscriptions/update"
+  topics = ["app_subscriptions/update"]
+
+  [[webhooks.subscriptions]]
+  uri = "/webhooks/orders/create"
+  topics = ["orders/create"]
+
+  [[webhooks.subscriptions]]
+  uri = "/webhooks/orders/paid"
+  topics = ["orders/paid"]
+
+  [[webhooks.subscriptions]]
+  uri = "/webhooks/orders/cancelled"
+  topics = ["orders/cancelled"]
+
+  [[webhooks.subscriptions]]
+  uri = "/webhooks/customers/data_request"
+  compliance_topics = ["customers/data_request"]
+
+  [[webhooks.subscriptions]]
+  uri = "/webhooks/customers/redact"
+  compliance_topics = ["customers/redact"]
+
+  [[webhooks.subscriptions]]
+  uri = "/webhooks/shop/redact"
+  compliance_topics = ["shop/redact"]
+
+
+[build]
+automatically_update_urls_on_dev = false
+dev_store_url = "pratham-testing-store.myshopify.com"
