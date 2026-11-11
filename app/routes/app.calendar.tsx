@@ -1,23 +1,10 @@
 import type { LoaderFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
 import { useLoaderData, useNavigate, useSearchParams } from "@remix-run/react";
-import {
-  Page,
-  Card,
-  BlockStack,
-  InlineStack,
-  Text,
-  Button,
-  Badge,
-  Select,
-  Box,
-  Divider,
-} from "@shopify/polaris";
 import { authenticate } from "../shopify.server";
 import { db } from "../db.server";
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, getDay, isSameDay, isSameMonth, addMonths, subMonths, isToday } from "date-fns";
-import { useState } from "react";
-import { useNavigate as useNav } from "@remix-run/react";
+import { Select } from "../components/polaris";
 import { useT } from "../i18n/context";
 
 const STATUS_COLORS: Record<string, string> = {
@@ -104,26 +91,28 @@ export default function CalendarPage() {
   const productFilter = searchParams.get("productId") || "";
 
   return (
-    <Page
-      fullWidth
-      title={t("Availability Calendar")}
-      subtitle={t("See all rental bookings at a glance. Click any booking to view details.")}
-    >
-      <BlockStack gap="500">
+    <s-page heading={t("Availability Calendar")} inlineSize="large">
+      <s-stack direction="block" gap="large">
+        <s-text color="subdued">
+          {t("See all rental bookings at a glance. Click any booking to view details.")}
+        </s-text>
+
         {/* Controls */}
-        <Card>
-          <InlineStack align="space-between" blockAlign="center">
-            <InlineStack gap="300" blockAlign="center">
-              <Button onClick={() => changeMonth(-1)}>{t("← Previous")}</Button>
-              <Text as="h2" variant="headingLg">
-                {format(currentDate, "MMMM yyyy")}
-              </Text>
-              <Button onClick={() => changeMonth(1)}>{t("Next →")}</Button>
-            </InlineStack>
-            <Box minWidth="220px">
+        <s-section accessibilityLabel={t("Availability Calendar")}>
+          <s-stack
+            direction="inline"
+            justifyContent="space-between"
+            alignItems="center"
+            gap="base"
+          >
+            <s-stack direction="inline" gap="small" alignItems="center">
+              <s-button onClick={() => changeMonth(-1)}>{t("← Previous")}</s-button>
+              <s-heading>{format(currentDate, "MMMM yyyy")}</s-heading>
+              <s-button onClick={() => changeMonth(1)}>{t("Next →")}</s-button>
+            </s-stack>
+            <s-box minInlineSize="220px">
               <Select
                 label={t("Filter by product")}
-                labelInline
                 options={[
                   { label: t("All products"), value: "" },
                   ...products.map((p) => ({ label: p.title, value: p.id })),
@@ -137,40 +126,41 @@ export default function CalendarPage() {
                   });
                 }}
               />
-            </Box>
-          </InlineStack>
-        </Card>
+            </s-box>
+          </s-stack>
+        </s-section>
 
         {/* Legend */}
-        <InlineStack gap="400" wrap>
+        <s-stack direction="inline" gap="base">
           {Object.entries(STATUS_COLORS).map(([status, color]) => (
-            <InlineStack key={status} gap="150" blockAlign="center">
-              <Box
-                background="bg-surface"
-                borderRadius="100"
-                minWidth="14px"
-                minHeight="14px"
-                borderWidth="025"
-                borderColor="border"
-                padding="0"
-              >
-                <div style={{ width: 14, height: 14, borderRadius: 3, backgroundColor: color }} />
-              </Box>
-              <Text as="span" variant="bodySm" tone="subdued">
+            <s-stack key={status} direction="inline" gap="small-200" alignItems="center">
+              <div
+                aria-hidden="true"
+                style={{
+                  width: 14,
+                  height: 14,
+                  borderRadius: 3,
+                  backgroundColor: color,
+                  boxShadow: "inset 0 0 0 1px rgba(0, 0, 0, 0.1)",
+                }}
+              />
+              <s-text color="subdued">
                 {t(status.charAt(0).toUpperCase() + status.slice(1))}
-              </Text>
-            </InlineStack>
+              </s-text>
+            </s-stack>
           ))}
-        </InlineStack>
+        </s-stack>
 
-        {/* Calendar grid */}
-        <Card padding="0">
-          <Box padding="400">
+        {/* Calendar grid. Hand-drawn on purpose: Polaris has no month grid with
+            per-day booking chips. Neutral borders and currentColor so it sits
+            on either admin look; the pastel status colours are the legend. */}
+        <s-section padding="none" accessibilityLabel={format(currentDate, "MMMM yyyy")}>
+          <s-box padding="base">
             {/* Day headers */}
             <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: "4px", marginBottom: "4px" }}>
               {[t("Sun"), t("Mon"), t("Tue"), t("Wed"), t("Thu"), t("Fri"), t("Sat")].map((d) => (
                 <div key={d} style={{ textAlign: "center", padding: "8px 4px" }}>
-                  <Text as="span" variant="bodySm" tone="subdued" fontWeight="semibold">{d}</Text>
+                  <s-text color="subdued" fontWeight="semibold">{d}</s-text>
                 </div>
               ))}
             </div>
@@ -190,35 +180,35 @@ export default function CalendarPage() {
                     key={day.toISOString()}
                     style={{
                       minHeight: 100,
-                      border: isCurrentDay ? "2px solid #005bd3" : "1px solid #ebebeb",
+                      border: isCurrentDay ? "2px solid currentColor" : "1px solid rgba(0, 0, 0, 0.1)",
                       borderRadius: 8,
                       padding: "6px 8px",
-                      backgroundColor: isCurrentDay ? "#f2f7fe" : "#ffffff",
+                      backgroundColor: "#ffffff",
                     }}
                   >
-                    <Text
-                      as="p"
-                      variant="bodySm"
-                      fontWeight={isCurrentDay ? "bold" : "regular"}
-                      tone={isCurrentDay ? undefined : "subdued"}
+                    <s-paragraph
+                      fontWeight={isCurrentDay ? "bold" : undefined}
+                      color={isCurrentDay ? undefined : "subdued"}
                     >
                       {format(day, "d")}
-                    </Text>
-                    <BlockStack gap="100">
+                    </s-paragraph>
+                    <s-stack direction="block" gap="small-300">
                       {dayBookings.slice(0, 3).map((b) => (
                         <button
                           key={b.id}
+                          type="button"
                           onClick={() => navigate(`/app/bookings/${b.id}`)}
                           style={{
                             display: "block",
                             width: "100%",
                             textAlign: "left",
-                            background: STATUS_COLORS[b.status] || "#ebebeb",
+                            background: STATUS_COLORS[b.status] || "rgba(0, 0, 0, 0.06)",
                             border: "none",
                             borderRadius: 4,
                             padding: "2px 6px",
                             cursor: "pointer",
-                            color: "#303030",
+                            color: "inherit",
+                            font: "inherit",
                             fontSize: 11,
                             lineHeight: "18px",
                             overflow: "hidden",
@@ -231,18 +221,18 @@ export default function CalendarPage() {
                         </button>
                       ))}
                       {dayBookings.length > 3 && (
-                        <Text as="p" variant="bodySm" tone="subdued">
+                        <s-text color="subdued">
                           {t("+{n} more", { n: dayBookings.length - 3 })}
-                        </Text>
+                        </s-text>
                       )}
-                    </BlockStack>
+                    </s-stack>
                   </div>
                 );
               })}
             </div>
-          </Box>
-        </Card>
-      </BlockStack>
-    </Page>
+          </s-box>
+        </s-section>
+      </s-stack>
+    </s-page>
   );
 }
