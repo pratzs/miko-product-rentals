@@ -16,7 +16,51 @@
  */
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
-import { db } from "../db.server";
+import { unauthenticated } from "../shopify.server";
+import { quoteRental } from "../utils/rental-quote.server";
+import { formatCurrency } from "../utils/pricing";
+
+const SHOP_DOMAIN = /^[a-z0-9][a-z0-9-]*\.myshopify\.com$/;
+const PRODUCT_GID = /^gid:\/\/shopify\/Product\/\d+$/;
+const VARIANT_ID = /^(gid:\/\/shopify\/ProductVariant\/)?\d+$/;
+const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
+
+// Small in-memory sliding-window limiter. One process serves the app, so this
+// is enough to stop one caller filling a shop's admin with draft orders.
+const hits = new Map<string, number[]>();
+function allowRequest(key: string, max: number, windowMs: number): boolean {
+  const now = Date.now();
+  const recent = (hits.get(key) ?? []).filter((t) => now - t < windowMs);
+  if (recent.length >= max) {
+    hits.set(key, recent);
+    return false;
+  }
+  recent.push(now);
+  hits.set(key, recent);
+  if (hits.size > 5000) {
+    for (const [k, v] of hits) {
+      if (v.every((t) => now - t >= 3_600_000)) hits.delete(k);
+    }
+  }
+  return true;
+}
+
+function clientIp(request: Request): string {
+  return (request.headers.get("x-forwarded-for") || "").split(",")[0].trim() || "unknown";
+}
+
+function formatDateDisplay(isoDate: string): string {
+  try {
+    return new Date(`${isoDate}T00:00:00Z`).toLocaleDateString("en-GB", {
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+      timeZone: "UTC",
+    });
+  } catch {
+    return isoDate;
+  }
+}
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   if (request.method === "OPTIONS") {
@@ -37,23 +81,28 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     return json({ error: "Invalid JSON body." }, { status: 400, headers: corsHeaders(request) });
   }
 
-  const shop = typeof body.shop === "string" ? body.shop : null;
-  const variantId = typeof body.variantId === "string" ? body.variantId : null;
+  // SECURITY (Nov 2026). This endpoint is public: the storefront calendar
+  // calls it from the shopper's browser. It used to create a draft order on
+  // whichever shop the body named, for whichever variant, at whichever price
+  // the body gave. Now the caller chooses only WHAT to book (product, variant,
+  // dates, units). Everything else is decided here:
+  //   - the product must be an active rental of that shop, the dates must be
+  //     allowed and free, and the price is the merchant's rate (quoteRental,
+  //     the same code the calendar's quote uses),
+  //   - the variant must belong to that product (checked with Shopify),
+  //   - the text on the order line is written here, not taken from the caller,
+  //   - requests are rate limited per caller and per shop.
+  // Price, deposit, currency and display fields in the body are ignored.
+  const shop = typeof body.shop === "string" ? body.shop.trim().toLowerCase() : null;
+  const variantId =
+    typeof body.variantId === "string" || typeof body.variantId === "number"
+      ? String(body.variantId)
+      : null;
   const productId = typeof body.productId === "string" ? body.productId : null;
   const startDate = typeof body.startDate === "string" ? body.startDate : null;
   const endDate = typeof body.endDate === "string" ? body.endDate : null;
-  const units = typeof body.units === "number" ? body.units : 1;
-  const perUnitPrice = typeof body.perUnitPrice === "number" ? body.perUnitPrice : 0;
-  const rentalPrice = typeof body.rentalPrice === "number" ? body.rentalPrice : 0;
-  const depositAmount = typeof body.depositAmount === "number" ? body.depositAmount : 0;
-  const currency = typeof body.currency === "string" ? body.currency : "USD";
-
-  // Pre-formatted display strings from the widget
-  const startDisplay = typeof body.startDisplay === "string" ? body.startDisplay : startDate;
-  const endDisplay = typeof body.endDisplay === "string" ? body.endDisplay : endDate;
-  const durationDisplay = typeof body.durationDisplay === "string" ? body.durationDisplay : "";
-  const rentalPriceDisplay = typeof body.rentalPriceDisplay === "string" ? body.rentalPriceDisplay : "";
-  const depositDisplay = typeof body.depositDisplay === "string" ? body.depositDisplay : "None";
+  const requestedUnits =
+    typeof body.units === "number" || typeof body.units === "string" ? body.units : 1;
 
   if (!shop || !variantId || !startDate || !endDate) {
     return json(
@@ -61,16 +110,24 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       { status: 400, headers: corsHeaders(request) },
     );
   }
-
-  // Retrieve the offline access token stored when the merchant installed the app.
-  const session = await db.session.findFirst({
-    where: { shop, isOnline: false },
-    select: { accessToken: true },
-  });
-  if (!session?.accessToken) {
+  if (
+    !SHOP_DOMAIN.test(shop) ||
+    !productId ||
+    !PRODUCT_GID.test(productId) ||
+    !VARIANT_ID.test(variantId) ||
+    !ISO_DATE.test(startDate) ||
+    !ISO_DATE.test(endDate)
+  ) {
     return json(
-      { error: "Store not found or not authenticated with Miko." },
-      { status: 401, headers: corsHeaders(request) },
+      { error: "Missing required parameters: shop, variantId, startDate, endDate." },
+      { status: 400, headers: corsHeaders(request) },
+    );
+  }
+
+  if (!allowRequest(`${shop}|${clientIp(request)}`, 5, 60_000) || !allowRequest(shop, 120, 3_600_000)) {
+    return json(
+      { error: "Could not create checkout. Please try again." },
+      { status: 429, headers: corsHeaders(request) },
     );
   }
 
@@ -78,9 +135,78 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     ? variantId
     : `gid://shopify/ProductVariant/${variantId}`;
 
-  const numericProductId = String(productId || "").split("/").pop() || productId;
+  // Server-side quote: rental must exist and be active for this shop, dates
+  // inside the merchant's limits and still available, price from their rates.
+  const quote = await quoteRental({
+    shop,
+    productId,
+    startDate,
+    endDate,
+    units: requestedUnits,
+    variantId: variantGid,
+  });
+  if (!quote.ok) {
+    return json(quote.body, { status: quote.status, headers: corsHeaders(request) });
+  }
+  const { units, perUnitPrice, rentalPrice, depositAmount, rentalDays, currency } = quote.body;
+  if (!(perUnitPrice > 0)) {
+    return json(
+      { error: "Could not create checkout. Please try again." },
+      { status: 400, headers: corsHeaders(request) },
+    );
+  }
 
-  // Compact _miko_data payload — same format as the storefront cart add.
+  // Admin client for the shop's own offline session (refreshes an expiring
+  // token, unlike reading the Session table directly). A shop that is not
+  // installed has no session and stops here.
+  let admin: Awaited<ReturnType<typeof unauthenticated.admin>>["admin"];
+  try {
+    ({ admin } = await unauthenticated.admin(shop));
+  } catch {
+    return json(
+      { error: "Store not found or not authenticated with Miko." },
+      { status: 401, headers: corsHeaders(request) },
+    );
+  }
+
+  // The variant must be a variant of the rental product that was quoted.
+  // Without this a caller could name a cheap rental's product id together
+  // with any other variant in the store and get that item at the rental rate.
+  try {
+    const ownerRes = await admin.graphql(
+      `#graphql
+        query RentalCheckoutVariantOwner($id: ID!) {
+          productVariant(id: $id) { id product { id } }
+        }`,
+      { variables: { id: variantGid } },
+    );
+    const owner = (await ownerRes.json()) as {
+      data?: { productVariant?: { product?: { id?: string } } | null };
+    };
+    if (owner.data?.productVariant?.product?.id !== productId) {
+      return json(
+        { error: "This variant is not available for rental." },
+        { status: 404, headers: corsHeaders(request) },
+      );
+    }
+  } catch (err) {
+    console.error("[api/checkout] variant lookup failed:", err);
+    return json(
+      { error: "Could not create checkout. Please try again." },
+      { status: 500, headers: corsHeaders(request) },
+    );
+  }
+
+  const numericProductId = productId.split("/").pop() || productId;
+
+  // Order line text, written here from the quote.
+  const startDisplay = formatDateDisplay(startDate);
+  const endDisplay = formatDateDisplay(endDate);
+  const durationDisplay = `${rentalDays} day${rentalDays === 1 ? "" : "s"}`;
+  const rentalPriceDisplay = formatCurrency(rentalPrice, currency);
+  const depositDisplay = depositAmount > 0 ? formatCurrency(depositAmount, currency) : "None";
+
+  // Compact _miko_data payload - same format as the storefront cart add.
   // When the customer pays the draft order, Shopify fires orders/create and
   // orders/paid webhooks. Our handler reads _miko_data from line item
   // properties (draft order customAttributes become order line item properties)
@@ -114,8 +240,8 @@ export const action = async ({ request }: ActionFunctionArgs) => {
           variantId: variantGid,
           quantity: units,
           // perUnitPrice × quantity = rentalPrice + depositAmount (the full amount
-          // the customer owes). Without the Cart Transform Function, we set the
-          // price explicitly here.
+          // the customer owes), from the server-side quote above. Without the
+          // Cart Transform Function, we set the price explicitly here.
           originalUnitPrice: perUnitPrice.toFixed(2),
           requiresShipping: true,
           customAttributes: [
@@ -134,14 +260,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   };
 
   try {
-    const res = await fetch(`https://${shop}/admin/api/2026-04/graphql.json`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-Shopify-Access-Token": session.accessToken,
-      },
-      body: JSON.stringify({ query, variables }),
-    });
+    const res = await admin.graphql(query, { variables });
 
     const data = (await res.json()) as {
       data?: {
