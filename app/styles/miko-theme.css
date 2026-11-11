@@ -1,9 +1,8 @@
 /* Miko visual language -- shared across every /app/* route.
    Brand: the dark navy hero (matching the Miko Robot's chest glow) and the
-   mascot. Everything else follows the current Shopify admin look (Oct 2026)
-   via Polaris primitives: white 12px cards with the Polaris bevel, 8px
-   fields, #303030 / #616161 text, #ebebeb dividers, #005bd3 focus. No
-   gradients, glows or heavy shadows outside the hero. */
+   mascot. Everything else is Polaris web components (polaris-2.js), which
+   follow the merchant's admin look on their own, so nothing here copies the
+   Polaris palette. No gradients, glows or heavy shadows outside the hero. */
 
 :root {
   --miko-navy-950: #0d0f2b;
