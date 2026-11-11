@@ -1,21 +1,8 @@
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
 import { useLoaderData, useNavigate, useSubmit, useActionData, Form } from "@remix-run/react";
-import {
-  Page,
-  Layout,
-  Card,
-  BlockStack,
-  InlineStack,
-  Text,
-  Button,
-  Badge,
-  EmptyState,
-  Thumbnail,
-  Box,
-  Divider,
-  Banner,
-} from "@shopify/polaris";
+import { Banner, Grid, flag } from "../components/polaris";
+import { TWO_UP } from "../components/layout";
 import { authenticate } from "../shopify.server";
 import { db } from "../db.server";
 import { formatCurrency } from "../utils/pricing";
@@ -173,23 +160,21 @@ export default function ProductsPage() {
   }
 
   return (
-    <Page
-      fullWidth
-      title={t("Rental Products")}
-      subtitle={t("Choose which products in your store can be rented. Each product gets its own pricing, availability calendar, and deposit settings.")}
-      primaryAction={{
-        content: t("Add rental product"),
-        onAction: () => navigate("/app/products/new"),
-      }}
-      secondaryActions={[
-        {
-          content: t("Sync with storefront"),
-          onAction: syncStorefront,
-          helpText: t("Re-sync the rental flag on every product so the storefront embed knows which products are rentals."),
-        },
-      ]}
-    >
-      <BlockStack gap="600">
+    <s-page heading={t("Rental Products")} inlineSize="large">
+      <s-button slot="primary-action" variant="primary" onClick={() => navigate("/app/products/new")}>
+        {t("Add rental product")}
+      </s-button>
+      <s-button
+        slot="secondary-actions"
+        onClick={syncStorefront}
+        accessibilityLabel={t("Re-sync the rental flag on every product so the storefront embed knows which products are rentals.")}
+      >
+        {t("Sync with storefront")}
+      </s-button>
+      <s-stack direction="block" gap="large">
+        <s-text color="subdued">
+          {t("Choose which products in your store can be rented. Each product gets its own pricing, availability calendar, and deposit settings.")}
+        </s-text>
         {"error" in (actionData || {}) && (
           <Banner tone="critical" title={(actionData as any).error} />
         )}
@@ -198,117 +183,99 @@ export default function ProductsPage() {
         )}
 
         {rentalProducts.length === 0 ? (
-          <Card>
-            <EmptyState
-              heading={t("No rental products yet")}
-              action={{
-                content: t("Add your first rental product"),
-                onAction: () => navigate("/app/products/new"),
-              }}
-              image=""
-            >
-              <p>
+          <s-section>
+            <s-empty-state heading={t("No rental products yet")}>
+              <s-text slot="subheading">
                 {t("Pick any product from your Shopify store and turn it into a rental. Customers will see a date picker on the product page and can book it directly without leaving your store.")}
-              </p>
-            </EmptyState>
-          </Card>
+              </s-text>
+              <s-button slot="primary-action" variant="primary" onClick={() => navigate("/app/products/new")}>
+                {t("Add your first rental product")}
+              </s-button>
+            </s-empty-state>
+          </s-section>
         ) : (
-          <Layout>
-            {rentalProducts.map((product, i) => (
-              <Layout.Section key={product.id} variant="oneHalf">
-                <Card>
-                  <BlockStack gap="400">
-                    <InlineStack gap="400" blockAlign="start">
-                      <Thumbnail
-                        source={product.image || ""}
-                        alt={product.title}
-                        size="large"
-                      />
-                      <BlockStack gap="200">
-                        <InlineStack align="space-between" blockAlign="start">
-                          <Text as="h3" variant="headingMd">{product.title}</Text>
-                          <Badge tone={product.isActive ? "success" : "attention"}>
-                            {product.isActive ? t("Active") : t("Inactive")}
-                          </Badge>
-                        </InlineStack>
-                        <Text as="p" variant="bodySm" tone="subdued">
-                          {product.totalUnits === 1
-                            ? t("{n} unit available", { n: product.totalUnits })
-                            : t("{n} units available", { n: product.totalUnits })}
-                        </Text>
-                        {product.activeBookings > 0 && (
-                          <Badge tone="info">
-                            {product.activeBookings === 1
-                              ? t("{n} active booking", { n: product.activeBookings })
-                              : t("{n} active bookings", { n: product.activeBookings })}
-                          </Badge>
-                        )}
-                      </BlockStack>
-                    </InlineStack>
+          <Grid columns={TWO_UP} gap="base">
+            {rentalProducts.map((product) => (
+              <s-section key={product.id}>
+                <s-stack direction="block" gap="base">
+                  <s-stack direction="inline" gap="base" alignItems="start">
+                    <s-thumbnail src={product.image || undefined} alt={product.title} size="large" />
+                    <s-stack direction="block" gap="small-200">
+                      <s-stack direction="inline" gap="small-200" justifyContent="space-between" alignItems="start">
+                        <s-heading>{product.title}</s-heading>
+                        <s-badge tone={product.isActive ? "success" : "caution"}>
+                          {product.isActive ? t("Active") : t("Inactive")}
+                        </s-badge>
+                      </s-stack>
+                      <s-text color="subdued">
+                        {product.totalUnits === 1
+                          ? t("{n} unit available", { n: product.totalUnits })
+                          : t("{n} units available", { n: product.totalUnits })}
+                      </s-text>
+                      {product.activeBookings > 0 && (
+                        <s-badge tone="info">
+                          {product.activeBookings === 1
+                            ? t("{n} active booking", { n: product.activeBookings })
+                            : t("{n} active bookings", { n: product.activeBookings })}
+                        </s-badge>
+                      )}
+                    </s-stack>
+                  </s-stack>
 
-                    <Divider />
+                  <s-divider />
 
-                    <InlineStack gap="400" wrap>
-                      {product.pricePerDay > 0 && (
-                        <BlockStack gap="050">
-                          <Text as="p" variant="bodySm" tone="subdued">{t("Per day")}</Text>
-                          <Text as="p" variant="bodyMd" fontWeight="medium">
-                            {formatCurrency(product.pricePerDay, currency)}
-                          </Text>
-                        </BlockStack>
-                      )}
-                      {product.pricePerWeek > 0 && (
-                        <BlockStack gap="050">
-                          <Text as="p" variant="bodySm" tone="subdued">{t("Per week")}</Text>
-                          <Text as="p" variant="bodyMd" fontWeight="medium">
-                            {formatCurrency(product.pricePerWeek, currency)}
-                          </Text>
-                        </BlockStack>
-                      )}
-                      {product.pricePerMonth > 0 && (
-                        <BlockStack gap="050">
-                          <Text as="p" variant="bodySm" tone="subdued">{t("Per month")}</Text>
-                          <Text as="p" variant="bodyMd" fontWeight="medium">
-                            {formatCurrency(product.pricePerMonth, currency)}
-                          </Text>
-                        </BlockStack>
-                      )}
-                      {product.depositAmount > 0 && (
-                        <BlockStack gap="050">
-                          <Text as="p" variant="bodySm" tone="subdued">{t("Deposit")}</Text>
-                          <Text as="p" variant="bodyMd" fontWeight="medium">
-                            {formatCurrency(product.depositAmount, currency)}
-                          </Text>
-                        </BlockStack>
-                      )}
-                      {product.pricePerDay === 0 && product.depositAmount === 0 && (
-                        <Badge tone="attention">{t("Pricing not set")}</Badge>
-                      )}
-                      {product.pricePerDay === 0 && product.depositAmount > 0 && (
-                        <Badge tone="info">{t("Free rental")}</Badge>
-                      )}
-                    </InlineStack>
+                  <s-stack direction="inline" gap="base">
+                    {product.pricePerDay > 0 && (
+                      <s-stack direction="block" gap="none">
+                        <s-text color="subdued">{t("Per day")}</s-text>
+                        <s-text fontWeight="medium">{formatCurrency(product.pricePerDay, currency)}</s-text>
+                      </s-stack>
+                    )}
+                    {product.pricePerWeek > 0 && (
+                      <s-stack direction="block" gap="none">
+                        <s-text color="subdued">{t("Per week")}</s-text>
+                        <s-text fontWeight="medium">{formatCurrency(product.pricePerWeek, currency)}</s-text>
+                      </s-stack>
+                    )}
+                    {product.pricePerMonth > 0 && (
+                      <s-stack direction="block" gap="none">
+                        <s-text color="subdued">{t("Per month")}</s-text>
+                        <s-text fontWeight="medium">{formatCurrency(product.pricePerMonth, currency)}</s-text>
+                      </s-stack>
+                    )}
+                    {product.depositAmount > 0 && (
+                      <s-stack direction="block" gap="none">
+                        <s-text color="subdued">{t("Deposit")}</s-text>
+                        <s-text fontWeight="medium">{formatCurrency(product.depositAmount, currency)}</s-text>
+                      </s-stack>
+                    )}
+                    {product.pricePerDay === 0 && product.depositAmount === 0 && (
+                      <s-badge tone="caution">{t("Pricing not set")}</s-badge>
+                    )}
+                    {product.pricePerDay === 0 && product.depositAmount > 0 && (
+                      <s-badge tone="info">{t("Free rental")}</s-badge>
+                    )}
+                  </s-stack>
 
-                    <InlineStack gap="300">
-                      <Button onClick={() => navigate(`/app/products/${product.id}`)}>
-                        {t("Configure")}
-                      </Button>
-                      <Button
-                        tone={product.isActive ? "critical" : undefined}
-                        variant="plain"
-                        onClick={() => toggleActive(product.id, product.isActive)}
-                        disabled={!product.isActive && product.pricePerDay === 0 && product.depositAmount === 0}
-                      >
-                        {product.isActive ? t("Deactivate") : t("Activate")}
-                      </Button>
-                    </InlineStack>
-                  </BlockStack>
-                </Card>
-              </Layout.Section>
+                  <s-stack direction="inline" gap="small">
+                    <s-button onClick={() => navigate(`/app/products/${product.id}`)}>
+                      {t("Configure")}
+                    </s-button>
+                    <s-button
+                      tone={product.isActive ? "critical" : undefined}
+                      variant="tertiary"
+                      onClick={() => toggleActive(product.id, product.isActive)}
+                      disabled={flag(!product.isActive && product.pricePerDay === 0 && product.depositAmount === 0)}
+                    >
+                      {product.isActive ? t("Deactivate") : t("Activate")}
+                    </s-button>
+                  </s-stack>
+                </s-stack>
+              </s-section>
             ))}
-          </Layout>
+          </Grid>
         )}
-      </BlockStack>
-    </Page>
+      </s-stack>
+    </s-page>
   );
 }

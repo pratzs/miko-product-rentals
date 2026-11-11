@@ -1,17 +1,7 @@
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "@remix-run/node";
 import { json, redirect } from "@remix-run/node";
 import { useActionData, useLoaderData, useNavigate, useSubmit } from "@remix-run/react";
-import {
-  Page,
-  Card,
-  BlockStack,
-  Banner,
-  Text,
-  Button,
-  InlineStack,
-  Thumbnail,
-  EmptyState,
-} from "@shopify/polaris";
+import { AppLink, Banner, flag } from "../components/polaris";
 import { authenticate } from "../shopify.server";
 import { db } from "../db.server";
 import { useState, useCallback } from "react";
@@ -101,75 +91,63 @@ export default function NewProductPage() {
   }
 
   return (
-    <Page
-      fullWidth
-      title={t("Add Rental Product")}
-      subtitle={t("Choose a product from your store to enable for rental.")}
-      backAction={{ content: t("Rental Products"), url: "/app/products" }}
-    >
-      <BlockStack gap="600">
+    <s-page heading={t("Add Rental Product")} inlineSize="large">
+      <AppLink slot="breadcrumb-actions" to="/app/products" navigate={navigate}>
+        {t("Rental Products")}
+      </AppLink>
+      <s-stack direction="block" gap="large">
+        <s-text color="subdued">{t("Choose a product from your store to enable for rental.")}</s-text>
         {actionData && "error" in actionData && (
           <Banner tone="critical" title={actionData.error} />
         )}
 
-        <Card>
-          <BlockStack gap="500">
-            <BlockStack gap="200">
-              <Text as="h2" variant="headingMd">{t("Select a product")}</Text>
-              <Text as="p" tone="subdued">
+        <s-section>
+          <s-stack direction="block" gap="large">
+            <s-stack direction="block" gap="small-200">
+              <s-heading>{t("Select a product")}</s-heading>
+              <s-paragraph color="subdued">
                 {t("Pick any physical product you want to make available for rental. The product's existing Shopify listing stays unchanged - Miko Rentals adds a booking calendar to it automatically.")}
-              </Text>
-            </BlockStack>
+              </s-paragraph>
+            </s-stack>
 
             {!selectedProduct ? (
-              <EmptyState
-                heading={t("No product selected yet")}
-                action={{
-                  content: picking ? t("Opening picker…") : t("Browse products"),
-                  onAction: openPicker,
-                  loading: picking,
-                }}
-                image=""
-              >
-                <p>{t("Click Browse products to pick from your Shopify catalog.")}</p>
-              </EmptyState>
+              <s-empty-state heading={t("No product selected yet")}>
+                <s-text slot="subheading">{t("Click Browse products to pick from your Shopify catalog.")}</s-text>
+                <s-button slot="primary-action" variant="primary" onClick={openPicker} loading={flag(picking)}>
+                  {picking ? t("Opening picker…") : t("Browse products")}
+                </s-button>
+              </s-empty-state>
             ) : (
-              <BlockStack gap="400">
-                <InlineStack gap="400" blockAlign="center">
-                  <Thumbnail
-                    source={selectedProduct.image}
-                    alt={selectedProduct.title}
-                    size="large"
-                  />
-                  <BlockStack gap="100">
-                    <Text as="p" variant="headingMd">{selectedProduct.title}</Text>
-                    <Text as="p" variant="bodySm" tone="subdued">
-                      {t("ID: {id}", { id: selectedProduct.id })}
-                    </Text>
-                  </BlockStack>
-                </InlineStack>
+              <s-stack direction="block" gap="base">
+                <s-stack direction="inline" gap="base" alignItems="center">
+                  <s-thumbnail src={selectedProduct.image || undefined} alt={selectedProduct.title} size="large" />
+                  <s-stack direction="block" gap="small-300">
+                    <s-heading>{selectedProduct.title}</s-heading>
+                    <s-text color="subdued">{t("ID: {id}", { id: selectedProduct.id })}</s-text>
+                  </s-stack>
+                </s-stack>
 
-                <InlineStack gap="300">
-                  <Button variant="primary" onClick={confirmSelection}>
+                <s-stack direction="inline" gap="small">
+                  <s-button variant="primary" onClick={confirmSelection}>
                     {t("Add this product")}
-                  </Button>
-                  <Button variant="plain" onClick={() => setSelectedProduct(null)}>
+                  </s-button>
+                  <s-button variant="tertiary" onClick={() => setSelectedProduct(null)}>
                     {t("Choose a different product")}
-                  </Button>
-                </InlineStack>
-              </BlockStack>
+                  </s-button>
+                </s-stack>
+              </s-stack>
             )}
 
             {!selectedProduct && (
-              <InlineStack>
-                <Button onClick={openPicker} loading={picking}>
+              <s-stack direction="inline">
+                <s-button onClick={openPicker} loading={flag(picking)}>
                   {t("Browse products")}
-                </Button>
-              </InlineStack>
+                </s-button>
+              </s-stack>
             )}
-          </BlockStack>
-        </Card>
-      </BlockStack>
-    </Page>
+          </s-stack>
+        </s-section>
+      </s-stack>
+    </s-page>
   );
 }

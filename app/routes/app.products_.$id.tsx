@@ -1,32 +1,14 @@
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "@remix-run/node";
 import { json, redirect } from "@remix-run/node";
 import { useLoaderData, useNavigate, Form, useActionData, useNavigation, useSubmit } from "@remix-run/react";
-import {
-  Page,
-  Layout,
-  Card,
-  BlockStack,
-  InlineStack,
-  Text,
-  TextField,
-  Button,
-  Banner,
-  Badge,
-  Thumbnail,
-  Select,
-  Checkbox,
-  Divider,
-  Box,
-  Tooltip,
-  Icon,
-} from "@shopify/polaris";
-import { QuestionCircleIcon } from "@shopify/polaris-icons";
+import { AppLink, Banner, Checkbox, Grid, TextField, flag, useCustomEvent } from "../components/polaris";
+import { MAIN_WITH_SIDEBAR } from "../components/layout";
 import { authenticate } from "../shopify.server";
 import { db } from "../db.server";
 import { setRentalMetafield, ensureRentalVariantsCanOversell } from "../utils/product-metafields.server";
 import { syncRentalProductConfig, clearRentalProductConfig } from "../utils/rental-config-metafields.server";
 import { syncRentalProductVariants } from "../utils/variant-sync.server";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useT } from "../i18n/context";
 
 export const loader = async ({ request, params }: LoaderFunctionArgs) => {
@@ -230,6 +212,9 @@ export default function ProductConfigPage() {
   const navigate = useNavigate();
   const submit = useSubmit();
   const saving = navigation.state === "submitting";
+  // The save form lives in the page body (s-page's primary-action slot takes
+  // a single button, not a form); the header button submits it.
+  const saveFormRef = useRef<HTMLFormElement>(null);
 
   const [pricePerDay, setPricePerDay] = useState(product.pricePerDay.toString());
   const [pricePerWeek, setPricePerWeek] = useState(product.pricePerWeek.toString());
@@ -243,42 +228,49 @@ export default function ProductConfigPage() {
   const [rentalNotes, setRentalNotes] = useState(product.rentalNotes);
 
   return (
-    <Page
-      fullWidth
-      title={product.title}
-      subtitle={t("Configure how this product is rented")}
-      backAction={{ content: t("Rental Products"), url: "/app/products" }}
-      primaryAction={
-        <Form method="POST">
-          <input type="hidden" name="intent" value="save" />
-          <input type="hidden" name="pricePerDay" value={pricePerDay} />
-          <input type="hidden" name="pricePerWeek" value={pricePerWeek} />
-          <input type="hidden" name="pricePerMonth" value={pricePerMonth} />
-          <input type="hidden" name="depositAmount" value={depositAmount} />
-          <input type="hidden" name="totalUnits" value={totalUnits} />
-          <input type="hidden" name="minRentalDays" value={minRentalDays} />
-          <input type="hidden" name="maxRentalDays" value={maxRentalDays} />
-          <input type="hidden" name="autoReleaseDeposit" value={autoReleaseDeposit.toString()} />
-          <input type="hidden" name="allowRentalWhenSoldOut" value={allowRentalWhenSoldOut.toString()} />
-          <input type="hidden" name="rentalNotes" value={rentalNotes} />
-          <Button variant="primary" submit loading={saving}>{t("Save settings")}</Button>
-        </Form>
-      }
-      secondaryActions={[
-        {
-          content: product.isActive ? t("Deactivate") : t("Activate"),
-          onAction: () => {
-            const fd = new FormData();
-            fd.set("intent", "toggle_active");
-            submit(fd, { method: "POST" });
-          },
-          destructive: product.isActive,
-        },
-      ]}
-    >
-      <Layout>
-        <Layout.Section>
-          <BlockStack gap="600">
+    <s-page heading={product.title} inlineSize="large">
+      <AppLink slot="breadcrumb-actions" to="/app/products" navigate={navigate}>
+        {t("Rental Products")}
+      </AppLink>
+      <s-button
+        slot="primary-action"
+        variant="primary"
+        loading={flag(saving)}
+        onClick={() => saveFormRef.current?.requestSubmit()}
+      >
+        {t("Save settings")}
+      </s-button>
+      <s-button
+        slot="secondary-actions"
+        tone={product.isActive ? "critical" : undefined}
+        onClick={() => {
+          const fd = new FormData();
+          fd.set("intent", "toggle_active");
+          submit(fd, { method: "POST" });
+        }}
+      >
+        {product.isActive ? t("Deactivate") : t("Activate")}
+      </s-button>
+
+      {/* Same fields, names and values the header Form used to post. */}
+      <Form method="POST" ref={saveFormRef} style={{ display: "none" }}>
+        <input type="hidden" name="intent" value="save" />
+        <input type="hidden" name="pricePerDay" value={pricePerDay} />
+        <input type="hidden" name="pricePerWeek" value={pricePerWeek} />
+        <input type="hidden" name="pricePerMonth" value={pricePerMonth} />
+        <input type="hidden" name="depositAmount" value={depositAmount} />
+        <input type="hidden" name="totalUnits" value={totalUnits} />
+        <input type="hidden" name="minRentalDays" value={minRentalDays} />
+        <input type="hidden" name="maxRentalDays" value={maxRentalDays} />
+        <input type="hidden" name="autoReleaseDeposit" value={autoReleaseDeposit.toString()} />
+        <input type="hidden" name="allowRentalWhenSoldOut" value={allowRentalWhenSoldOut.toString()} />
+        <input type="hidden" name="rentalNotes" value={rentalNotes} />
+      </Form>
+
+      <s-stack direction="block" gap="base">
+        <s-text color="subdued">{t("Configure how this product is rented")}</s-text>
+        <Grid columns={MAIN_WITH_SIDEBAR} gap="base">
+          <s-stack direction="block" gap="large">
             {actionData && "error" in actionData && (
               <Banner tone="critical" title={actionData.error} />
             )}
@@ -287,17 +279,17 @@ export default function ProductConfigPage() {
             )}
 
             {/* Product summary */}
-            <Card>
-              <InlineStack gap="400" blockAlign="center">
-                <Thumbnail source={product.image} alt={product.title} size="large" />
-                <BlockStack gap="100">
-                  <InlineStack gap="200" blockAlign="center">
-                    <Text as="h2" variant="headingLg">{product.title}</Text>
-                    <Badge tone={product.isActive ? "success" : "attention"}>
+            <s-section>
+              <s-stack direction="inline" gap="base" alignItems="center">
+                <s-thumbnail src={product.image || undefined} alt={product.title} size="large" />
+                <s-stack direction="block" gap="small-300">
+                  <s-stack direction="inline" gap="small-200" alignItems="center">
+                    <s-heading>{product.title}</s-heading>
+                    <s-badge tone={product.isActive ? "success" : "caution"}>
                       {product.isActive ? t("Active") : t("Inactive")}
-                    </Badge>
-                  </InlineStack>
-                  <Text as="p" tone="subdued" variant="bodySm">
+                    </s-badge>
+                  </s-stack>
+                  <s-text color="subdued">
                     {product.totalBookings === 1
                       ? t("{total} total booking • {active} currently active", {
                           total: product.totalBookings,
@@ -307,23 +299,20 @@ export default function ProductConfigPage() {
                           total: product.totalBookings,
                           active: product.activeBookings,
                         })}
-                  </Text>
-                </BlockStack>
-              </InlineStack>
-            </Card>
+                  </s-text>
+                </s-stack>
+              </s-stack>
+            </s-section>
 
             {/* Pricing */}
-            <Card>
-              <BlockStack gap="400">
-                <BlockStack gap="100">
-                  <Text as="h2" variant="headingMd">{t("Rental pricing")}</Text>
-                  <Text as="p" tone="subdued">
-                    {t("Set how much customers pay to rent this item. Daily rate is required. Weekly and monthly rates are optional - when offered, customers automatically get the best rate for their chosen dates.")}
-                  </Text>
-                </BlockStack>
-                <Divider />
-                <InlineStack gap="400" wrap>
-                  <Box minWidth="180px">
+            <s-section heading={t("Rental pricing")}>
+              <s-stack direction="block" gap="base">
+                <s-paragraph color="subdued">
+                  {t("Set how much customers pay to rent this item. Daily rate is required. Weekly and monthly rates are optional - when offered, customers automatically get the best rate for their chosen dates.")}
+                </s-paragraph>
+                <s-divider />
+                <s-stack direction="inline" gap="base">
+                  <s-box minInlineSize="180px">
                     <TextField
                       label={t("Price per day")}
                       type="number"
@@ -333,10 +322,10 @@ export default function ProductConfigPage() {
                       min={0}
                       step={0.01}
                       autoComplete="off"
-                      helpText={t("Required")}
+                      details={t("Required")}
                     />
-                  </Box>
-                  <Box minWidth="180px">
+                  </s-box>
+                  <s-box minInlineSize="180px">
                     <TextField
                       label={t("Price per week")}
                       type="number"
@@ -346,10 +335,10 @@ export default function ProductConfigPage() {
                       min={0}
                       step={0.01}
                       autoComplete="off"
-                      helpText={t("Optional. Leave at 0 to skip this rate.")}
+                      details={t("Optional. Leave at 0 to skip this rate.")}
                     />
-                  </Box>
-                  <Box minWidth="180px">
+                  </s-box>
+                  <s-box minInlineSize="180px">
                     <TextField
                       label={t("Price per month")}
                       type="number"
@@ -359,24 +348,21 @@ export default function ProductConfigPage() {
                       min={0}
                       step={0.01}
                       autoComplete="off"
-                      helpText={t("Optional. Leave at 0 to skip this rate.")}
+                      details={t("Optional. Leave at 0 to skip this rate.")}
                     />
-                  </Box>
-                </InlineStack>
-              </BlockStack>
-            </Card>
+                  </s-box>
+                </s-stack>
+              </s-stack>
+            </s-section>
 
             {/* Deposit */}
-            <Card>
-              <BlockStack gap="400">
-                <BlockStack gap="100">
-                  <Text as="h2" variant="headingMd">{t("Security deposit")}</Text>
-                  <Text as="p" tone="subdued">
-                    {t("A deposit is an extra amount collected at checkout that is held until the item is returned in good condition. Leave at 0 if you do not want to collect a deposit.")}
-                  </Text>
-                </BlockStack>
-                <Divider />
-                <Box maxWidth="220px">
+            <s-section heading={t("Security deposit")}>
+              <s-stack direction="block" gap="base">
+                <s-paragraph color="subdued">
+                  {t("A deposit is an extra amount collected at checkout that is held until the item is returned in good condition. Leave at 0 if you do not want to collect a deposit.")}
+                </s-paragraph>
+                <s-divider />
+                <s-box maxInlineSize="220px">
                   <TextField
                     label={t("Deposit amount")}
                     type="number"
@@ -386,37 +372,34 @@ export default function ProductConfigPage() {
                     min={0}
                     step={0.01}
                     autoComplete="off"
-                    helpText={t("0 = no deposit")}
+                    details={t("0 = no deposit")}
                   />
-                </Box>
+                </s-box>
                 <Checkbox
                   label={t("Automatically mark deposit as released when the booking is marked as returned")}
                   checked={autoReleaseDeposit}
                   onChange={setAutoReleaseDeposit}
-                  helpText={t("You will still need to process the actual refund through Shopify separately.")}
+                  details={t("You will still need to process the actual refund through Shopify separately.")}
                 />
-                <Divider />
+                <s-divider />
                 <Checkbox
                   label={t("Allow rental even when Shopify shows product as sold out")}
                   checked={allowRentalWhenSoldOut}
                   onChange={setAllowRentalWhenSoldOut}
-                  helpText={t("When on (recommended), the app overrides Shopify's inventory so customers can always add a rental to cart. Miko's calendar is the availability source of truth. Turn off only if you also want Shopify stock to gate rentals.")}
+                  details={t("When on (recommended), the app overrides Shopify's inventory so customers can always add a rental to cart. Miko's calendar is the availability source of truth. Turn off only if you also want Shopify stock to gate rentals.")}
                 />
-              </BlockStack>
-            </Card>
+              </s-stack>
+            </s-section>
 
             {/* Inventory & Duration */}
-            <Card>
-              <BlockStack gap="400">
-                <BlockStack gap="100">
-                  <Text as="h2" variant="headingMd">{t("Inventory and duration")}</Text>
-                  <Text as="p" tone="subdued">
-                    {t("How many physical units do you have available to rent out at the same time? You can also set minimum and maximum rental lengths.")}
-                  </Text>
-                </BlockStack>
-                <Divider />
-                <InlineStack gap="400" wrap>
-                  <Box minWidth="160px">
+            <s-section heading={t("Inventory and duration")}>
+              <s-stack direction="block" gap="base">
+                <s-paragraph color="subdued">
+                  {t("How many physical units do you have available to rent out at the same time? You can also set minimum and maximum rental lengths.")}
+                </s-paragraph>
+                <s-divider />
+                <s-stack direction="inline" gap="base">
+                  <s-box minInlineSize="160px">
                     <TextField
                       label={t("Units available")}
                       type="number"
@@ -424,10 +407,10 @@ export default function ProductConfigPage() {
                       onChange={setTotalUnits}
                       min={1}
                       autoComplete="off"
-                      helpText={t("How many can be out at the same time")}
+                      details={t("How many can be out at the same time")}
                     />
-                  </Box>
-                  <Box minWidth="160px">
+                  </s-box>
+                  <s-box minInlineSize="160px">
                     <TextField
                       label={t("Minimum rental days")}
                       type="number"
@@ -435,10 +418,10 @@ export default function ProductConfigPage() {
                       onChange={setMinRentalDays}
                       min={1}
                       autoComplete="off"
-                      helpText={t("Shortest booking allowed")}
+                      details={t("Shortest booking allowed")}
                     />
-                  </Box>
-                  <Box minWidth="160px">
+                  </s-box>
+                  <s-box minInlineSize="160px">
                     <TextField
                       label={t("Maximum rental days")}
                       type="number"
@@ -446,23 +429,20 @@ export default function ProductConfigPage() {
                       onChange={setMaxRentalDays}
                       min={0}
                       autoComplete="off"
-                      helpText={t("0 = no maximum")}
+                      details={t("0 = no maximum")}
                     />
-                  </Box>
-                </InlineStack>
-              </BlockStack>
-            </Card>
+                  </s-box>
+                </s-stack>
+              </s-stack>
+            </s-section>
 
             {/* Notes */}
-            <Card>
-              <BlockStack gap="400">
-                <BlockStack gap="100">
-                  <Text as="h2" variant="headingMd">{t("Customer-facing notes")}</Text>
-                  <Text as="p" tone="subdued">
-                    {t("Any extra instructions shown to the customer on the product page - for example, pickup location, what is included, or care instructions.")}
-                  </Text>
-                </BlockStack>
-                <Divider />
+            <s-section heading={t("Customer-facing notes")}>
+              <s-stack direction="block" gap="base">
+                <s-paragraph color="subdued">
+                  {t("Any extra instructions shown to the customer on the product page - for example, pickup location, what is included, or care instructions.")}
+                </s-paragraph>
+                <s-divider />
                 <TextField
                   label={t("Rental notes")}
                   value={rentalNotes}
@@ -471,8 +451,8 @@ export default function ProductConfigPage() {
                   autoComplete="off"
                   placeholder={t("e.g. Collect from our store at 123 Main Street between 9am-5pm. Helmet and lock included.")}
                 />
-              </BlockStack>
-            </Card>
+              </s-stack>
+            </s-section>
 
             {/* Variants */}
             <VariantsCard
@@ -484,70 +464,62 @@ export default function ProductConfigPage() {
 
             {/* Danger zone */}
             {!product.isActive && (
-              <Card>
-                <BlockStack gap="400">
-                  <Text as="h2" variant="headingMd" tone="critical">{t("Remove product")}</Text>
-                  <Text as="p" tone="subdued">
+              <s-section>
+                <s-stack direction="block" gap="base">
+                  <s-heading>
+                    <s-text tone="critical">{t("Remove product")}</s-text>
+                  </s-heading>
+                  <s-paragraph color="subdued">
                     {t("This removes the rental configuration from this product. The product itself stays in your Shopify store - only the rental settings are deleted. You cannot do this while the product is active.")}
-                  </Text>
+                  </s-paragraph>
                   <Form method="POST">
                     <input type="hidden" name="intent" value="delete" />
-                    <Button tone="critical" submit>{t("Remove rental product")}</Button>
+                    <s-button tone="critical" type="submit">{t("Remove rental product")}</s-button>
                   </Form>
-                </BlockStack>
-              </Card>
+                </s-stack>
+              </s-section>
             )}
-          </BlockStack>
-        </Layout.Section>
+          </s-stack>
 
-        {/* Sidebar */}
-        <Layout.Section variant="oneThird">
-          <BlockStack gap="400">
-            <Card>
-              <BlockStack gap="300">
-                <Text as="h2" variant="headingMd">{t("How it works")}</Text>
-                <BlockStack gap="200">
-                  <InlineStack gap="200" blockAlign="start">
-                    <Text as="span" variant="bodyMd" fontWeight="bold">1.</Text>
-                    <Text as="p" tone="subdued">{t("Customer picks their rental dates on your product page")}</Text>
-                  </InlineStack>
-                  <InlineStack gap="200" blockAlign="start">
-                    <Text as="span" variant="bodyMd" fontWeight="bold">2.</Text>
-                    <Text as="p" tone="subdued">{t("Price and deposit are calculated automatically")}</Text>
-                  </InlineStack>
-                  <InlineStack gap="200" blockAlign="start">
-                    <Text as="span" variant="bodyMd" fontWeight="bold">3.</Text>
-                    <Text as="p" tone="subdued">{t("Customer pays through your normal Shopify checkout")}</Text>
-                  </InlineStack>
-                  <InlineStack gap="200" blockAlign="start">
-                    <Text as="span" variant="bodyMd" fontWeight="bold">4.</Text>
-                    <Text as="p" tone="subdued">{t("Booking appears here so you can manage pickup, returns, and deposits")}</Text>
-                  </InlineStack>
-                </BlockStack>
-              </BlockStack>
-            </Card>
+          {/* Sidebar */}
+          <s-stack direction="block" gap="base">
+            <s-section heading={t("How it works")}>
+              <s-ordered-list>
+                <s-list-item>
+                  <s-text color="subdued">{t("Customer picks their rental dates on your product page")}</s-text>
+                </s-list-item>
+                <s-list-item>
+                  <s-text color="subdued">{t("Price and deposit are calculated automatically")}</s-text>
+                </s-list-item>
+                <s-list-item>
+                  <s-text color="subdued">{t("Customer pays through your normal Shopify checkout")}</s-text>
+                </s-list-item>
+                <s-list-item>
+                  <s-text color="subdued">{t("Booking appears here so you can manage pickup, returns, and deposits")}</s-text>
+                </s-list-item>
+              </s-ordered-list>
+            </s-section>
 
-            <Card>
-              <BlockStack gap="300">
-                <Text as="h2" variant="headingMd">{t("Quick actions")}</Text>
-                <Button
-                  fullWidth
+            <s-section heading={t("Quick actions")}>
+              <s-stack direction="block" gap="small">
+                <s-button
+                  inlineSize="fill"
                   onClick={() => navigate(`/app/bookings?productId=${product.id}`)}
                 >
                   {t("View bookings for this product")}
-                </Button>
-                <Button
-                  fullWidth
+                </s-button>
+                <s-button
+                  inlineSize="fill"
                   onClick={() => navigate(`/app/calendar?productId=${product.id}`)}
                 >
                   {t("View availability calendar")}
-                </Button>
-              </BlockStack>
-            </Card>
-          </BlockStack>
-        </Layout.Section>
-      </Layout>
-    </Page>
+                </s-button>
+              </s-stack>
+            </s-section>
+          </s-stack>
+        </Grid>
+      </s-stack>
+    </s-page>
   );
 }
 
@@ -586,23 +558,23 @@ function VariantsCard({
   }
 
   return (
-    <Card>
-      <BlockStack gap="400">
-        <InlineStack align="space-between" blockAlign="center" wrap={false}>
-          <BlockStack gap="100">
-            <Text as="h2" variant="headingMd">{t("Variants")}</Text>
-            <Text as="p" tone="subdued">
+    <s-section>
+      <s-stack direction="block" gap="base">
+        <s-stack direction="inline" gap="base" justifyContent="space-between" alignItems="center">
+          <s-stack direction="block" gap="small-300">
+            <s-heading>{t("Variants")}</s-heading>
+            <s-paragraph color="subdued">
               {hasVariants
                 ? t("This product has multiple variants. Configure rental pricing and units for each one.")
                 : t("If this product has variants in Shopify, click Sync variants to pull them in and price each one individually.")}
-            </Text>
-          </BlockStack>
-          <Button onClick={onSync} loading={syncing}>{t("Sync variants")}</Button>
-        </InlineStack>
+            </s-paragraph>
+          </s-stack>
+          <s-button onClick={onSync} loading={flag(syncing)}>{t("Sync variants")}</s-button>
+        </s-stack>
         {hasVariants && variants.length > 0 && (
           <>
-            <Divider />
-            <BlockStack gap="400">
+            <s-divider />
+            <s-stack direction="block" gap="base">
               {variants.map((v) => (
                 <VariantRowEditor
                   key={v.id}
@@ -611,11 +583,11 @@ function VariantsCard({
                   currency={currency}
                 />
               ))}
-            </BlockStack>
+            </s-stack>
           </>
         )}
-      </BlockStack>
-    </Card>
+      </s-stack>
+    </s-section>
   );
 }
 
@@ -656,30 +628,23 @@ function VariantRowEditor({
   }
 
   return (
-    <Box
-      padding="400"
-      borderRadius="200"
-      background="bg-surface-secondary"
-      borderColor="border"
-      borderWidth="025"
-    >
-      <BlockStack gap="300">
-        <InlineStack align="space-between" blockAlign="center">
-          <InlineStack gap="200" blockAlign="center">
-            <Text as="h3" variant="headingSm">{variant.title}</Text>
-            <Badge tone={isActive ? "success" : undefined}>
+    <s-box padding="base" borderRadius="base" background="subdued" border="base">
+      <s-stack direction="block" gap="small">
+        <s-stack direction="inline" gap="small-200" justifyContent="space-between" alignItems="center">
+          <s-stack direction="inline" gap="small-200" alignItems="center">
+            <s-heading>{variant.title}</s-heading>
+            <s-badge tone={isActive ? "success" : undefined}>
               {isActive ? t("Active") : t("Inactive")}
-            </Badge>
-          </InlineStack>
-          <Checkbox
+            </s-badge>
+          </s-stack>
+          <VariantActiveCheckbox
             label={t("Available for rental")}
-            labelHidden
             checked={isActive}
             onChange={setIsActive}
           />
-        </InlineStack>
-        <InlineStack gap="300" wrap>
-          <Box minWidth="140px">
+        </s-stack>
+        <s-stack direction="inline" gap="small">
+          <s-box minInlineSize="140px">
             <TextField
               label={t("Price per day")}
               type="number"
@@ -690,8 +655,8 @@ function VariantRowEditor({
               step={0.01}
               autoComplete="off"
             />
-          </Box>
-          <Box minWidth="140px">
+          </s-box>
+          <s-box minInlineSize="140px">
             <TextField
               label={t("Per week")}
               type="number"
@@ -702,8 +667,8 @@ function VariantRowEditor({
               step={0.01}
               autoComplete="off"
             />
-          </Box>
-          <Box minWidth="140px">
+          </s-box>
+          <s-box minInlineSize="140px">
             <TextField
               label={t("Per month")}
               type="number"
@@ -714,8 +679,8 @@ function VariantRowEditor({
               step={0.01}
               autoComplete="off"
             />
-          </Box>
-          <Box minWidth="140px">
+          </s-box>
+          <s-box minInlineSize="140px">
             <TextField
               label={t("Deposit")}
               type="number"
@@ -726,8 +691,8 @@ function VariantRowEditor({
               step={0.01}
               autoComplete="off"
             />
-          </Box>
-          <Box minWidth="120px">
+          </s-box>
+          <s-box minInlineSize="120px">
             <TextField
               label={t("Units available")}
               type="number"
@@ -736,14 +701,46 @@ function VariantRowEditor({
               min={1}
               autoComplete="off"
             />
-          </Box>
-        </InlineStack>
-        <InlineStack>
-          <Button onClick={onSave} loading={saving} variant="primary">
+          </s-box>
+        </s-stack>
+        <s-stack direction="inline">
+          <s-button onClick={onSave} loading={flag(saving)} variant="primary">
             {t("Save variant")}
-          </Button>
-        </InlineStack>
-      </BlockStack>
-    </Box>
+          </s-button>
+        </s-stack>
+      </s-stack>
+    </s-box>
   );
+}
+
+/**
+ * Checkbox with a visually hidden label (Polaris React's `labelHidden`). The
+ * shared adapter Checkbox has no such option, so this local copy binds the
+ * `change` event the same way.
+ */
+function VariantActiveCheckbox({
+  label,
+  checked,
+  onChange,
+}: {
+  label: string;
+  checked: boolean;
+  onChange: (v: boolean) => void;
+}) {
+  const ref = useRef<HTMLElement>(null);
+  useEffectChange(ref, onChange);
+  return (
+    <s-checkbox
+      ref={ref as never}
+      label={label}
+      labelAccessibilityVisibility="exclusive"
+      checked={flag(checked)}
+    />
+  );
+}
+
+function useEffectChange(ref: React.RefObject<HTMLElement | null>, onChange: (v: boolean) => void) {
+  useCustomEvent(ref, "change", (e) => {
+    onChange(Boolean((e.currentTarget as unknown as { checked?: boolean }).checked));
+  });
 }
