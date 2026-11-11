@@ -16,7 +16,7 @@ active (out now), returned, overdue, or cancelled.
 - "What do I rent out / how is [product] priced?" → `list_rental_products`
 - "How much rental revenue this month / deposits held?" → `get_rental_revenue`
 
-## Overdue rentals matter most
+## Overdue rentals
 
 Each overdue result is real gear a customer still has past its due date. Report
 them plainly with the customer, their contact, and how late they are, so the

@@ -53,14 +53,20 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     /* ── Upcoming rentals that haven't started yet ──────────────────────── */
     case "list_upcoming_bookings": {
       const now = new Date();
-      const bookings = await db.rentalBooking.findMany({
-        where: { shop, startDate: { gte: now }, status: { in: ["pending", "confirmed", "active"] } },
-        orderBy: { startDate: "asc" },
-        take: MAX_ROWS,
-      });
-      const total = await db.rentalBooking.count({
-        where: { shop, startDate: { gte: now }, status: { in: ["pending", "confirmed", "active"] } },
-      });
+      const where = {
+        shop,
+        startDate: { gte: now },
+        status: { in: ["pending", "confirmed", "active"] },
+      };
+      // Rows and total run together to stay inside Sidekick's 1s budget.
+      const [bookings, total] = await Promise.all([
+        db.rentalBooking.findMany({
+          where,
+          orderBy: { startDate: "asc" },
+          take: MAX_ROWS,
+        }),
+        db.rentalBooking.count({ where }),
+      ]);
       return cors(
         json({
           totalUpcoming: total,
@@ -85,14 +91,20 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     /* ── Items currently out with a customer ────────────────────────────── */
     case "list_active_rentals": {
       const now = new Date();
-      const bookings = await db.rentalBooking.findMany({
-        where: { shop, status: "active", startDate: { lte: now }, endDate: { gte: now } },
-        orderBy: { endDate: "asc" },
-        take: MAX_ROWS,
-      });
-      const total = await db.rentalBooking.count({
-        where: { shop, status: "active", startDate: { lte: now }, endDate: { gte: now } },
-      });
+      const where = {
+        shop,
+        status: "active",
+        startDate: { lte: now },
+        endDate: { gte: now },
+      };
+      const [bookings, total] = await Promise.all([
+        db.rentalBooking.findMany({
+          where,
+          orderBy: { endDate: "asc" },
+          take: MAX_ROWS,
+        }),
+        db.rentalBooking.count({ where }),
+      ]);
       return cors(
         json({
           totalActive: total,
@@ -115,28 +127,22 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     /* ── Overdue: past the due date and not returned ────────────────────── */
     case "list_overdue_rentals": {
       const now = new Date();
-      const bookings = await db.rentalBooking.findMany({
-        where: {
-          shop,
-          returnedAt: null,
-          OR: [
-            { status: "overdue" },
-            { status: { in: ["confirmed", "active"] }, endDate: { lt: now } },
-          ],
-        },
-        orderBy: { endDate: "asc" },
-        take: MAX_ROWS,
-      });
-      const total = await db.rentalBooking.count({
-        where: {
-          shop,
-          returnedAt: null,
-          OR: [
-            { status: "overdue" },
-            { status: { in: ["confirmed", "active"] }, endDate: { lt: now } },
-          ],
-        },
-      });
+      const where = {
+        shop,
+        returnedAt: null,
+        OR: [
+          { status: "overdue" },
+          { status: { in: ["confirmed", "active"] }, endDate: { lt: now } },
+        ],
+      };
+      const [bookings, total] = await Promise.all([
+        db.rentalBooking.findMany({
+          where,
+          orderBy: { endDate: "asc" },
+          take: MAX_ROWS,
+        }),
+        db.rentalBooking.count({ where }),
+      ]);
       return cors(
         json({
           totalOverdue: total,
@@ -224,16 +230,18 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     /* ── This month's rental revenue and deposits held ──────────────────── */
     case "get_rental_revenue": {
       const from = startOfMonthUTC();
-      const agg = await db.rentalBooking.aggregate({
-        where: { shop, createdAt: { gte: from }, status: { notIn: ["cancelled", "pending"] } },
-        _sum: { rentalPrice: true, totalCharged: true },
-        _count: true,
-      });
-      const heldDeposits = await db.rentalBooking.aggregate({
-        where: { shop, depositStatus: "held" },
-        _sum: { depositAmount: true },
-        _count: true,
-      });
+      const [agg, heldDeposits] = await Promise.all([
+        db.rentalBooking.aggregate({
+          where: { shop, createdAt: { gte: from }, status: { notIn: ["cancelled", "pending"] } },
+          _sum: { rentalPrice: true, totalCharged: true },
+          _count: true,
+        }),
+        db.rentalBooking.aggregate({
+          where: { shop, depositStatus: "held" },
+          _sum: { depositAmount: true },
+          _count: true,
+        }),
+      ]);
       return cors(
         json({
           results: [
