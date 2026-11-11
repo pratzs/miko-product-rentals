@@ -96,6 +96,11 @@ model ShopConfig {
   // Tracks the Cart Transform Function record so we can clean it up on
   // uninstall and avoid orphaned records.
   cartTransformId     String?
+  // Last time every rental product of this shop had its rates written to the
+  // `$app:miko_rentals.config` metafields the Cart Transform Function prices
+  // from. Null = never synced, so checkout cannot price this shop's rentals
+  // yet (see app/utils/rental-config-metafields.server.ts).
+  rentalConfigSyncedAt DateTime?
   // ---- Lifecycle emails (welcome / day-7 review / uninstall winback) ----
   // Store owner's email + name captured at install via the shop query. Used
   // only for the three one-off relationship emails, never campaigns.

@@ -24,6 +24,7 @@ import { QuestionCircleIcon } from "@shopify/polaris-icons";
 import { authenticate } from "../shopify.server";
 import { db } from "../db.server";
 import { setRentalMetafield, ensureRentalVariantsCanOversell } from "../utils/product-metafields.server";
+import { syncRentalProductConfig, clearRentalProductConfig } from "../utils/rental-config-metafields.server";
 import { syncRentalProductVariants } from "../utils/variant-sync.server";
 import { useState } from "react";
 import { useT } from "../i18n/context";
@@ -142,6 +143,10 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
       await ensureRentalVariantsCanOversell(admin, product.shopifyProductId);
     }
 
+    // Checkout prices rentals from these metafields, so new rates must reach
+    // Shopify with every save.
+    await syncRentalProductConfig(admin, product.id);
+
     return json({ success: true, message: "Settings saved successfully." });
   }
 
@@ -161,6 +166,7 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
       // variant products get their per-variant rows created automatically.
       await syncRentalProductVariants(admin, product.id);
     }
+    await syncRentalProductConfig(admin, product.id);
     return json({ success: true, message: product.isActive ? "Product deactivated." : "Product is now live for rentals." });
   }
 
@@ -169,6 +175,7 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
     // Also re-flip inventory policy on every variant so any newly added
     // variants in Shopify can be added to cart even when their stock is 0.
     await ensureRentalVariantsCanOversell(admin, product.shopifyProductId);
+    await syncRentalProductConfig(admin, product.id);
     return json({
       success: true,
       message: result.hasVariants
@@ -198,6 +205,7 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
       where: { id: variant.id },
       data: { pricePerDay, pricePerWeek, pricePerMonth, depositAmount, totalUnits, isActive },
     });
+    await syncRentalProductConfig(admin, product.id);
     return json({ success: true, message: `Variant "${variant.shopifyVariantTitle}" saved.` });
   }
 
@@ -206,6 +214,8 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
       return json({ error: "Deactivate the product before deleting it." }, { status: 400 });
     }
     await db.rentalProduct.delete({ where: { id } });
+    // Switch rental pricing off at checkout for this product.
+    await clearRentalProductConfig(admin, product.shopifyProductId);
     return redirect("/app/products");
   }
 

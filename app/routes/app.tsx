@@ -13,6 +13,7 @@ import { db, upsertShopConfig } from "../db.server";
 import { DEV_STORE_PLAN, fetchIsDevelopmentStore } from "../dev-store.server";
 import { ensureShopName, ensureShopCurrency } from "../utils/shop-info.server";
 import { PLANS } from "../utils/plans";
+import { syncShopRentalConfig } from "../utils/rental-config-metafields.server";
 
 export const links = () => [
   { rel: "stylesheet", href: polarisStyles },
@@ -108,6 +109,16 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     ensureShopName(admin, session.shop),
     ensureShopCurrency(admin, session.shop),
   ]);
+
+  // Checkout prices rentals from app-owned metafields. A shop that has never
+  // had them written (set up before that change) gets them now. Not awaited:
+  // it must never slow or fail the page, and the in-process scheduler covers
+  // every shop anyway. Stamps rentalConfigSyncedAt so this runs once.
+  if (!shopConfig.rentalConfigSyncedAt) {
+    void syncShopRentalConfig(admin, session.shop).catch((err) =>
+      console.error(`[rental-config] app-load sync failed for ${session.shop}:`, err),
+    );
+  }
 
   // Shopify sends the merchant's chosen admin language in the `locale` param.
   const locale = normalizeLocale(new URL(request.url).searchParams.get("locale"));

@@ -11,6 +11,7 @@ import { db } from "./db.server";
 import { ensureCartTransformActivated } from "./utils/cart-transform.server";
 import { ensureRentalMetafieldDefinition } from "./utils/product-metafields.server";
 import { ensureShopName, ensureShopCurrency } from "./utils/shop-info.server";
+import { startRentalConfigScheduler } from "./rental-config-scheduler.server";
 
 const shopify = shopifyApp({
   apiKey: process.env.SHOPIFY_API_KEY,
@@ -117,4 +118,9 @@ export const sessionStorage = shopify.sessionStorage;
 // sends guarded by sentAt timestamps; opt-out via DISABLE_IN_PROCESS_CRON.
 import { startLifecycleScheduler } from "./lifecycle-emails.server";
 startLifecycleScheduler();
+
+// In-process rental-config sync: publishes every shop's rental rates to the
+// metafields the Cart Transform Function prices from (backfill one minute
+// after boot, then every 6 hours). Opt-out via DISABLE_IN_PROCESS_CRON.
+startRentalConfigScheduler(async (shop) => (await shopify.unauthenticated.admin(shop)).admin);
 

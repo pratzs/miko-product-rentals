@@ -20,6 +20,7 @@ import { authenticate } from "../shopify.server";
 import { db } from "../db.server";
 import { formatCurrency } from "../utils/pricing";
 import { setRentalMetafield, ensureRentalVariantsCanOversell } from "../utils/product-metafields.server";
+import { syncRentalProductConfig } from "../utils/rental-config-metafields.server";
 import { syncRentalProductVariants } from "../utils/variant-sync.server";
 import { useT } from "../i18n/context";
 
@@ -121,6 +122,9 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       await ensureRentalVariantsCanOversell(admin, product.shopifyProductId);
     }
 
+    // Checkout prices rentals from these metafields (and stops when inactive).
+    await syncRentalProductConfig(admin, product.id);
+
     return json({ success: true });
   }
 
@@ -137,6 +141,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         // before the variant feature existed get their RentalVariant rows.
         await syncRentalProductVariants(admin, p.id);
       }
+      await syncRentalProductConfig(admin, p.id);
     }
     return json({
       success: true,

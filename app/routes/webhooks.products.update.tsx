@@ -5,6 +5,7 @@ import { authenticateWebhookSafe } from "../webhook-auth.server";
 import { db } from "../db.server";
 import { syncRentalProductVariants } from "../utils/variant-sync.server";
 import { ensureRentalVariantsCanOversell } from "../utils/product-metafields.server";
+import { syncRentalProductConfig } from "../utils/rental-config-metafields.server";
 
 /**
  * Fires whenever the merchant edits a product in Shopify (adds variants,
@@ -40,6 +41,8 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     const { admin } = await unauthenticated.admin(shop);
     await syncRentalProductVariants(admin, rentalProduct.id);
     await ensureRentalVariantsCanOversell(admin, rentalProduct.shopifyProductId);
+    // New variants inherit the product's rates: publish them for checkout.
+    await syncRentalProductConfig(admin, rentalProduct.id);
   } catch (err) {
     console.error(`[products/update] sync failed for ${shop} ${productGid}:`, err);
   }
