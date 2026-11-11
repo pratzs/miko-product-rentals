@@ -7,7 +7,27 @@ name = "Miko Cart Transform"
 handle = "miko-cart-transform"
 api_type = "cart_transform"
 
-[[extensions.targeting]]
-module = "./src/index.js"
-target = "purchase.cart-transform.run"
-input_query = "./src/run.graphql"
+  [extensions.build]
+  # Ported from JavaScript to Rust in November 2026 (security fix: the price is
+  # now recomputed here from the merchant's rates instead of being read from
+  # the cart). Doing that work in interpreted JavaScript cost about 230,000
+  # instructions per rental line, so 50 rental lines went over Shopify's 11
+  # million instruction cap, and a function that goes over has its whole output
+  # discarded. src/index.js is kept as the reference implementation the Rust
+  # port is differentially tested against (tests/cart-transform-parity.test.mjs).
+  command = "cargo build --target=wasm32-wasip1 --release"
+  path = "target/wasm32-wasip1/release/miko-cart-transform.wasm"
+  watch = ["src/**/*.rs"]
+
+  [[extensions.targeting]]
+  target = "purchase.cart-transform.run"
+  input_query = "./src/run.graphql"
+  export = "run"
+
+  # The function prices rentals from this app-owned metafield, which it reads
+  # on each cart line's variant and product (see src/run.graphql). Same
+  # declaration the Miko B2B discount function ships with for its app-owned
+  # variant metafield.
+  [[extensions.input.metafield_access]]
+  namespace = "$app:miko_rentals"
+  key = "config"

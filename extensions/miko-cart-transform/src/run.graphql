@@ -6,6 +6,15 @@ query RunInput {
       merchandise {
         ... on ProductVariant {
           id
+          rentalConfig: metafield(namespace: "$app:miko_rentals", key: "config") {
+            value
+          }
+          product {
+            id
+            rentalConfig: metafield(namespace: "$app:miko_rentals", key: "config") {
+              value
+            }
+          }
         }
       }
       mikoData: attribute(key: "_miko_data") {

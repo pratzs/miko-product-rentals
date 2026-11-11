@@ -3,7 +3,9 @@
 // Shopify rejects Cart Transform `update` operations outside Shopify Plus and
 // development stores, so a function that re-prices with `update` charges
 // Basic/Grow/Advanced shoppers the variant's regular price. This test runs the
-// shipped function (src/index.js) and checks that:
+// function's JavaScript reference (src/index.js; the deployed Rust build in
+// src/main.rs is held byte-identical to it by tests/cart-transform-parity) and
+// checks that:
 //   1. it never emits an `update` operation,
 //   2. its output is valid against the real Cart Transform schema
 //      (schema.graphql, fetched with `shopify app function schema`),
@@ -27,10 +29,18 @@ const check = (name, got, want) => {
   ok ? pass++ : fail++;
 };
 
-const line = (id, quantity, data) => ({
+// The price comes from the merchant's rental config metafields, never from
+// `_miko_data`, so each rental line carries the config the app syncs to the
+// product (see app/utils/rental-config-metafields.server.ts).
+const config = (perDay) => ({ value: JSON.stringify({ v: 1, a: true, hv: false, d: perDay, w: 0, m: 0, dep: 0, min: 1, max: 0 }) });
+const line = (id, quantity, data, perDay) => ({
   id: `gid://shopify/CartLine/${id}`,
   quantity,
-  merchandise: { id: `gid://shopify/ProductVariant/${100 + id}` },
+  merchandise: {
+    id: `gid://shopify/ProductVariant/${100 + id}`,
+    rentalConfig: null,
+    product: { id: `gid://shopify/Product/${id}`, rentalConfig: perDay === undefined ? null : config(perDay) },
+  },
   mikoData: data === undefined ? null : { value: typeof data === "string" ? data : JSON.stringify(data) },
 });
 
@@ -47,13 +57,13 @@ const charged = (output, cartLine) => {
 };
 
 const cart = [
-  line(1, 1, { p: "gid://shopify/Product/1", s: "2026-10-01", e: "2026-10-04", pu: "600.00", u: 1 }),
-  line(2, 3, { p: "gid://shopify/Product/2", s: "2026-10-01", e: "2026-10-02", pu: "50.00", u: 3 }),
-  line(3, 3, { p: "gid://shopify/Product/3", s: "2026-10-01", e: "2026-10-02", pu: "600.00", u: 1 }), // qty drifted up
-  line(4, 2, { perUnitPrice: "80", units: 2 }), // legacy keys
+  line(1, 1, { p: "1", s: "2026-10-01", e: "2026-10-04", pu: "600.00", u: 1 }, 200), // 3 days x 200
+  line(2, 3, { p: "2", s: "2026-10-01", e: "2026-10-02", pu: "50.00", u: 3 }, 50),
+  line(3, 3, { p: "3", s: "2026-10-01", e: "2026-10-02", pu: "600.00", u: 1 }, 600), // qty drifted up
+  line(4, 2, { productId: "gid://shopify/Product/4", startDate: "2026-10-01", endDate: "2026-10-02", perUnitPrice: "80", units: 2 }, 80), // legacy keys
   line(5, 1), // ordinary product, no rental data
-  line(6, 1, "not json"),
-  line(7, 1, { pu: "0", u: 1 }),
+  line(6, 1, "not json", 10),
+  line(7, 1, { p: "7", s: "2026-10-01", e: "2026-10-02", pu: "0", u: 1 }, 0), // rental with no price set
 ];
 const output = run({ cart: { lines: cart } });
 

@@ -1,0 +1,26 @@
+[package]
+name = "miko-cart-transform"
+version = "1.0.0"
+edition = "2021"
+
+# Shopify Functions run as a WASI command: JSON on stdin, JSON on stdout.
+# We read and write that contract directly with serde_json (same approach as
+# the Miko B2B discount function), which keeps the wasm small and the logic
+# easy to audit against src/index.js, the JavaScript reference it ports.
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+# float_roundtrip: parse decimals to the correctly rounded double, exactly as
+# JavaScript does. Without it serde_json can be one bit off on some inputs,
+# which could move a price by a cent against the storefront quote.
+serde_json = { version = "1", features = ["float_roundtrip"] }
+
+[[bin]]
+name = "miko-cart-transform"
+path = "src/main.rs"
+
+[profile.release]
+opt-level = 3       # instruction count is the binding constraint, not size
+lto = true
+codegen-units = 1
+panic = "abort"     # no unwinding machinery in the wasm
+strip = true
