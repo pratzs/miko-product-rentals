@@ -41,8 +41,34 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   const { session } = await authenticate.admin(request);
   const shop = session.shop;
   const shopHandle = shop.replace(".myshopify.com", "");
-  const config = await db.shopConfig.findUnique({ where: { shop } });
-  if (!config) return json({ config: null, planName: "free" as string, shopHandle });
+  // Explicit select: the loader payload is sent to the browser, so it must
+  // carry only what this page shows. The row also holds secrets (the SMTP
+  // password, and formerly a copy of the Admin API token) that must never
+  // leave the server. The page gets a "password is set" flag instead.
+  const row = await db.shopConfig.findUnique({
+    where: { shop },
+    select: {
+      planName: true,
+      currency: true,
+      gracePeriodDays: true,
+      lateFeePerDay: true,
+      bufferHours: true,
+      onboardingCompleted: true,
+      showPoweredBy: true,
+      senderName: true,
+      replyToEmail: true,
+      smtpHost: true,
+      smtpPort: true,
+      smtpUser: true,
+      smtpPass: true,
+      smtpFromEmail: true,
+      smtpFromName: true,
+      smtpSecure: true,
+    },
+  });
+  if (!row) return json({ config: null, planName: "free" as string, shopHandle });
+  const { smtpPass: storedSmtpPass, ...safe } = row;
+  const config = { ...safe, hasSmtpPass: storedSmtpPass !== "" };
   return json({ config, planName: config.planName ?? "free", shopHandle });
 };
 
@@ -89,13 +115,23 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     const smtpHost = (formData.get("smtpHost") as string) ?? "";
     const smtpPort = parseInt(formData.get("smtpPort") as string) || 587;
     const smtpUser = (formData.get("smtpUser") as string) ?? "";
+    // The stored password is never sent to the browser, so the field arrives
+    // empty unless the merchant typed a new one. Empty = keep what is stored.
     const smtpPass = (formData.get("smtpPass") as string) ?? "";
     const smtpFromEmail = (formData.get("smtpFromEmail") as string) ?? "";
     const smtpFromName = (formData.get("smtpFromName") as string) ?? "";
     const smtpSecure = formData.get("smtpSecure") === "true";
     await db.shopConfig.updateMany({
       where: { shop },
-      data: { smtpHost, smtpPort, smtpUser, smtpPass, smtpFromEmail, smtpFromName, smtpSecure },
+      data: {
+        smtpHost,
+        smtpPort,
+        smtpUser,
+        ...(smtpPass !== "" ? { smtpPass } : {}),
+        smtpFromEmail,
+        smtpFromName,
+        smtpSecure,
+      },
     });
     return json({ success: true, message: "SMTP settings saved." });
   }
@@ -129,7 +165,9 @@ export default function SettingsPage() {
   const [smtpHost, setSmtpHost] = useState(config?.smtpHost || "");
   const [smtpPort, setSmtpPort] = useState(String(config?.smtpPort ?? 587));
   const [smtpUser, setSmtpUser] = useState(config?.smtpUser || "");
-  const [smtpPass, setSmtpPass] = useState(config?.smtpPass || "");
+  // Starts empty: the saved password stays on the server. Typing here sets a
+  // new one; leaving it empty keeps the saved one.
+  const [smtpPass, setSmtpPass] = useState("");
   const [smtpFromEmail, setSmtpFromEmail] = useState(config?.smtpFromEmail || "");
   const [smtpFromName, setSmtpFromName] = useState(config?.smtpFromName || "");
   const [smtpSecure, setSmtpSecure] = useState(config?.smtpSecure ?? false);
@@ -418,7 +456,8 @@ export default function SettingsPage() {
                           type="password"
                           value={smtpPass}
                           onChange={setSmtpPass}
-                          autoComplete="off"
+                          placeholder={config.hasSmtpPass ? "••••••••" : undefined}
+                          autoComplete="new-password"
                         />
                       </FormLayout.Group>
                       <FormLayout.Group>

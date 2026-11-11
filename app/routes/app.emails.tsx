@@ -51,7 +51,18 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   const shop = session.shop;
 
   const [config, templates] = await Promise.all([
-    db.shopConfig.findUnique({ where: { shop } }),
+    // Explicit select: this is sent to the browser, and the full row holds
+    // secrets (SMTP password). Only the brand fields this page renders.
+    db.shopConfig.findUnique({
+      where: { shop },
+      select: {
+        brandLogoUrl: true,
+        brandPrimaryColor: true,
+        brandName: true,
+        shopName: true,
+        senderName: true,
+      },
+    }),
     db.emailTemplate.findMany({
       where: { shop },
       orderBy: { createdAt: "asc" },

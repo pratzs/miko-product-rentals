@@ -119,6 +119,13 @@ export const sessionStorage = shopify.sessionStorage;
 import { startLifecycleScheduler } from "./lifecycle-emails.server";
 startLifecycleScheduler();
 
+// ShopConfig.accessToken held a needless second copy of each shop's Admin API
+// token. It is no longer written (see routes/app.tsx); blank what is left for
+// every shop at boot, including shops whose merchant never opens the app again.
+void db.shopConfig
+  .updateMany({ where: { NOT: { accessToken: "" } }, data: { accessToken: "" } })
+  .catch((err) => console.error("[boot] could not blank ShopConfig.accessToken:", err));
+
 // In-process rental-config sync: publishes every shop's rental rates to the
 // metafields the Cart Transform Function prices from (backfill one minute
 // after boot, then every 6 hours). Opt-out via DISABLE_IN_PROCESS_CRON.

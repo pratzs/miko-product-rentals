@@ -41,8 +41,12 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   // Ensure shop config exists on every page load.
   const shopConfig = await upsertShopConfig({
     where: { shop: session.shop },
-    create: { shop: session.shop, accessToken: session.accessToken || "" },
-    update: { accessToken: session.accessToken || "" },
+    // ShopConfig.accessToken used to get a copy of the Admin API token on
+    // every load. Nothing reads it (the session store is the only source the
+    // app uses), and a second copy of a credential is only a liability, so it
+    // is no longer written and any old copy is blanked here.
+    create: { shop: session.shop },
+    update: { accessToken: "" },
   });
 
   // ── Billing reconcile ───────────────────────────────────────────────────────
