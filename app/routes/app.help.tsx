@@ -354,7 +354,7 @@ export default function HelpPage() {
                   question={t("An order came in but I don't see a booking for it")}
                   answer={
                     <>
-                      {t("Open the")} <s-text type="strong">{t("Bookings")}</s-text> {t("page and click")} <s-text type="strong">{t("Sync from Shopify")}</s-text> {t("at the top. It pulls in the last 50 orders and creates bookings for any that have rental info but were missed (usually because of a brief webhook outage). New orders going forward show up automatically.")}
+                      {t("Open the")} <s-text type="strong">{t("Bookings")}</s-text> {t("page and click")} <s-text type="strong">{t("Sync from Shopify (recover missing bookings)")}</s-text> {t("under the page heading. It pulls in the last 50 orders and creates bookings for any that have rental info but were missed (usually because of a brief webhook outage). New orders going forward show up automatically.")}
                     </>
                   }
                 />
@@ -364,7 +364,7 @@ export default function HelpPage() {
                   question={t("A booking is flagged as Needs review")}
                   answer={
                     <>
-                      {t("That means an order came in for dates where you would be overbooked. For example, you have 2 units, both are already rented for those dates, and a third customer paid. Open the booking, contact the customer, and either refund or move their dates. The booking still holds inventory until you cancel it, so handle it before the rental day.")}
+                      {t("Something on the order needs a check before the rental goes ahead. There are three reasons: the dates would overbook you (for example, you have 2 units, both are already rented, and a third customer paid), the amounts on the order don't match your rates, or checkout did not charge the line at the rental price. Open the booking: the banner at the top and Internal notes give the exact reason. Check the Shopify order, contact the customer, and either refund or move their dates. The booking still holds inventory until you cancel it, so handle it before the rental day.")}
                     </>
                   }
                 />
@@ -384,7 +384,7 @@ export default function HelpPage() {
                   question={t("The customer's deposit needs to be refunded")}
                   answer={
                     <>
-                      {t("Open the booking, scroll to")} <s-text type="strong">{t("Deposit management")}</s-text>{t(", and click")} <s-text type="strong">{t("Refund deposit to customer")}</s-text>{t(". We use Shopify's standard refund flow so the customer gets the money back on their original payment method, and Shopify automatically sends them a refund email.")}
+                      {t("Open the booking, scroll to")} <s-text type="strong">{t("Deposit management")}</s-text>{t(", and click")} <s-text type="strong">{t("Refund {amount} to customer", { amount: t("the deposit") })}</s-text>{t(". We use Shopify's standard refund flow so the customer gets the money back on their original payment method, and Shopify automatically sends them a refund email.")} {t("When the product's \"Automatically mark deposit as released\" box is on, marking the booking as returned does this for you. Turn it off on the product if you want to check the item first.")}
                     </>
                   }
                 />

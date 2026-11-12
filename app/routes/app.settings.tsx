@@ -274,7 +274,7 @@ export default function SettingsPage() {
                       suffix={t("hours")}
                       min={0}
                       autoComplete="off"
-                      details={t("Block this many hours after a booking ends before the next booking can start. Gives you time to clean and inspect the item.")}
+                      details={t("Block this many hours after a booking ends before the next booking can start. Gives you time to clean and inspect the item. Bookings are by the day, so this rounds up to whole days. Set to 0 for back to back bookings.")}
                     />
                   </s-box>
                 </s-stack>

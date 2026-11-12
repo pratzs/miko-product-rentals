@@ -608,7 +608,7 @@ export default function Dashboard() {
             action={{ content: t("Review now"), onAction: () => navigate("/app/bookings?status=needs_review") }}
           >
             <s-paragraph>
-              {t("Orders came in for dates that would exceed your available units. Reach out to those customers to adjust dates or refund, otherwise you may end up overbooked.")}
+              {t("Some orders need a check: dates that would exceed your available units, amounts that don't match your rates, or rentals checkout did not charge at the rental price. Open each booking to see the reason.")}
             </s-paragraph>
           </Banner>
         )}

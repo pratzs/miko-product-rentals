@@ -1,5 +1,81 @@
 import { db } from "~/db.server";
-import { eachDayOfInterval, format, parseISO, startOfDay } from "date-fns";
+import { addDays, eachDayOfInterval, format, startOfDay, subDays } from "date-fns";
+
+/**
+ * Settings → Rental settings → Availability buffer, in hours. After a booking
+ * ends its unit stays unavailable for this long (cleaning, checks, transit).
+ */
+export async function getBufferHours(shop: string): Promise<number> {
+  const config = await db.shopConfig.findUnique({ where: { shop }, select: { bufferHours: true } });
+  return Math.max(0, config?.bufferHours ?? 0);
+}
+
+/**
+ * Bookings are by the day, so the buffer is rounded up to whole days:
+ * 1 to 24 hours keeps the unit unavailable on the return day, 25 to 48 hours
+ * on the return day and the day after, and so on. 0 means no gap.
+ */
+export function bufferDays(bufferHours: number | null | undefined): number {
+  const h = Number(bufferHours) || 0;
+  return h > 0 ? Math.ceil(h / 24) : 0;
+}
+
+/**
+ * The first day a booking's unit is free again: the end day plus the buffer.
+ * With no buffer this is the end day itself, as it always was.
+ */
+export function heldUntil(endDate: Date, buffer: number): Date {
+  return addDays(startOfDay(endDate), buffer);
+}
+
+type HeldBooking = { startDate: Date; endDate: Date; unitsRented: number };
+
+/** Units held on one day, counting each booking's buffer after it ends. */
+export function unitsHeldOnDay(bookings: HeldBooking[], day: Date, buffer: number): number {
+  const d = startOfDay(day);
+  return bookings
+    .filter((b) => startOfDay(b.startDate) <= d && heldUntil(b.endDate, buffer) > d)
+    .reduce((sum, b) => sum + b.unitsRented, 0);
+}
+
+/**
+ * Computes the worst-case (highest) number of units held on any single day a
+ * new booking from rangeStart to rangeEnd would hold its unit. The new
+ * booking holds it for the buffer after it ends too, so it cannot end right
+ * before another booking starts without leaving the same gap.
+ *
+ * Walking day-by-day prevents the additive bug where two non-overlapping
+ * bookings would falsely sum together and block the new booking.
+ */
+export function peakHeldUnits(
+  bookings: HeldBooking[],
+  rangeStart: Date,
+  rangeEnd: Date,
+  buffer: number,
+): number {
+  let peak = 0;
+  const first = startOfDay(rangeStart);
+  // Days the new booking holds its unit: its start day up to (not including)
+  // the day it is free again. A booking always holds at least its start day.
+  const last = subDays(heldUntil(rangeEnd, buffer), 1);
+  const days = eachDayOfInterval({ start: first, end: last < first ? first : last });
+  for (const day of days) {
+    const onThisDay = unitsHeldOnDay(bookings, day, buffer);
+    if (onThisDay > peak) peak = onThisDay;
+  }
+  return peak;
+}
+
+/**
+ * Database filter for bookings that can matter to a new booking from
+ * rangeStart to rangeEnd once the buffer is counted on both sides.
+ */
+export function heldOverlapWhere(rangeStart: Date, rangeEnd: Date, buffer: number) {
+  return {
+    startDate: { lt: addDays(rangeEnd, buffer) },
+    endDate: { gt: subDays(rangeStart, buffer) },
+  };
+}
 
 /**
  * Returns the dates in the requested range where there is no remaining unit
@@ -42,12 +118,15 @@ export async function getUnavailableDates(
     }
   }
 
+  const buffer = bufferDays(await getBufferHours(shop));
+
   const overlappingBookings = await db.rentalBooking.findMany({
     where: {
       rentalProductId: rentalProduct.id,
       status: { in: ["pending", "confirmed", "active", "needs_review"] },
-      startDate: { lt: toDate },
-      endDate: { gt: fromDate },
+      ...(buffer > 0
+        ? heldOverlapWhere(fromDate, addDays(toDate, 1), buffer)
+        : { startDate: { lt: toDate }, endDate: { gt: fromDate } }),
       ...(variantFilter ?? {}),
     },
     select: { startDate: true, endDate: true, unitsRented: true },
@@ -57,9 +136,9 @@ export async function getUnavailableDates(
   const unavailable: string[] = [];
 
   for (const day of allDays) {
-    const bookedUnits = overlappingBookings
-      .filter((b) => startOfDay(b.startDate) <= startOfDay(day) && startOfDay(b.endDate) > startOfDay(day))
-      .reduce((sum, b) => sum + b.unitsRented, 0);
+    // The shortest booking that uses this day holds its unit from this day
+    // until the buffer after it ends, so every one of those days must fit.
+    const bookedUnits = peakHeldUnits(overlappingBookings, day, addDays(day, 1), buffer);
 
     if (bookedUnits + unitsNeeded > totalUnits) {
       unavailable.push(format(day, "yyyy-MM-dd"));
@@ -80,30 +159,6 @@ export async function getUnavailableDates(
   }
 
   return unavailable;
-}
-
-/**
- * Computes the worst-case (highest) number of units booked on any single
- * day in the range. We can only fulfil a new booking if the new units +
- * peak booked units fits within totalUnits.
- *
- * Walking day-by-day prevents the additive bug where two non-overlapping
- * bookings would falsely sum together and block the new booking.
- */
-function peakBookedUnitsAcrossRange(
-  bookings: Array<{ startDate: Date; endDate: Date; unitsRented: number }>,
-  rangeStart: Date,
-  rangeEnd: Date,
-): number {
-  let peak = 0;
-  const days = eachDayOfInterval({ start: rangeStart, end: rangeEnd });
-  for (const day of days) {
-    const onThisDay = bookings
-      .filter((b) => startOfDay(b.startDate) <= startOfDay(day) && startOfDay(b.endDate) > startOfDay(day))
-      .reduce((sum, b) => sum + b.unitsRented, 0);
-    if (onThisDay > peak) peak = onThisDay;
-  }
-  return peak;
 }
 
 /**
@@ -166,20 +221,21 @@ export async function isRangeAvailable(
     return { available: false, unitsAvailable: 0, totalUnits };
   }
 
+  const buffer = bufferDays(await getBufferHours(shop));
+
   const overlapping = await db.rentalBooking.findMany({
     where: {
       rentalProductId: rentalProduct.id,
       status: { in: ["pending", "confirmed", "active", "needs_review"] },
-      startDate: { lt: endDate },
-      endDate: { gt: startDate },
+      ...heldOverlapWhere(startDate, endDate, buffer),
       ...(variantFilter ?? {}),
     },
     select: { startDate: true, endDate: true, unitsRented: true },
   });
 
-  // Peak across the requested range - a single day with N units booked is the
-  // limiting factor, not the total across the whole range.
-  const peakBooked = peakBookedUnitsAcrossRange(overlapping, startDate, endDate);
+  // Peak across the requested range plus its buffer - a single day with N
+  // units held is the limiting factor, not the total across the whole range.
+  const peakBooked = peakHeldUnits(overlapping, startDate, endDate, buffer);
   const unitsAvailable = Math.max(0, totalUnits - peakBooked);
   return {
     available: peakBooked + unitsNeeded <= totalUnits,

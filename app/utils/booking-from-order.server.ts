@@ -6,7 +6,7 @@
  */
 import { db } from "~/db.server";
 import { calculateRentalPrice } from "./pricing";
-import { eachDayOfInterval, startOfDay } from "date-fns";
+import { bufferDays, getBufferHours, heldOverlapWhere, peakHeldUnits } from "./availability";
 import { checkoutWouldPriceAsRental } from "./checkout-pricing-check";
 
 interface OrderPayload {
@@ -36,9 +36,11 @@ export interface SyncResult {
 
 /**
  * Atomic overbooking check: counts every active hold (pending/confirmed/active)
- * on this product that overlaps the new range, day by day. Returns the peak
- * already-booked units on any single day in the range. If peak + unitsNeeded
- * exceeds totalUnits, accepting the new booking would overbook.
+ * on this product that overlaps the new range, day by day, including the
+ * availability buffer after each booking ends (Settings → Availability
+ * buffer). Returns the peak already-held units on any single day the new
+ * booking would hold its unit. If peak + unitsNeeded exceeds totalUnits,
+ * accepting the new booking would overbook.
  *
  * Excludes the booking we're about to upgrade so re-running orders/paid
  * doesn't double-count the same booking.
@@ -48,29 +50,21 @@ async function peakBookedUnits(opts: {
   rentalVariantId?: string | null;
   startDate: Date;
   endDate: Date;
+  bufferDays: number;
   excludeBookingId?: string;
 }): Promise<number> {
   const overlapping = await db.rentalBooking.findMany({
     where: {
       rentalProductId: opts.rentalProductId,
       status: { in: ["pending", "confirmed", "active", "needs_review"] },
-      startDate: { lt: opts.endDate },
-      endDate: { gt: opts.startDate },
+      ...heldOverlapWhere(opts.startDate, opts.endDate, opts.bufferDays),
       ...(opts.rentalVariantId ? { rentalVariantId: opts.rentalVariantId } : {}),
       ...(opts.excludeBookingId ? { id: { not: opts.excludeBookingId } } : {}),
     },
     select: { startDate: true, endDate: true, unitsRented: true },
   });
 
-  let peak = 0;
-  const days = eachDayOfInterval({ start: opts.startDate, end: opts.endDate });
-  for (const day of days) {
-    const onThisDay = overlapping
-      .filter((b) => startOfDay(b.startDate) <= startOfDay(day) && startOfDay(b.endDate) > startOfDay(day))
-      .reduce((s, b) => s + b.unitsRented, 0);
-    if (onThisDay > peak) peak = onThisDay;
-  }
-  return peak;
+  return peakHeldUnits(overlapping, opts.startDate, opts.endDate, opts.bufferDays);
 }
 
 export async function syncBookingsFromOrder(
@@ -91,6 +85,8 @@ export async function syncBookingsFromOrder(
   const customerEmail = order.customer?.email || order.email || "";
   const customerPhone =
     order.customer?.phone || order.phone || order.shipping_address?.phone || order.billing_address?.phone || "";
+  const buffer = bufferDays(await getBufferHours(shop));
+  const bufferNote = buffer > 0 ? " (counting your availability buffer between bookings)" : "";
 
   for (const item of order.line_items || []) {
     const properties = item.properties || [];
@@ -240,6 +236,7 @@ export async function syncBookingsFromOrder(
           rentalVariantId: existing.rentalVariantId,
           startDate: existing.startDate,
           endDate: existing.endDate,
+          bufferDays: buffer,
           excludeBookingId: existing.id,
         });
         const stillFits = peakNow + existing.unitsRented <= variantTotalUnits;
@@ -254,7 +251,7 @@ export async function syncBookingsFromOrder(
                 status: "needs_review",
                 merchantNotes:
                   existing.merchantNotes ||
-                  `[Auto-flagged] Capacity conflict at payment time. ${peakNow} unit(s) already booked but this booking is for ${existing.unitsRented}. Resolve by contacting the customer or adjusting another booking.`,
+                  `[Auto-flagged] Capacity conflict at payment time. ${peakNow} unit(s) already booked${bufferNote} but this booking is for ${existing.unitsRented}. Resolve by contacting the customer or adjusting another booking.`,
               },
         });
         if (stillFits) result.bookingsUpgraded++;
@@ -360,11 +357,12 @@ export async function syncBookingsFromOrder(
       rentalVariantId,
       startDate,
       endDate,
+      bufferDays: buffer,
       excludeBookingId: existingPending?.id,
     });
     const wouldOverbook = peak + units > variantTotalUnits;
     const overbookNote = wouldOverbook
-      ? `[Auto-flagged] Order requested ${units} unit(s) but ${peak} unit(s) were already booked across ${variantTotalUnits} total. Resolve by contacting the customer or adjusting another booking.`
+      ? `[Auto-flagged] Order requested ${units} unit(s) but ${peak} unit(s) were already booked${bufferNote} across ${variantTotalUnits} total. Resolve by contacting the customer or adjusting another booking.`
       : "";
 
     // Build a combined note if the order quantity didn't match the booking

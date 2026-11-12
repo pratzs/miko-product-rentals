@@ -171,6 +171,7 @@ console.log("\n2. the order webhook does not trust shopper-written rental data")
   const useDb = (product, variant = null) => {
     created.length = 0;
     globalThis.__fake = { db: {
+      shopConfig: { findUnique: async () => null },
       rentalProduct: { findFirst: async ({ where }) => (product && where.shopifyProductId === product.shopifyProductId ? product : null) },
       rentalVariant: { findFirst: async () => variant, findUnique: async () => variant },
       rentalBooking: { findFirst: async () => null, findMany: async () => [], create: async ({ data }) => { created.push(data); return data; } },

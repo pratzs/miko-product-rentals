@@ -183,10 +183,14 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
     // decision: either forfeited (customer damaged/lost item) or released
     // (already refunded). In both cases, mark_returned must not touch the
     // deposit — we never override an explicit merchant decision.
-    // For any other held deposit we always try to refund automatically so
-    // the merchant doesn't need a separate step.
+    // For any other held deposit we refund automatically so the merchant
+    // doesn't need a separate step, unless the product's "Automatically mark
+    // deposit as released when the booking is marked as returned" box is
+    // off. Then the deposit stays held and the merchant refunds it or keeps
+    // it from Deposit management after checking the item.
     const depositSettled = ["released", "forfeited"].includes(booking.depositStatus);
     const hasDeposit = booking.depositAmount > 0 && !depositSettled;
+    const autoRelease = booking.rentalProduct.autoReleaseDeposit !== false;
 
     // Flip status first so the booking shows as returned even if the refund
     // call hits a transient error. The merchant can always retry from the
@@ -198,8 +202,11 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
 
     let extraKey = "";
     let extraParams: Record<string, string> = {};
-    if (hasDeposit && booking.shopifyOrderId) {
-      // Always auto-refund the deposit unless the merchant explicitly forfeited it.
+    if (hasDeposit && !autoRelease) {
+      extraKey = " The {amount} deposit is still held. Refund it or keep it from Deposit management.";
+      extraParams = { amount: formatCurrency(booking.depositAmount, config?.currency || "USD") };
+    } else if (hasDeposit && booking.shopifyOrderId) {
+      // Auto-refund the deposit unless the merchant explicitly forfeited it.
       const result = await refundBookingDeposit(admin, booking);
       if (result.ok) {
         await db.rentalBooking.update({
@@ -393,7 +400,7 @@ const STATUS_BADGE: Record<string, { tone: string; label: string }> = {
   returned:     { tone: "success",   label: "Returned" },
   overdue:      { tone: "critical",  label: "Overdue, not returned" },
   cancelled:    { tone: "subdued",   label: "Canceled" },
-  needs_review: { tone: "warning",   label: "Needs review, overbooked" },
+  needs_review: { tone: "warning",   label: "Needs review" },
 };
 
 const DEPOSIT_BADGE: Record<string, { tone: string; label: string }> = {
@@ -491,7 +498,7 @@ export default function BookingDetailPage() {
               <Banner tone="warning" title={t("This booking needs your review")}>
                 <s-paragraph>
                   {booking.merchantNotes ||
-                    t("Capacity conflict at the time the order came in. Resolve by contacting the customer or adjusting another booking.")}
+                    t("Something on this order needs a check before the rental goes ahead. Check the Shopify order and contact the customer if needed. Cancel the booking if the rental will not go ahead.")}
                 </s-paragraph>
               </Banner>
             )}

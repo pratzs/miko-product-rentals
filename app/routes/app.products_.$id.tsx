@@ -386,7 +386,7 @@ export default function ProductConfigPage() {
                   label={t("Automatically mark deposit as released when the booking is marked as returned")}
                   checked={autoReleaseDeposit}
                   onChange={setAutoReleaseDeposit}
-                  details={t("You will still need to process the actual refund through Shopify separately.")}
+                  details={t("When this is on, marking the booking as returned refunds the deposit to the customer through Shopify. Turn it off to check the item first, then refund or keep the deposit from the booking.")}
                 />
                 <s-divider />
                 <Checkbox

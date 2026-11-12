@@ -117,12 +117,12 @@ export default function PricingPage() {
       "Up to 10 total rentals (lifetime)",
       "All core rental features",
       "Rental calendar & availability",
-      '"Product Rentals Pro" badge on storefront',
+      '"Powered by Miko Rentals" credit on the storefront widget',
     ],
     starter: [
       "Up to 50 rentals per month",
       "Automated email notifications",
-      "Remove PRB storefront branding",
+      'Hide the "Powered by Miko Rentals" credit',
       "BYO SMTP (send from your own domain)",
     ],
     growth: [
