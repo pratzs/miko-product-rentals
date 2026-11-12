@@ -312,12 +312,12 @@ export default function SettingsPage() {
             <s-section>
               <s-stack direction="block" gap="base">
                 <CardIntro heading={t("Storefront display")}>
-                  {t("Control how rental products appear to customers across your storefront - hiding the regular price and Add to cart button so customers can only check out through the rental flow.")}
+                  {t("Control how rental products appear to customers across your storefront: hiding the regular price and Add to cart button so customers can only check out through the rental flow.")}
                 </CardIntro>
                 <s-divider />
                 <s-stack direction="block" gap="small">
                   <s-paragraph>
-                    {t("These rules are managed through a sitewide app embed. Enable it once in your theme editor and it applies to every rental product automatically - no need to tag products one by one.")}
+                    {t("These rules are managed through a sitewide app embed. Enable it once in your theme editor and it applies to every rental product automatically. No need to tag products one by one.")}
                   </s-paragraph>
                   <s-paragraph color="subdued">
                     <s-text type="strong">{t("What you can hide:")}</s-text> {t("regular product price on the product page, Add to cart button on the product page, and the price shown on rental cards across collection or search results.")}

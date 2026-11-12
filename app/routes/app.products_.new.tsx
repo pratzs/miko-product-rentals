@@ -106,7 +106,7 @@ export default function NewProductPage() {
             <s-stack direction="block" gap="small-200">
               <s-heading>{t("Select a product")}</s-heading>
               <s-paragraph color="subdued">
-                {t("Pick any physical product you want to make available for rental. The product's existing Shopify listing stays unchanged - Miko Rentals adds a booking calendar to it automatically.")}
+                {t("Pick any physical product you want to make available for rental. The product's existing Shopify listing stays unchanged. Miko Rentals adds a booking calendar to it automatically.")}
               </s-paragraph>
             </s-stack>
 

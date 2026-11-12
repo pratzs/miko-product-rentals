@@ -315,7 +315,7 @@ export default function ProductConfigPage() {
             <s-section heading={t("Rental pricing")}>
               <s-stack direction="block" gap="base">
                 <s-paragraph color="subdued">
-                  {t("Set how much customers pay to rent this item. Daily rate is required. Weekly and monthly rates are optional - when offered, customers automatically get the best rate for their chosen dates.")}
+                  {t("Set how much customers pay to rent this item. Daily rate is required. Weekly and monthly rates are optional. When offered, customers automatically get the best rate for their chosen dates.")}
                 </s-paragraph>
                 <s-divider />
                 <s-stack direction="inline" gap="base">
@@ -447,7 +447,7 @@ export default function ProductConfigPage() {
             <s-section heading={t("Customer-facing notes")}>
               <s-stack direction="block" gap="base">
                 <s-paragraph color="subdued">
-                  {t("Any extra instructions shown to the customer on the product page - for example, pickup location, what is included, or care instructions.")}
+                  {t("Any extra instructions shown to the customer on the product page. For example, pickup location, what is included, or care instructions.")}
                 </s-paragraph>
                 <s-divider />
                 <TextField
@@ -477,7 +477,7 @@ export default function ProductConfigPage() {
                     <s-text tone="critical">{t("Remove product")}</s-text>
                   </s-heading>
                   <s-paragraph color="subdued">
-                    {t("This removes the rental configuration from this product. The product itself stays in your Shopify store - only the rental settings are deleted. You cannot do this while the product is active.")}
+                    {t("This removes the rental configuration from this product. The product itself stays in your Shopify store. Only the rental settings are deleted. You cannot do this while the product is active.")}
                   </s-paragraph>
                   <Form method="POST">
                     <input type="hidden" name="intent" value="delete" />
