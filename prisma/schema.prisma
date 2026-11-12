@@ -47,7 +47,7 @@ model ShopConfig {
   timezone            String   @default("UTC")
   // How many hours before the rental start date the merchant wants
   // to stop accepting new bookings (buffer time).
-  bufferHours         Int      @default(24)
+  bufferHours         Int      @default(0)
   // Days of grace after the return date before a late fee kicks in.
   gracePeriodDays     Int      @default(0)
   // Flat daily late fee in the shop's currency.

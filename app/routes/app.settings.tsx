@@ -184,7 +184,7 @@ export default function SettingsPage() {
   const [currency, setCurrency] = useState(config?.currency || "USD");
   const [gracePeriodDays, setGracePeriodDays] = useState(String(config?.gracePeriodDays ?? 0));
   const [lateFeePerDay, setLateFeePerDay] = useState(String(config?.lateFeePerDay ?? 0));
-  const [bufferHours, setBufferHours] = useState(String(config?.bufferHours ?? 24));
+  const [bufferHours, setBufferHours] = useState(String(config?.bufferHours ?? 0));
 
   const [senderName, setSenderName] = useState(config?.senderName || "");
   const [replyToEmail, setReplyToEmail] = useState(config?.replyToEmail || "");
